@@ -370,18 +370,21 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 }
 
 func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
+	klog.Infof("[API] Checking upstream dependencies for PackageRevision: %s", apiPkgRev.Name)
 	ns, _ := genericapirequest.NamespaceFrom(ctx)
 	dependent, err := r.cad.FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
 	if err != nil {
-		klog.Warningf("Failed to check upstream dependencies for %s: %v", apiPkgRev.Name, err)
+		klog.Warningf("[API] Failed to check upstream dependencies for PackageRevision %s: %v", apiPkgRev.Name, err)
 		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream dependencies: %w", err))
 	}
 
 	if dependent != "" {
+		klog.Infof("[API] Found upstream dependent for PackageRevision %s: %s", apiPkgRev.Name, dependent)
 		return apierrors.NewForbidden(
 			porchapi.Resource("packagerevisions"),
 			apiPkgRev.Name,
 			fmt.Errorf("cannot delete package revision, it is an upstream package revision for: %s", dependent))
 	}
+	klog.Infof("[API] No upstream dependencies found for PackageRevision: %s", apiPkgRev.Name)
 	return nil
 }

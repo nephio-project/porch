@@ -374,8 +374,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 		}
 	}
 
-	tests := []struct {
-		name                string
+	tests := map[string]struct {
 		namespace           string
 		upstreamPkgToDelete string
 		repo                *cachedRepository
@@ -384,16 +383,56 @@ func TestFindUpstreamDependent(t *testing.T) {
 		taskType            string
 		wantDep             string
 	}{
-		{name: "no dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", wantDep: ""},
-		{name: "find clone dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "downstream", upstreamRefName: "test-repo.upstream.v1", taskType: "clone", wantDep: "test-repo.downstream.v1"},
-		{name: "find upgrade dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "upgrade", upstreamRefName: "test-repo.upstream.v1", taskType: "upgrade", wantDep: "test-repo.upgrade.v1"},
-		{name: "task without dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "other", upstreamRefName: "test-repo.different.v1", taskType: "clone", wantDep: ""},
-		{name: "different namespace", namespace: "other-ns", upstreamPkgToDelete: "test-repo.upstream.v1", wantDep: ""},
-		{name: "cross-repo dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.base-pkg.v1", repo: mockRepo2, downstreamPkgName: "derived", upstreamRefName: "test-repo.base-pkg.v1", taskType: "clone", wantDep: "test-repo2.derived.v1"},
+		"no dependent": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			wantDep:             "",
+		},
+		"find clone dependent": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "downstream",
+			upstreamRefName:     "test-repo.upstream.v1",
+			taskType:            "clone",
+			wantDep:             "test-repo.downstream.v1",
+		},
+		"find upgrade dependent": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "upgrade",
+			upstreamRefName:     "test-repo.upstream.v1",
+			taskType:            "upgrade",
+			wantDep:             "test-repo.upgrade.v1",
+		},
+		"task without dependent": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "other",
+			upstreamRefName:     "test-repo.different.v1",
+			taskType:            "clone",
+			wantDep:             "",
+		},
+		"different namespace": {
+			namespace:           "other-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			wantDep:             "",
+		},
+		"cross-repo dependent": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.base-pkg.v1",
+			repo:                mockRepo2,
+			downstreamPkgName:   "derived",
+			upstreamRefName:     "test-repo.base-pkg.v1",
+			taskType:            "clone",
+			wantDep:             "test-repo2.derived.v1",
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			mockRepo.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
 			mockRepo2.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
 			if tt.taskType != "" {

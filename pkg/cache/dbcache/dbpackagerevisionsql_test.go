@@ -681,23 +681,43 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 	err := pkgRevWriteToDB(t.Context(), &upstreamPR)
 	t.Require().NoError(err)
 
-	tests := []struct {
-		name      string
+	tests := map[string]struct {
 		namespace string
 		pkgName   string
 		wsName    string
 		taskType  string
 		wantDep   string
 	}{
-		{name: "no dependent", namespace: "test-ns", wantDep: ""},
-		{name: "clone task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v1", taskType: "clone", wantDep: "downstream.edge-cluster.v1"},
-		{name: "upgrade task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v2", taskType: "upgrade", wantDep: "downstream.edge-cluster.v2"},
-		{name: "different namespace", namespace: "other-ns", wantDep: ""},
-		{name: "non-existent upstream", namespace: "test-ns", wantDep: ""},
+		"no dependent": {
+			namespace: "test-ns",
+			wantDep:   "",
+		},
+		"clone task": {
+			namespace: "test-ns",
+			pkgName:   "edge-cluster",
+			wsName:    "v1",
+			taskType:  "clone",
+			wantDep:   "downstream.edge-cluster.v1",
+		},
+		"upgrade task": {
+			namespace: "test-ns",
+			pkgName:   "edge-cluster",
+			wsName:    "v2",
+			taskType:  "upgrade",
+			wantDep:   "downstream.edge-cluster.v2",
+		},
+		"different namespace": {
+			namespace: "other-ns",
+			wantDep:   "",
+		},
+		"non-existent upstream": {
+			namespace: "test-ns",
+			wantDep:   "",
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func() {
+	for name, tt := range tests {
+		t.Run(name, func() {
 			if tt.taskType != "" {
 				downstreamPkg := t.createTestPkg(downstreamRepo.Key(), tt.pkgName)
 				downstreamPkg.repo = downstreamRepo
@@ -730,7 +750,7 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 	}
 
 	err = repoDeleteFromDB(t.Context(), upstreamRepo.Key())
-	t.Require().NoError(err)
+	t.Assert().NoError(err)
 	err = repoDeleteFromDB(t.Context(), downstreamRepo.Key())
-	t.Require().NoError(err)
+	t.Assert().NoError(err)
 }

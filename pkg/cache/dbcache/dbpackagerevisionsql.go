@@ -456,7 +456,7 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 }
 
 func pkgRevFindUpstreamDependentFromDB(ctx context.Context, namespace, prName string) (string, error) {
-	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevFindUpstreamDependentFromDB", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevFindUpstreamDependentFromDB")
 	defer span.End()
 
 	// Match newUpstreamRef (upgrade) or nested upstreamRef (clone)

@@ -123,11 +123,7 @@ func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec 
 func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
 	var dependentName string
 	c.repositories.Range(func(key, value any) bool {
-		repo, ok := c.repositories.Load(key.(repository.RepositoryKey))
-		if !ok {
-			return true
-		}
-		cachedRepo := repo.(*cachedRepository)
+		cachedRepo := value.(*cachedRepository)
 		if cachedRepo.Key().Namespace != namespace {
 			return true
 		}
