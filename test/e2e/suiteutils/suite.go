@@ -575,7 +575,10 @@ type PackageRevisionStatusCounts struct {
 func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *PackageRevisionStatusCounts) {
 	t.T().Helper()
 
-	actual := t.CountPackageRevisions()
+	actual, err := t.CountPackageRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
 	// 		gather as much potentially-useful information as possible
@@ -588,11 +591,12 @@ func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *Package
 	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
 }
 
-func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
+func (t *TestSuite) CountPackageRevisions() (*PackageRevisionStatusCounts, error) {
 	var packageRevisions porchapi.PackageRevisionList
 	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
-		t.Errorf("error listing package revisions to count: %w", err)
-		return nil
+		err := fmt.Errorf("error listing package revisions to count: %w", err)
+		t.Logf(err.Error())
+		return nil, err
 	}
 
 	counts := &PackageRevisionStatusCounts{}
@@ -609,5 +613,5 @@ func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
 			counts.DeletionProposed += 1
 		}
 	}
-	return counts
+	return counts, nil
 }
