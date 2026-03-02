@@ -30,6 +30,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/registry/porch"
+	pkgerrors "github.com/pkg/errors"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,10 +38,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -224,10 +227,21 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+	var cacheImpl cachetypes.Cache
+	err = retry.OnError(
+		wait.Backoff{Duration: time.Second, Factor: 1.5, Steps: 20, Cap: 30 * time.Second},
+		func(err error) bool {
+			klog.Warningf("failed to create repository cache: %v; wait a sec...", err)
+			return true
+		},
+		func() error {
+			var err error
+			cacheImpl, err = cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+			return err
+		})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create repository cache: %w", err)
+		return nil, pkgerrors.Wrap(err, "failed to create repository cache")
 	}
 
 	runnerOptionsResolver := func(namespace string) runneroptions.RunnerOptions {
