@@ -16,6 +16,7 @@ package suiteutils
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
@@ -47,12 +48,12 @@ func (t *MultiClusterTestSuite) SetupSuite() {
 	t.scheme = createClientScheme(t.T())
 }
 
-func (t *MultiClusterTestSuite) UseKubeconfigFile(kubeconfigPath string) {
+func (t *MultiClusterTestSuite) UseKubeconfigFile(kubeconfigPath string) error {
 	t.T().Helper()
 	os.Setenv(clientcmd.RecommendedConfigPathEnvVar, t.PorchRoot+kubeconfigPath)
 	cfg, err := config.GetConfig()
 	if err != nil {
-		t.Fatalf("Unable to switch clusters - error loading Kubernetes client config from file %q: %v", kubeconfigPath, err)
+		return fmt.Errorf("Unable to switch clusters - error loading Kubernetes client config from file %q: %v", kubeconfigPath, err)
 	}
 
 	if cachedClient, found := t.clients[kubeconfigPath]; found {
@@ -113,6 +114,7 @@ func (t *MultiClusterTestSuite) UseKubeconfigFile(kubeconfigPath string) {
 	}
 
 	t.Logf("Now using kubeconfig file %q", kubeconfigPath)
+	return nil
 }
 
 func (t *MultiClusterTestSuite) DropCachedClients(kubeconfigPath string) {

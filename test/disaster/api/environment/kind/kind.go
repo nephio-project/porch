@@ -54,17 +54,17 @@ func Reinstall(t *suiteutils.MultiClusterTestSuite) {
 	}
 }
 
-func UseDataCluster(t *suiteutils.MultiClusterTestSuite) {
+func UseDataCluster(t *suiteutils.MultiClusterTestSuite) error {
 	t.T().Helper()
 
 	t.Logf("Switching kubeconfig to data cluster")
-	t.UseKubeconfigFile(dataClusterKubeconfigFile)
+	return t.UseKubeconfigFile(dataClusterKubeconfigFile)
 }
-func UseDBCacheCluster(t *suiteutils.MultiClusterTestSuite) {
+func UseDBCacheCluster(t *suiteutils.MultiClusterTestSuite) error {
 	t.T().Helper()
 
 	t.Logf("Switching kubeconfig to Porch cluster with DB cache")
-	t.UseKubeconfigFile(dbCacheKubeconfigFile)
+	return t.UseKubeconfigFile(dbCacheKubeconfigFile)
 }
 
 func deleteCluster(t *suiteutils.MultiClusterTestSuite, clusterName string) error {
