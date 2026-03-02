@@ -23,6 +23,7 @@ import (
 	"github.com/go-git/go-billy/v5/helper/chroot"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/test/disaster/api/environment/gitea"
 	"github.com/nephio-project/porch/test/disaster/api/environment/kind"
@@ -34,7 +35,6 @@ import (
 	"github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/suite"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -310,8 +310,8 @@ func (t *PorchDisasterRecoverySuite) TestPorchPodsUngracefulRestart() {
 		t.WaitUntilMultipleRepositoriesReady(repos.Items)
 
 		wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
-			_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).
-				List(t.GetContext(), metav1.ListOptions{FieldSelector: "spec.repository=" + repos.Items[0].Name})
+			var prList porchapi.PackageRevisionList
+			err := t.Reader.List(ctx, &prList, client.InNamespace(t.Namespace), client.MatchingFields{"spec.repository": repos.Items[0].Name})
 			if err != nil {
 				if apierrors.IsTimeout(err) {
 					return false, nil

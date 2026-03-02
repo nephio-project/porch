@@ -265,11 +265,12 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	}
 
 	// Attempt to create the package revision
-	_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Create(ctx, pr, metav1.CreateOptions{})
+	err := t.Client.Create(ctx, pr)
 	assert.Error(t, err, "Expected error when creating package revision with invalid task configuration")
 
 	// Verify that the package revision was not created
-	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
+	var checkPr porchapi.PackageRevision
+	err = t.Reader.Get(ctx, client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &checkPr)
 	assert.True(t, errors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
 
@@ -296,7 +297,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -341,7 +342,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -359,7 +360,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	//
 	// (henceforth called "the v1 package revision")
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
