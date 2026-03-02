@@ -134,7 +134,7 @@ func TestReconcileNotFound(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	cache := cachetypes.NewMockCache(t)
 
-	mockClient.EXPECT().Get(ctx, req.NamespacedName, &api.Repository{}).Return(apierrors.NewNotFound(schema.GroupResource{}, "test-repo"))
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, &api.Repository{}).Return(apierrors.NewNotFound(schema.GroupResource{}, "test-repo"))
 
 	reconciler := &RepositoryReconciler{
 		Client: mockClient,
@@ -154,7 +154,7 @@ func TestReconcileGetError(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	cache := cachetypes.NewMockCache(t)
 
-	mockClient.EXPECT().Get(ctx, req.NamespacedName, &api.Repository{}).Return(errors.New("get failed"))
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, &api.Repository{}).Return(errors.New("get failed"))
 
 	reconciler := &RepositoryReconciler{
 		Client: mockClient,
@@ -193,7 +193,7 @@ func TestPerformAsyncSync(t *testing.T) {
 			name: "successful sync", syncError: nil,
 		},
 		{
-			name: "sync fails", 
+			name:      "sync fails",
 			syncError: errors.New("sync failed"),
 		},
 	}
@@ -224,10 +224,10 @@ func TestReconcileDecisionBranches(t *testing.T) {
 	ctx := t.Context()
 
 	tests := []struct {
-		name           string
-		repo           *api.Repository
-		expectRequeue  bool
-		expectError    bool
+		name          string
+		repo          *api.Repository
+		expectRequeue bool
+		expectError   bool
 	}{
 		{
 			name: "repo being deleted",
@@ -253,7 +253,7 @@ func TestReconcileDecisionBranches(t *testing.T) {
 
 			// Mock Get to return our repo
 			mockClient.EXPECT().Get(
-				ctx,
+				mock.Anything,
 				req.NamespacedName,
 				mock.AnythingOfType("*v1alpha1.Repository"),
 			).Run(func(
@@ -318,7 +318,7 @@ func TestPerformHealthCheckSync(t *testing.T) {
 			name: "health check passes", connectivityErr: nil,
 		},
 		{
-			name: "health check fails", 
+			name:            "health check fails",
 			connectivityErr: errors.New("connection failed"),
 		},
 	}
@@ -406,7 +406,6 @@ func TestPerformAsyncSyncEdgeCases(t *testing.T) {
 	})
 }
 
-
 func TestReconcileSyncInProgress(t *testing.T) {
 	ctx := t.Context()
 	repo := createTestRepo("test-repo", "test-ns")
@@ -423,7 +422,7 @@ func TestReconcileSyncInProgress(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	mockCache := cachetypes.NewMockCache(t)
 
-	mockClient.EXPECT().Get(ctx, req.NamespacedName, mock.AnythingOfType("*v1alpha1.Repository")).Run(func(
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha1.Repository")).Run(func(
 		ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption,
 	) {
 		if r, ok := obj.(*api.Repository); ok {

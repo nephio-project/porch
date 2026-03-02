@@ -26,9 +26,9 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
 	"github.com/nephio-project/porch/pkg/util"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -84,19 +84,21 @@ func (cad *cadEngine) ObjectCache() WatcherManager {
 }
 
 func (cad *cadEngine) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::OpenRepository", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::OpenRepository")
 	defer span.End()
 
 	return cad.cache.OpenRepository(ctx, repositorySpec)
 }
 
 func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListPackageRevisions", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::ListPackageRevisions")
 	defer span.End()
 
-	klog.V(3).Infof("[CaD Engine] Opening cached repository for listing: %s", repositorySpec.Name)
+	klog.V(3).InfoS("[CaD Engine] Opening cached repository for listing",
+		porchcontext.LogMetadataFromWithExtras(ctx, "repository", repositorySpec.Name)...)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Completed listing from cached repository: %s", repositorySpec.Name)
+		klog.V(3).InfoS("[CaD Engine] Completed listing from cached repository",
+			porchcontext.LogMetadataFromWithExtras(ctx, "repository", repositorySpec.Name)...)
 	}()
 
 	repo, err := cad.cache.OpenRepository(ctx, repositorySpec)
@@ -111,7 +113,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 }
 
 func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision")
 	defer span.End()
 
 	packageConfig, err := repository.BuildPackageConfig(ctx, newPr, parent)
@@ -153,9 +155,11 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
-	klog.Infof("[CaD Engine] Validating and preparing package creation for PackageRevision: %s.%s", pkgKey.K8SName(), newPr.Spec.WorkspaceName)
+	klog.InfoS("[CaD Engine] Validating and preparing package creation for PackageRevision",
+		porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Package creation delegated to cache for PackageRevision: %s.%s", pkgKey.K8SName(), newPr.Spec.WorkspaceName)
+		klog.V(3).InfoS("[CaD Engine] Package creation delegated to cache for PackageRevision",
+			porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
@@ -291,7 +295,7 @@ func validateCloneTask(obj *porchapi.PackageRevision, existingRevs []repository.
 }
 
 func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision")
 	defer span.End()
 
 	newRV := newObj.GetResourceVersion()
@@ -308,9 +312,11 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 		return nil, err
 	}
 
-	klog.Infof("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision: %s", repoPr.Key().K8SName())
+	klog.InfoS("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision",
+		porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision: %s", repoPr.Key().K8SName())
+		klog.V(3).InfoS("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision",
+			porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	// Check if the PackageRevision is in the terminating state and
@@ -414,12 +420,14 @@ func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repositor
 }
 
 func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, pr2Del repository.PackageRevision) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision")
 	defer span.End()
 
-	klog.Infof("[CaD Engine] Preparing to delete PackageRevision: %s", pr2Del.Key().K8SName())
+	klog.InfoS("[CaD Engine] Preparing to delete PackageRevision",
+		porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] PackageRevision deletion delegated to cache: %s", pr2Del.Key().K8SName())
+		klog.V(3).InfoS("[CaD Engine] PackageRevision deletion delegated to cache",
+			porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
@@ -431,7 +439,7 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 }
 
 func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository.Repository, repoPkgRev repository.PackageRevision) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::deletePackageRevision", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::deletePackageRevision")
 	defer span.End()
 
 	if err := repo.DeletePackageRevision(ctx, repoPkgRev); err != nil {
@@ -442,7 +450,7 @@ func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository
 }
 
 func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListPackages", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::ListPackages")
 	defer span.End()
 
 	repo, err := cad.cache.OpenRepository(ctx, repositorySpec)
@@ -461,13 +469,13 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 }
 
 func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources")
 	defer span.End()
 
-	pkgKey := pr2Update.Key().K8SName()
-	klog.Infof("[CaD Engine] Processing resource updates for PackageRevision: %s", pkgKey)
+	klog.InfoS("[CaD Engine] Processing resource updates for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision: %s", pkgKey)
+		klog.V(3).InfoS("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision:",
+			porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	rev, err := pr2Update.GetPackageRevision(ctx)

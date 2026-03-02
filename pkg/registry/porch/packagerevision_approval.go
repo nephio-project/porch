@@ -20,37 +20,42 @@ import (
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"go.opentelemetry.io/otel/trace"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/registry/rest"
 )
 
-type packageRevisionsApproval struct {
-	common packageCommon
+type packageRevisionApproval struct {
+	packageCommon
 }
 
-var _ rest.Storage = &packageRevisionsApproval{}
-var _ rest.Scoper = &packageRevisionsApproval{}
-var _ rest.Getter = &packageRevisionsApproval{}
-var _ rest.Updater = &packageRevisionsApproval{}
+var _ rest.Storage = &packageRevisionApproval{}
+var _ rest.Scoper = &packageRevisionApproval{}
+var _ rest.Getter = &packageRevisionApproval{}
+var _ rest.Updater = &packageRevisionApproval{}
 
 // New returns an empty object that can be used with Create and Update after request data has been put into it.
 // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object)
-func (a *packageRevisionsApproval) New() runtime.Object {
+func (a *packageRevisionApproval) New() runtime.Object {
 	return &porchapi.PackageRevision{}
 }
 
-func (a *packageRevisionsApproval) Destroy() {}
+func (a *packageRevisionApproval) Destroy() {}
 
 // NamespaceScoped returns true if the storage is namespaced
-func (a *packageRevisionsApproval) NamespaceScoped() bool {
+func (a *packageRevisionApproval) NamespaceScoped() bool {
 	return true
 }
 
-func (a *packageRevisionsApproval) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	pkg, err := a.common.getRepoPkgRev(ctx, name)
+func (a *packageRevisionApproval) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Get")
+	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+
+	pkg, err := a.getRepoPkgRev(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +65,15 @@ func (a *packageRevisionsApproval) Get(ctx context.Context, name string, options
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (a *packageRevisionsApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
-	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionsApproval::Update", trace.WithAttributes())
+func (a *packageRevisionApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
+	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Update")
 	defer span.End()
 
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+
 	allowCreate := false // do not allow create on update
-	return a.common.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)
+	return a.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)
 }
 
 type packageRevisionApprovalStrategy struct{}

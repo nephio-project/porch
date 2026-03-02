@@ -161,7 +161,7 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 	switch {
 	case r.isOneTimeSyncDue(repo):
 		// 1. One-time sync due → Full sync
-		log.FromContext(ctx).Info("RunOnceAt sync triggered", "scheduledTime", repo.Spec.Sync.RunOnceAt.Time.Format(time.RFC3339))
+		log.FromContext(ctx).Info("RunOnceAt sync triggered", "scheduledTime", repo.Spec.Sync.RunOnceAt.Format(time.RFC3339))
 		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	case r.hasSpecChanged(repo):

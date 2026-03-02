@@ -20,8 +20,8 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,10 +70,12 @@ func (r *packageRevisions) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisions) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List")
 	defer span.End()
 
-	klog.V(3).Infof("[API] List operation started for PackageRevisions")
+	ctx = porchcontext.WithNewRequestID(ctx)
+
+	klog.V(3).InfoS("[API] List operation started for PackageRevisions", porchcontext.LogMetadataFrom(ctx)...)
 
 	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
@@ -100,17 +102,20 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	klog.V(3).Infof("[API] List operation completed for PackageRevisions: found %d items", len(result.Items))
+	klog.V(3).InfoS("[API] List operation completed for PackageRevisions",
+		porchcontext.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
 }
 
 // Get implements the Getter interface
-func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get", trace.WithAttributes())
+func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get")
 	defer span.End()
 
-	klog.V(3).Infof("[API] Get operation started for PackageRevision: %s", name)
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+
+	klog.V(3).InfoS("[API] Get operation started for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -122,16 +127,18 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 		return nil, err
 	}
 
-	klog.V(3).Infof("[API] Get operation completed for PackageRevision: %s", name)
+	klog.V(3).InfoS("[API] Get operation completed for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	return apiPkgRev, nil
 }
 
 // Create implements the Creater interface.
-func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
-	options *metav1.CreateOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create", trace.WithAttributes())
+func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, _ rest.ValidateObjectFunc,
+	_ *metav1.CreateOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -158,6 +165,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	action := createAction(newApiPkgRev)
 	pkgKeyStruct := repository.FromFullPathname(repository.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
 
+	prName := repository.PackageRevisionKey{
+		PkgKey:        pkgKeyStruct,
+		WorkspaceName: newApiPkgRev.Spec.WorkspaceName,
+	}.K8SName()
+	ctx = porchcontext.WithPackageRevision(ctx, prName)
+
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
@@ -168,7 +181,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
 
-	klog.Infof("[API] %s operation started for PackageRevision: %s.%s", action, pkgKeyStruct.K8SName(), newApiPkgRev.Spec.WorkspaceName)
+	klog.InfoS("[API] Operation started for PackageRevision",
+		porchcontext.LogMetadataFromWithExtras(ctx, "action", action)...)
 
 	var parentPackage repository.PackageRevision
 	if newApiPkgRev.Spec.Parent != nil && newApiPkgRev.Spec.Parent.Name != "" {
@@ -203,7 +217,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("[API] %s operation completed for PackageRevision: %s", action, createdApiPkgRev.Name)
+	klog.InfoS("[API] Operation completed for PackageRevision",
+		porchcontext.LogMetadataFromWithExtras(ctx, "action", action)...)
 
 	return createdApiPkgRev, nil
 }
@@ -256,9 +271,11 @@ func createAction(pkgRev *porchapi.PackageRevision) string {
 // may allow updates creates the object - they should set the created boolean
 // to true.
 func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
-	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update", trace.WithAttributes())
+	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	return r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
@@ -274,9 +291,11 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 // information about deletion.
 // It also returns a boolean which is set to true if the resource was instantly
 // deleted or false if it will be deleted asynchronously.
-func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete", trace.WithAttributes())
+func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, _ *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -298,7 +317,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, err
 	}
 
-	klog.Infof("[API] Delete operation started for PackageRevision: %s", name)
+	klog.InfoS("[API] Delete operation started for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
@@ -317,7 +336,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("[API] Delete operation completed for PackageRevision: %s", name)
+	klog.InfoS("[API] Delete operation completed for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
