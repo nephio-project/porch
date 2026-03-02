@@ -353,10 +353,5 @@ func (t *PorchSuite) proposeAndApprovePackage(pr *porchapi.PackageRevision) {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-<<<<<<< refactor_e2e_for_migration
 	t.UpdateApprovalF(pr)
 }
-=======
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
-}
->>>>>>> main
