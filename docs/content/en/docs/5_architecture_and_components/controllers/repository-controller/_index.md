@@ -8,20 +8,20 @@ description: |
 
 ## Overview
 
-The Repository Controller manages the synchronization of [Porch repositories]({{% relref "/docs/2_concepts/repositories.md" %}}) with external Git sources. It continuously monitors repositories and keeps their package content up-to-date through periodic synchronization.
+The Repository Controller manages the synchronization of [Porch repositories]({{% relref "/docs/2_concepts/repositories.md" %}}) with their corresponding external Git repositories. It continuously monitors repositories and keeps their [package]({{% relref "/docs/2_concepts/package.md" %}}) content up-to-date through periodic synchronization.
 
 The controller handles several key responsibilities:
 
-- Synchronizes repositories with external Git sources on configurable schedules
-- Performs lightweight health checks to detect connectivity issues quickly
-- Executes full sync operations to fetch content and discover packages
+- Runs synchronization on configurable schedules (frequency, cron, or one-time)
+  - Lightweight health checks to detect connectivity issues quickly
+  - Full syncs to fetch content and discover packages
 - Maintains repository status with sync timestamps, package counts, and git commit hashes
 - Implements smart retry logic with error-type-specific intervals
 - Controls concurrency to prevent resource exhaustion
 
 ## How It Works
 
-The controller operates as a standard Kubernetes controller, watching Repository custom resources and reconciling their desired state with actual state:
+The controller operates as a standard [Kubernetes controller](https://kubernetes.io/docs/concepts/architecture/controller/), watching Repository custom resources and reconciling their desired state with actual state:
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐

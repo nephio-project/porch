@@ -48,12 +48,13 @@ status:
 
 The repository moves through different states as syncs execute:
 
-- **Successful sync**: `Ready` → `SyncInProgress` → `Ready`
-- **Failed sync**: `Ready` → `SyncInProgress` → `Error`
-- **Recovery**: `Error` → `SyncInProgress` → `Ready`
-- **Health check**: `Ready` → `Ready` (no transition)
+- **Successful full sync**: `Ready` → `SyncInProgress` → `Ready`
+- **Failed full sync**: `Ready` → `SyncInProgress` → `Error`
+- **Successful health check**: `Ready` → `Ready` (no transition)
+- **Failed health check**: `Ready` → `Error`
+- **Recovery**: `Error` → `Ready` (triggers immediate full sync)
 
-Health checks are lightweight and don't change the status when successful. Only full syncs and errors trigger status transitions.
+Health checks can detect connectivity failures and transition the repository to error state. When a repository recovers from error (health check succeeds after being in error), the controller immediately triggers a full sync to ensure the cache is up-to-date.
 
 ## Conditions
 

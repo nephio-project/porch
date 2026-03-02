@@ -95,7 +95,6 @@ Repository synchronization is managed by the Repository Controller using a dual 
 
 **Health Checks** (default 5 minutes):
 - Lightweight connectivity validation
-- 20-second timeout
 - Only when repository is healthy
 
 **Full Sync** (default 1 hour or cron schedule):

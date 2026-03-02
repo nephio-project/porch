@@ -20,7 +20,7 @@ While controllers share a pod by default, each controller can run in its own dep
 
 ### [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}})
 
-Synchronizes Repository custom resources with their backing Git or OCI repositories. The controller performs health checks and full syncs to keep package metadata current in Porch's cache layer.
+Synchronizes Repository custom resources with their backing Git repositories. The controller performs health checks and full syncs to keep package metadata current in Porch's cache layer.
 
 ### [PackageVariant Controllers]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants/_index.md" %}})
 

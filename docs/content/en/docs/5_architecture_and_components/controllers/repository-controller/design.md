@@ -30,7 +30,7 @@ Most repositories don't change frequently, but connectivity issues need quick de
 
 Git operations can take significant time for large repositories. Synchronous execution would block the reconcile loop, preventing other repositories from being processed. The semaphore prevents resource exhaustion while maximizing throughput.
 
-Health checks remain synchronous because they're fast (20 seconds max) and need immediate results for status updates.
+Health checks remain synchronous because they're lightweight and need immediate results for status updates.
 
 ## 20-Minute Stale Detection
 
@@ -129,6 +129,6 @@ Building these from scratch would introduce bugs and maintenance burden. The fra
 
 ## Related Documentation
 
-- {{% relref "/docs/5_architecture_and_components/controllers/repository-controller/functionality/_index.md" %}} - What the controller does
-- {{% relref "/docs/6_configuration_and_deployments/configurations/repository-sync.md" %}} - How to configure it
-- {{% relref "/docs/6_configuration_and_deployments/configurations/cache.md" %}} - Cache configuration
+- [What the controller does]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/functionality/_index.md" %}})
+- [How to configure it]({{% relref "/docs/6_configuration_and_deployments/configurations/repository-sync.md" %}})
+- [Cache configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/cache.md" %}})

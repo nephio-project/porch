@@ -65,22 +65,16 @@ Status updates happen at key points: when syncs start, when they complete (succe
 
 ### Status Update Flow
 
-```
-Sync Operation
-        ↓
-  Update Status
-        ↓
-  Server-Side Apply
-        ↓
-  Field Manager:
-  "repository-controller"
-        ↓
-  Status Fields:
-  • lastFullSyncTime
-  • nextFullSyncTime
-  • packageCount
-  • gitCommitHash
-  • conditions
-        ↓
-  Kubernetes API
-```
+The controller updates repository status through the following steps:
+
+1. **Sync operation completes** (health check or full sync)
+2. **Determine status**: Success → `RepositoryStatusReady`, Failure → `RepositoryStatusError`
+3. **Apply status update** using Server-Side Apply with field manager `repository-controller`
+4. **Update status fields**:
+   - `conditions` (RepositoryReady condition)
+   - `lastFullSyncTime` (for full syncs only)
+   - `nextFullSyncTime`
+   - `packageCount` (for full syncs only)
+   - `gitCommitHash` (for full syncs only)
+   - `observedGeneration` / `observedRunOnceAt` (as needed)
+5. **Persist to Kubernetes API**

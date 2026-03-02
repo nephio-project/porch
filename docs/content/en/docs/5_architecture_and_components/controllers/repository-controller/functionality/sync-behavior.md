@@ -19,7 +19,7 @@ The controller intelligently decides which operation to perform based on reposit
 
 ### Health Check
 
-Health checks perform quick connectivity validation without fetching repository contents. They use a 20-second timeout and execute synchronously in the reconcile loop, validating only that the repository is reachable without the overhead of git operations.
+Health checks perform quick connectivity validation without fetching repository contents. They execute synchronously in the reconcile loop, validating only that the repository is reachable without the overhead of git operations.
 
 Health checks only run when the repository is healthy. If the repository has an error condition, health checks are skipped and only error retry logic determines when to attempt recovery.
 
