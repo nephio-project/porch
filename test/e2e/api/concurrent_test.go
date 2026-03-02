@@ -179,7 +179,7 @@ func (t *PorchSuite) TestConcurrentResourceUpdates() {
 
 	// "Update" the package resources with two clients at the same time
 	updateFunction := func() any {
-		return t.Client.Update(t.GetContext(), &newPackageResources)
+		return t.Client.Update(t.GetContext(), newPackageResources.DeepCopy())
 	}
 	results := suiteutils.RunInParallel(updateFunction, updateFunction)
 	t.assertConcurrentResults(results, "resource update")
@@ -207,7 +207,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove() {
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	proposeFunction := func() any {
-		return t.Client.Update(t.GetContext(), &pkg)
+		return t.Client.Update(t.GetContext(), pkg.DeepCopy())
 	}
 	proposeResults := suiteutils.RunInParallel(proposeFunction, proposeFunction)
 	t.assertConcurrentResults(proposeResults, "propose")
@@ -334,7 +334,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 
 	// Two clients at the same time try to update the downstream package
 	updateFunction := func() any {
-		return t.Client.Update(t.GetContext(), pr)
+		return t.Client.Update(t.GetContext(), pr.DeepCopy())
 	}
 	results := suiteutils.RunInParallel(updateFunction, updateFunction)
 	t.assertConcurrentResults(results, "package update")

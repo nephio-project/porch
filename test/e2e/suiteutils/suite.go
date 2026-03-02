@@ -464,7 +464,8 @@ func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.Pack
 func (t *TestSuite) UpdateApprovalE(pr *porchapi.PackageRevision) error {
 	t.T().Helper()
 	t.Logf("updating approval of %v", DebugFormat(pr))
-	return t.Client.SubResource("approval").Update(t.GetContext(), pr)
+	prCopy := pr.DeepCopy()
+	return t.Client.SubResource("approval").Update(t.GetContext(), prCopy)
 }
 
 func createClientScheme(t *testing.T) *runtime.Scheme {
