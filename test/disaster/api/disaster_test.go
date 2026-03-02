@@ -94,7 +94,12 @@ func (t *PorchDisasterRecoverySuite) SetupSuite() {
 
 func (t *PorchDisasterRecoverySuite) SetupTest() {
 	s := &t.MultiClusterTestSuite
-	kind.UseDBCacheCluster(s)
+
+	if err := kind.UseDBCacheCluster(s); err != nil {
+		t.Logf("Unable to access DB cache cluster - assuming environment not set up")
+		setupEnv(s)
+	}
+
 	actualCounts := t.CountPackageRevisions()
 	if t.T().Failed() {
 		t.Logf("Unable to get initial count of package revisions - resetting environment")
