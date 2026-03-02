@@ -20,7 +20,6 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/util"
 	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,7 +75,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 
 	ctx = porchcontext.WithNewRequestID(ctx)
 
-	klog.V(3).Infof("[API] List operation started for PackageRevisions")
+	klog.V(3).InfoS("[API] List operation started for PackageRevisions", porchcontext.LogMetadataFrom(ctx)...)
 
 	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
@@ -103,7 +102,8 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	klog.V(3).Infof("[API] List operation completed for PackageRevisions: found %d items", len(result.Items))
+	klog.V(3).InfoS("[API] List operation completed for PackageRevisions",
+		porchcontext.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
 }
@@ -115,7 +115,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOp
 
 	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
-	klog.V(3).Infof("[API] Get operation started for PackageRevision: %s", name)
+	klog.V(3).InfoS("[API] Get operation started for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -127,7 +127,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOp
 		return nil, err
 	}
 
-	klog.V(3).Infof("[API] Get operation completed for PackageRevision: %s", name)
+	klog.V(3).InfoS("[API] Get operation completed for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	return apiPkgRev, nil
 }
@@ -165,6 +165,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	action := createAction(newApiPkgRev)
 	pkgKeyStruct := repository.FromFullPathname(repository.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
 
+	prName := repository.PackageRevisionKey{
+		PkgKey:        pkgKeyStruct,
+		WorkspaceName: newApiPkgRev.Spec.WorkspaceName,
+	}.K8SName()
+	ctx = porchcontext.WithPackageRevision(ctx, prName)
+
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
@@ -175,7 +181,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
 
-	klog.Infof("[API] %s operation started for PackageRevision: %s.%s", action, pkgKeyStruct.K8SName(), newApiPkgRev.Spec.WorkspaceName)
+	klog.InfoS("[API] Operation started for PackageRevision",
+		porchcontext.LogMetadataFromWithExtras(ctx, "action", action)...)
 
 	var parentPackage repository.PackageRevision
 	if newApiPkgRev.Spec.Parent != nil && newApiPkgRev.Spec.Parent.Name != "" {
@@ -200,16 +207,6 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 	defer pkgMutex.Unlock()
 
-	pkgPath, pkgName := repository.SplitPackagePathName(newApiPkgRev.Spec.PackageName)
-
-	prName := util.ComposePkgRevObjName(
-		repositoryName,
-		pkgPath,
-		pkgName,
-		newApiPkgRev.Spec.WorkspaceName,
-	)
-	ctx = porchcontext.WithPackageRevision(ctx, prName)
-
 	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
@@ -220,7 +217,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("[API] %s operation completed for PackageRevision: %s", action, createdApiPkgRev.Name)
+	klog.InfoS("[API] Operation completed for PackageRevision",
+		porchcontext.LogMetadataFromWithExtras(ctx, "action", action)...)
 
 	return createdApiPkgRev, nil
 }
@@ -319,7 +317,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, err
 	}
 
-	klog.Infof("[API] Delete operation started for PackageRevision: %s", name)
+	klog.InfoS("[API] Delete operation started for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
@@ -338,7 +336,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("[API] Delete operation completed for PackageRevision: %s", name)
+	klog.InfoS("[API] Delete operation completed for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil

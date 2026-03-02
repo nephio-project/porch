@@ -29,7 +29,7 @@ const (
 	EmptyPRName = "<undefined>"
 )
 
-func getter[T any](ctx context.Context, key any, defVal T) T {
+func getter[T any](ctx context.Context, key porchContextKey, defVal T) T {
 	if ctx != nil {
 		if v := ctx.Value(key); v != nil {
 			if vv, ok := v.(T); ok {
@@ -62,4 +62,22 @@ func WithPackageRevision(ctx context.Context, prName string) context.Context {
 
 func WithNewRequestIDAndPackageRevision(ctx context.Context, prName string) context.Context {
 	return WithPackageRevision(WithNewRequestID(ctx), prName)
+}
+
+func LogMetadataFrom(ctx context.Context) []any {
+	var output []any
+
+	if reqId := ctx.Value(requestIDKey); reqId != nil {
+		output = append(output, string(requestIDKey), reqId.(uuid.UUID).String())
+	}
+
+	if prName := ctx.Value(packageRevisionKey); prName != nil {
+		output = append(output, string(packageRevisionKey), prName.(string))
+	}
+
+	return output
+}
+
+func LogMetadataFromWithExtras(ctx context.Context, extras ...any) []any {
+	return append(LogMetadataFrom(ctx), extras...)
 }

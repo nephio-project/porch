@@ -28,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,18 +129,20 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	if pr.repo == nil {
 		return fmt.Errorf("cannot update lifecycle for package revision %s: no associated repository", pr.KubeObjectName())
 	}
-	
+
 	// Only Approve (Proposed → Published) pushes to external repo
 	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
-		klog.Infof("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision: %s", pr.Key().K8SName())
+		klog.InfoS("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision",
+			porchcontext.LogMetadataFrom(ctx)...)
 		defer func() {
-			klog.V(3).Infof("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision: %s", pr.Key().K8SName())
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision",
+				porchcontext.LogMetadataFrom(ctx)...)
 		}()
 	} else {
-		klog.Infof("[DB Cache] Updating lifecycle in database for PackageRevision: %s", pr.Key().K8SName())
+		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 		defer func() {
-			klog.V(3).Infof("[DB Cache] Lifecycle updated in database for PackageRevision: %s", pr.Key().K8SName())
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 		}()
 	}
 
@@ -409,9 +412,9 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("[DB Cache] Updating resources in memory for PackageRevision: %s", pr.Key().K8SName())
+	klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).Infof("[DB Cache] Resources updated in memory for PackageRevision: %s", pr.Key().K8SName())
+		klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	pr.resources = new.Spec.Resources

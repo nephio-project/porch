@@ -18,12 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +72,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 
 	ctx = porchcontext.WithNewRequestID(ctx)
 
-	klog.V(3).Infoln("List packageRevisionResources started")
+	klog.V(3).InfoS("List PackageRevisionResources started", porchcontext.LogMetadataFrom(ctx)...)
 
 	result := &porchapi.PackageRevisionResourcesList{
 		TypeMeta: metav1.TypeMeta{
@@ -99,7 +97,8 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	klog.V(3).Infof("List packageRevisionResources completed: found %d items", len(result.Items))
+	klog.V(3).InfoS("List packageRevisionResources completed",
+		porchcontext.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
 }
@@ -111,7 +110,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 
 	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
-	klog.V(3).Infof("Get packageRevisionResources started: %s", name)
+	klog.V(3).InfoS("Get PackageRevisionResources started", porchcontext.LogMetadataFrom(ctx)...)
 
 	pkg, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -123,7 +122,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 		return nil, err
 	}
 
-	klog.V(3).Infof("Get packageRevisionResources completed: %s", name)
+	klog.V(3).InfoS("Get packageRevisionResources completed", porchcontext.LogMetadataFrom(ctx)...)
 
 	return apiPkgResources, nil
 }
@@ -183,7 +182,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 			return nil, false, err
 		}
 	}
-	klog.Infof("[API] Update operation started for packageRevisionResources: %s", name)
+	klog.InfoS("[API] Update operation started for PackageRevisionResources", porchcontext.LogMetadataFrom(ctx)...)
 
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
@@ -194,7 +193,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(schema.GroupResource(porchapi.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
+			return nil, false, apierrors.NewNotFound(porchapi.PackageRevisionResourcesGVR.GroupResource(), repositoryID.Name)
 		}
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
@@ -212,7 +211,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
-	klog.Infof("[API] Update operation completed for packageRevisionResources: %s", name)
+	klog.InfoS("[API] Update operation completed for PackageRevisionResources", porchcontext.LogMetadataFrom(ctx)...)
 
 	return created, false, nil
 }
