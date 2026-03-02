@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -797,6 +797,14 @@ func TestUpdatePackageResourcesRenderFailure(t *testing.T) {
 			expectError:           true,
 			expectErrContains:     []string{"draft update failed"},
 			expectClose:           false,
+		},
+		{
+			name:                  "persistence failure - no push even with annotation",
+			renderErr:             &task.RenderPersistError{RenderErr: fmt.Errorf("render failed"), PersistErr: fmt.Errorf("draft update failed")},
+			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectErrContains:     []string{"draft update failed", "render failed"},
 		},
 	}
 

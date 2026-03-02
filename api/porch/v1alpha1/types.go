@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +37,9 @@ const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
 
-	// PushOnRenderFailureAnnotation controls whether porch pushes the changes on render failure.
-	PushOnRenderFailureAnnotation = "porch.kpt.dev/push-on-render-failure"
+	// PushOnFnRenderFailureKey controls whether porch pushes the changes on render failure.
+	PushOnFnRenderFailureKey   = "porch.kpt.dev/push-on-render-failure"
+	PushOnFnRenderFailureValue = "true"
 )
 
 type PkgRevFieldSelector string

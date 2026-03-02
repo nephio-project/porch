@@ -517,9 +517,17 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 
 	renderStatus, renderErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
 
-	if renderErr != nil && !shouldPushOnRenderFailure(rev) {
-		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
-			"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+	if renderErr != nil {
+		// If persistence failed after render, never push — draft contents are stale.
+		var persistErr *task.RenderPersistError
+		if errors.As(renderErr, &persistErr) {
+			return nil, renderStatus, renderErr
+		}
+
+		if !rev.IsPushOnRenderFailure() {
+			return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+				"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+		}
 	}
 
 	// No render error, or annotation allows push on render failure

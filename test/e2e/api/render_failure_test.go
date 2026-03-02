@@ -81,7 +81,7 @@ func (t *PorchSuite) TestRenderFailureWithPushAnnotation() {
 	if pr.Annotations == nil {
 		pr.Annotations = make(map[string]string)
 	}
-	pr.Annotations[porchapi.PushOnRenderFailureAnnotation] = "true"
+	pr.Annotations[porchapi.PushOnFnRenderFailureKey] = "true"
 	t.UpdateF(pr)
 
 	// Get resources and add a broken mutator
@@ -131,7 +131,7 @@ func (t *PorchSuite) TestRenderFailureWithSaveAndPushAnnotations() {
 	if pr.Annotations == nil {
 		pr.Annotations = make(map[string]string)
 	}
-	pr.Annotations[porchapi.PushOnRenderFailureAnnotation] = "true"
+	pr.Annotations[porchapi.PushOnFnRenderFailureKey] = "true"
 	t.UpdateF(pr)
 
 	// Get resources and set save-on-render-failure annotation in Kptfile

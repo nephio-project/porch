@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -221,6 +222,7 @@ func TestDoPrResourceMutations(t *testing.T) {
 
 	th := &genericTaskHandler{
 		runnerOptionsResolver: ror,
+		runtime:               kptops.NewSimpleFunctionRuntime(),
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
@@ -331,9 +333,11 @@ pipeline:
 		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
 		require.Error(t, err)
 		assert.NotNil(t, renderStatus)
-		// Error should contain both the render error and the persistence error
-		assert.Contains(t, err.Error(), "failed to persist resources after render failure")
-		assert.Contains(t, err.Error(), "draft update failed")
+		// Should return a typed RenderPersistError
+		var persistErr *RenderPersistError
+		require.True(t, errors.As(err, &persistErr))
+		assert.Contains(t, persistErr.PersistErr.Error(), "draft update failed")
+		assert.NotNil(t, persistErr.RenderErr)
 	})
 }
 
