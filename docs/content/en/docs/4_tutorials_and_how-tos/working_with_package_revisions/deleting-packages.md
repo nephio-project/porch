@@ -321,8 +321,9 @@ graph TD
 
 **Dependency Considerations:**
 
-- Check if other PackageRevisions depend on the one being deleted
-- Deleting upstream packages may affect downstream clones
+- Upstream PackageRevisions with downstream dependents cannot be deleted
+- Delete downstream PackageRevisions first, then their upstream dependencies
+- The error message identifies which dependent is blocking deletion
 - Consider the impact on deployed workloads
 
 ---
@@ -347,6 +348,15 @@ Error: cannot delete published package revision directly, use propose-delete fir
 
 - Check RBAC permissions with the `kubectl auth can-i delete packagerevisions -n default` command
 - Verify your service account has proper deletion roles
+
+**Cannot delete upstream PackageRevision:**
+
+```bash
+Error from server (Forbidden): cannot delete package revision, it is an upstream package revision for: <dependent-packagerevision-name>
+```
+
+- See "Dependency Considerations" in Safety Considerations above
+- Delete the downstream dependent first, then retry
 
 **Deletion proposal stuck:**
 

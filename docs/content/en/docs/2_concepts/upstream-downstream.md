@@ -93,3 +93,30 @@ management through Porch.
 - Customizations in downstream packages are preserved during updates
 - A package can be both upstream (to others) and downstream (from another)
 - PackageVariant automates the upstream → downstream lifecycle
+- **Deletion protection**: Upstream PackageRevisions cannot be deleted while downstream dependents exist
+
+## Deletion and Dependency Management
+
+Porch protects upstream PackageRevisions from accidental deletion when downstream packages depend on them:
+
+**Deletion order**: When deleting packages in an upstream-downstream relationship, you must delete in this order:
+1. Delete downstream PackageRevisions first
+2. Then delete the upstream PackageRevision
+
+**Automatic protection**: If you attempt to delete an upstream PackageRevision that has downstream dependents, Porch will:
+- Block the deletion with a Forbidden error
+- Identify which downstream PackageRevision is preventing deletion
+- Require you to delete the dependent first
+
+**Example scenario**:
+```
+Upstream repo: nginx-template (v1)
+                    ↓
+Downstream repo: prod-nginx (cloned from nginx-template v1)
+```
+
+To delete nginx-template v1:
+1. First delete prod-nginx (the downstream dependent)
+2. Then delete nginx-template v1 (the upstream)
+
+This protection ensures you don't accidentally break downstream packages by removing their upstream source.
