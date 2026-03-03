@@ -26,7 +26,7 @@ The controller operates as a standard [Kubernetes controller](https://kubernetes
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │ Repository      │    │ Controller       │    │ Cache Layer     │
-│ CRD             │───▶│ Reconcile Loop   │───▶│ (CR/DB Cache)   │
+│ CRD             │───>│ Reconcile Loop   │───>│ (CR/DB Cache)   │
 │                 │    │                  │    │                 │
 │ • Git config    │    │ • Sync decision  │    │ • Package data  │
 │ • Sync schedule │    │ • Async workers  │    │ • Git cache     │
