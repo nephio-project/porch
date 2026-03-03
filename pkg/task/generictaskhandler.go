@@ -210,24 +210,18 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 			len(renderResult.RenderStatus.Result.Items) != 0) {
 		renderStatus = renderResult.RenderStatus
 	}
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: appliedResources.Contents,
+		},
+	}
 	if rendErr != nil {
 		klog.Error(rendErr)
-		prr := &porchapi.PackageRevisionResources{
-			Spec: porchapi.PackageRevisionResourcesSpec{
-				Resources: appliedResources.Contents,
-			},
-		}
 		err := draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 		if err != nil {
 			return renderStatus, &RenderPersistError{RenderErr: rendErr, PersistErr: err}
 		}
 		return renderStatus, rendErr
-	}
-
-	prr := &porchapi.PackageRevisionResources{
-		Spec: porchapi.PackageRevisionResourcesSpec{
-			Resources: appliedResources.Contents,
-		},
 	}
 
 	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})

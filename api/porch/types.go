@@ -31,11 +31,15 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-// Key and value of the latest package revision label:
+// PackageRevision labels and annotations:
 
 const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
+
+	// PushOnFnRenderFailureKey annotation controls whether to push package changes even when function rendering fails.
+	PushOnFnRenderFailureKey   = "porch.kpt.dev/push-on-render-failure"
+	PushOnFnRenderFailureValue = "true"
 )
 
 type PkgRevFieldSelector string
