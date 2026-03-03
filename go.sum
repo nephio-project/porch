@@ -262,8 +262,8 @@ github.com/klauspost/compress v1.18.2 h1:iiPHWW0YrcFgpBYhsA6D1+fqHssJscY/Tm/y2Uq
 github.com/klauspost/compress v1.18.2/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/kptdev/kpt v1.0.0-beta.61.0.20260225110655-89ed32bf82e1 h1:AZlpjfHfgyduM/jLmLKgL7xeowZhjG8scQUx/oBcz9o=
-github.com/kptdev/kpt v1.0.0-beta.61.0.20260225110655-89ed32bf82e1/go.mod h1:ISVhkyeOoO9f7oFHJFKVyVloaaj9v/1mKG3Ob6nCKos=
+github.com/kptdev/kpt v1.0.0-beta.61.1 h1:NDvW+GHq2WYnx6dB9oGjrTnFuyzfu8ETWdkSlmvpOPU=
+github.com/kptdev/kpt v1.0.0-beta.61.1/go.mod h1:ISVhkyeOoO9f7oFHJFKVyVloaaj9v/1mKG3Ob6nCKos=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.5 h1:IBYx+h8mYZ2mqfLetP6Kwzw3DwvVswk8E6Vu8BuNcyM=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.5/go.mod h1:Wxd9xCmftcHf8b8Q3dvskY1psJ5knxBAxMZWUHD4L/I=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 h1:PZ4TcVzgad1OFuH4gHg4j2LKC2KXTuzfsQWil2knSlk=
