@@ -23,8 +23,8 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
@@ -192,7 +192,7 @@ func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, err
 	if err != nil {
 		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfilev1.KptFileName)
 	}
-	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
 		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error decoding %s", kptfilev1.KptFileName)
 	}

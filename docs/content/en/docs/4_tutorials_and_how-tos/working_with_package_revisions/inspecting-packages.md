@@ -355,7 +355,7 @@ Both `porchctl` and `kubectl` support standard Kubernetes [output formatting fla
 - `-o custom-columns=...` - Custom column output
 
 {{% alert title="Note" color="primary" %}}
-For a complete reference of all available command options and flags, see the [Porch CLI Guide]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md" %}}).
+For a complete reference of all available command options and flags, see the [Porch CLI Guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}).
 {{% /alert %}}
 
 ---

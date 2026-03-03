@@ -201,7 +201,7 @@ deployments.my-nginx.v1          my-nginx           v1              1          t
 ---
 
 {{% alert title="Note" color="primary" %}}
-For complete details on the `porchctl rpkg clone` command options and flags, see the [Porch CLI Guide]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md" %}}).
+For complete details on the `porchctl rpkg clone` command options and flags, see the [Porch CLI Guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}).
 {{% /alert %}}
 
 ---

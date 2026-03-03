@@ -103,7 +103,7 @@ porchctl repo register https://github.com/example/private-repo.git \
 {{% alert title="Note" color="primary" %}}
 For production environments, use secret management solutions (external secret stores, sealed-secrets) rather than embedding credentials in commands.
 
-See [Authenticating to Remote Git Repositories]({{% relref "/docs/6_configuration_and_deployments/relevant_old_docs/git-authentication-config.md" %}}) for detailed authentication configuration.
+See [Git Authentication]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-server-config/git-authentication" %}}) for detailed authentication configuration.
 {{% /alert %}}
 
 ---
@@ -135,7 +135,7 @@ porchctl repo register https://github.com/nephio-project/catalog \
 - `--repo-workload-identity`: Use workload identity for authentication
 
 {{% alert title="Note" color="primary" %}}
-For complete command syntax and all available flags, see the [Porchctl CLI Guide]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md" %}}).
+For complete command syntax and all available flags, see the [Porchctl CLI Guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}).
 {{% /alert %}}
 
 ---

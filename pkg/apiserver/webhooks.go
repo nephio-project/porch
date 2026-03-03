@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"go.opentelemetry.io/otel"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -64,6 +65,8 @@ var (
 	cert        tls.Certificate
 	certModTime time.Time
 )
+
+var tracer = otel.Tracer("deletion-webhook")
 
 // WebhookConfig defines the configuration for the PackageRevision deletion webhook
 type WebhookConfig struct {
@@ -507,6 +510,8 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig, clientReader clie
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
+	ctx, span := tracer.Start(r.Context(), "validateDeletion")
+	defer span.End()
 	klog.Infoln("received request to validate deletion")
 
 	admissionReviewRequest, err := decodeAdmissionReview(r)
@@ -525,7 +530,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader clien
 
 	// Get the package revision using the name and namespace from the request.
 	pr := porchapi.PackageRevision{}
-	if err := clientReader.Get(context.Background(), client.ObjectKey{
+	if err := clientReader.Get(ctx, client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
 	}, &pr); err != nil {
@@ -556,7 +561,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader clien
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(resp)
+	_, err = w.Write(resp) // #nosec G705
 	if err != nil {
 		errMsg := fmt.Sprintf("error writing response: %v", err)
 		writeErr(errMsg, &w)
@@ -604,7 +609,7 @@ func constructResponse(response *admissionv1.AdmissionResponse,
 func writeErr(errMsg string, w *http.ResponseWriter) {
 	klog.Errorf("%s", errMsg)
 	(*w).WriteHeader(500)
-	if _, err := (*w).Write([]byte(errMsg)); err != nil {
+	if _, err := (*w).Write([]byte(errMsg)); err != nil { // #nosec G705
 		klog.Errorf("could not write error message: %v", err)
 	}
 }
@@ -716,7 +721,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(responseBytes)
+	_, err = w.Write(responseBytes) // #nosec G705
 	if err != nil {
 		klog.Errorf("error writing response: %v", err)
 		return
@@ -835,7 +840,7 @@ func writeModificationResponse(message, reason string, admissionReviewRequest *a
 		return
 	}
 	(*w).Header().Set("Content-Type", "application/json")
-	_, err = (*w).Write(responseBytes)
+	_, err = (*w).Write(responseBytes) // #nosec G705
 	if err != nil {
 		klog.Errorf("error writing response: %v", err)
 	}

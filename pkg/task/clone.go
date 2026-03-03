@@ -20,12 +20,12 @@ import (
 	"os"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/kptdev/kpt/pkg/lib/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -49,7 +49,7 @@ type clonePackageMutation struct {
 	repoOperationRetryAttempts int
 
 	// packageConfig contains the package configuration.
-	packageConfig *builtins.PackageConfig
+	packageConfig *builtintypes.PackageConfig
 }
 
 func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
@@ -83,11 +83,11 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	if m.isDeployment {
 		// TODO(droot): executing this as mutation is not really needed, but can be
 		// refactored once we finalize the task/mutation/commit model.
-		genPkgContextMutation, err := newPackageContextGeneratorMutation(m.packageConfig)
+		genbuiltinsMutation, err := newPackageContextGeneratorMutation(m.packageConfig)
 		if err != nil {
 			return repository.PackageResources{}, nil, err
 		}
-		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
+		cloned, _, err = genbuiltinsMutation.apply(ctx, cloned)
 		if err != nil {
 			return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "failed to generate deployment context")
 		}
@@ -129,7 +129,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
+	if err := kptops.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to apply upstream lock to package %q: %w", ref.Name, err)
 	}
 
@@ -180,7 +180,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *por
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
+	if err := kptops.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
 			Repo:      lock.Repo,

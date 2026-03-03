@@ -126,7 +126,7 @@ func (b *BasicAuthResolver) Resolve(_ context.Context, secret core.Secret) (repo
 
 type BasicAuthCredential struct {
 	Username string
-	Password string
+	Password string // #nosec G117
 }
 
 func (b *BasicAuthCredential) ToString() string {
@@ -156,7 +156,7 @@ var _ Resolver = &BearerTokenAuthResolver{}
 type BearerTokenAuthResolver struct{}
 
 type BearerTokenAuthCredentials struct {
-	BearerToken string
+	BearerToken string // #nosec G117
 }
 
 func (b *BearerTokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {

@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,12 +26,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	pvsetapi "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
-	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
@@ -76,8 +79,6 @@ type TestSuite struct {
 
 	// Strongly-typed client handy for reading e.g. pod logs
 	KubeClient kubernetes.Interface
-
-	Clientset porchclient.Interface
 
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
@@ -126,12 +127,6 @@ func (t *TestSuite) Initialize() {
 		t.Fatalf("failed to initialize kubernetes clientset: %v", err)
 	} else {
 		t.KubeClient = kubeClient
-	}
-
-	if cs, err := porchclient.NewForConfig(cfg); err != nil {
-		t.Fatalf("Failed to initialize Porch clientset: %v", err)
-	} else {
-		t.Clientset = cs
 	}
 
 	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
@@ -305,15 +300,25 @@ func (t *TestSuite) createOrUpdate(obj client.Object, opts []client.CreateOption
 	t.T().Helper()
 	t.Logf("creating object %v", DebugFormat(obj))
 	start := time.Now()
+	succeededOp := "create"
 	defer func() {
 		t.T().Helper()
-		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
+		t.Logf("took %v to %s %s/%s", time.Since(start), succeededOp, obj.GetNamespace(), obj.GetName())
 	}()
 
+	// For create, object MUST NOT have resourceVersion set.
+	obj.SetResourceVersion("")
 	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			t.Logf("failed to create resource - attempting to update resource %v", DebugFormat(obj))
+			succeededOp = "update"
+			t.Logf("resource already exists - attempting to update resource %v", DebugFormat(obj))
 
+			// For update, object MUST have resourceVersion set - get the
+			// 		existing object first to make sure we have the most
+			// 		up-to-date resourceVersion.
+			upToDateObj := obj.DeepCopyObject().(client.Object)
+			t.Reader.Get(t.GetContext(), client.ObjectKeyFromObject(obj), upToDateObj)
+			obj.SetResourceVersion(upToDateObj.GetResourceVersion())
 			if err := t.Client.Update(t.GetContext(), obj); err != nil {
 				eh("failed to update resource %s: %v", DebugFormat(obj), err)
 			}
@@ -350,16 +355,7 @@ func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.P
 	}
 }
 
-func (t *TestSuite) updateApproval(obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
-	t.T().Helper()
-	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(t.GetContext(), obj.Name, obj, opts); err != nil {
-		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
-		return nil
-	} else {
-		return res
-	}
-}
+
 
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
@@ -396,6 +392,11 @@ func (t *TestSuite) CreateE(obj client.Object, opts ...client.CreateOption) {
 func (t *TestSuite) CreateOrUpdateF(obj client.Object, opts ...client.CreateOption) {
 	t.T().Helper()
 	t.createOrUpdate(obj, opts, t.Fatalf)
+}
+
+func (t *TestSuite) CreateOrUpdateE(obj client.Object, opts ...client.CreateOption) {
+	t.T().Helper()
+	t.createOrUpdate(obj, opts, t.Errorf)
 }
 
 func (t *TestSuite) DeleteF(obj client.Object, opts ...client.DeleteOption) {
@@ -439,14 +440,32 @@ func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client
 	t.patch(obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Logf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Logf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
 }
 
-func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Fatalf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Fatalf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
+}
+
+// UpdateApprovalE returns error for concurrent testing
+func (t *TestSuite) UpdateApprovalE(pr *porchapi.PackageRevision) error {
+	t.T().Helper()
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	prCopy := pr.DeepCopy()
+	return t.Client.SubResource("approval").Update(t.GetContext(), prCopy)
 }
 
 func createClientScheme(t *testing.T) *runtime.Scheme {
@@ -454,6 +473,8 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 
 	for _, api := range (runtime.SchemeBuilder{
 		porchapi.AddToScheme,
+		pvsetapi.AddToScheme,
+		pvapi.AddToScheme,
 		internalapi.AddToScheme,
 		configapi.AddToScheme,
 		coreapi.AddToScheme,
@@ -473,7 +494,7 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 	if !ok {
 		t.Fatalf("Kptfile not found in %s/%s package", resources.Namespace, resources.Name)
 	}
-	kptfile, err := internalpkg.DecodeKptfile(strings.NewReader(contents))
+	kptfile, err := kptfileutil.DecodeKptfile(strings.NewReader(contents))
 	if err != nil {
 		t.Fatalf("Cannot decode Kptfile (%s): %v", contents, err)
 	}
@@ -545,4 +566,48 @@ func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionLi
 	}
 	t.Fatalf("Failed to find package %q", name)
 	return nil
+}
+
+type PackageRevisionStatusCounts struct {
+	Total, Draft, Proposed, Published, DeletionProposed int
+}
+
+func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *PackageRevisionStatusCounts) {
+	t.T().Helper()
+
+	actual := t.CountPackageRevisions()
+
+	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
+	// 		gather as much potentially-useful information as possible
+	assert.Equal(t.T(), expected.Draft, actual.Draft, "Count of Draft PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Proposed, actual.Proposed, "Count of Proposed PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Published, actual.Published, "Count of Published PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.DeletionProposed, actual.DeletionProposed, "Count of DeletionProposed PackageRevisions not as expected")
+
+	// allow it to fail the test case at the end
+	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
+}
+
+func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
+	var packageRevisions porchapi.PackageRevisionList
+	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
+		t.Errorf("error listing package revisions to count: %w", err)
+		return nil
+	}
+
+	counts := &PackageRevisionStatusCounts{}
+	for _, each := range packageRevisions.Items {
+		counts.Total += 1
+		switch each.Spec.Lifecycle {
+		case porchapi.PackageRevisionLifecycleDraft:
+			counts.Draft += 1
+		case porchapi.PackageRevisionLifecycleProposed:
+			counts.Proposed += 1
+		case porchapi.PackageRevisionLifecyclePublished:
+			counts.Published += 1
+		case porchapi.PackageRevisionLifecycleDeletionProposed:
+			counts.DeletionProposed += 1
+		}
+	}
+	return counts
 }

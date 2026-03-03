@@ -50,7 +50,7 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, e
 	`
 
 	klog.V(5).Infof("pkgReadFromDB: running query %q on package %+v", sqlStatement, pk)
-	rows, err := GetDB().db.Query(sqlStatement, pk.K8SNS(), pk.K8SName())
+	rows, err := GetDB().db.Query(ctx, sqlStatement, pk.K8SNS(), pk.K8SName())
 	if err != nil {
 		klog.Warningf("pkgReadFromDB: reading package %+v returned err: %q", pk, err)
 		return nil, err
@@ -106,7 +106,7 @@ func pkgListPkgsFromDB(ctx context.Context, filter repository.ListPackageFilter)
 	`
 
 	klog.V(6).Infof("pkgRevListPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
-	rows, err := GetDB().db.Query(sqlStatement)
+	rows, err := GetDB().db.Query(ctx, sqlStatement)
 	if err != nil {
 		klog.Warningf("pkgRevListPRsFromDB: reading package revision list for filter %+v returned err: %q", filter, err)
 		return nil, err
@@ -140,7 +140,7 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbP
 	`
 
 	klog.V(5).Infof("pkgReadPkgsFromDB: running query %q on packages in repository %+v", sqlStatement, rk)
-	rows, err := GetDB().db.Query(sqlStatement, rk.Namespace, rk.Name)
+	rows, err := GetDB().db.Query(ctx, sqlStatement, rk.Namespace, rk.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func pkgWriteToDB(ctx context.Context, p *dbPackage) error {
 
 	klog.V(6).Infof("pkgWriteToDB: running query %q on package %+v", sqlStatement, p.Key())
 	pk := p.Key()
-	if _, err := GetDB().db.Exec(sqlStatement,
+	if _, err := GetDB().db.Exec(ctx, sqlStatement,
 		pk.K8SNS(), pk.K8SName(),
 		pk.RepoKey.K8SName(), pk.Path, valueAsJSON(p.meta), valueAsJSON(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.V(5).Infof("pkgWriteToDB: query succeeded for %+v", p.Key())
@@ -245,7 +245,7 @@ func pkgUpdateDB(ctx context.Context, p *dbPackage) error {
 
 	klog.V(6).Infof("pkgUpdateDB: running query %q on package %+v", sqlStatement, p.Key())
 	pk := p.Key()
-	result, err := GetDB().db.Exec(
+	result, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		pk.K8SNS(), pk.K8SName(),
 		pk.RepoKey.K8SName(), pk.Path,
@@ -272,7 +272,7 @@ func pkgDeleteFromDB(ctx context.Context, pk repository.PackageKey) error {
 	sqlStatement := `DELETE FROM packages WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.V(6).Infof("pkgDeleteFromDB: DB Connection: running query %q on package %+v", sqlStatement, pk)
-	if _, err := GetDB().db.Exec(sqlStatement, pk.K8SNS(), pk.K8SName()); err == nil {
+	if _, err := GetDB().db.Exec(ctx, sqlStatement, pk.K8SNS(), pk.K8SName()); err == nil {
 		klog.V(5).Infof("pkgDeleteFromDB: query succeeded for %+v", pk)
 		return nil
 	} else {

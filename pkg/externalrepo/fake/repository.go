@@ -94,14 +94,6 @@ func (r *Repository) ListPackages(context.Context, repository.ListPackageFilter)
 	return r.Packages, nil
 }
 
-func (r *Repository) CreatePackage(_ context.Context, pr *porchapi.PorchPackage) (repository.Package, error) {
-	return nil, nil
-}
-
-func (r *Repository) DeletePackage(_ context.Context, pr repository.Package) error {
-	return nil
-}
-
 func (r *Repository) Refresh(_ context.Context) error {
 	return nil
 }

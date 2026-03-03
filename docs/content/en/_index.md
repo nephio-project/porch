@@ -4,8 +4,8 @@ description: Kubernetes-native package orchestration for KRM configuration packa
 menu: {main: {weight: 10}}
 ---
 {{< blocks/cover title="Porch" height="auto">}}
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/1_overview/">
-  Documentation (Under Construction) <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs">
+  Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 <a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/nephio-project/porch">
   GitHub <i class="fab fa-github ms-2 "></i>
@@ -30,7 +30,7 @@ All package changes are committed to Git with full history. Works seamlessly wit
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fas fa-check-circle" title="Approval Workflows" %}}
-Packages move through lifecycle stages (Draft → Proposed → Published) with explicit approval gates to prevent accidental changes.
+Packages move through lifecycle stages (Draft → Proposed → Published → DeletionProposed) with explicit approval gates to prevent accidental changes.
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fas fa-cube" title="Standard kpt Packages" %}}

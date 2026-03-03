@@ -20,9 +20,10 @@ import (
 	"io"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/nephio-project/porch/func/evaluator"
-	"github.com/nephio-project/porch/pkg/kpt"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
@@ -52,6 +53,7 @@ func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
 			grpc.MaxCallRecvMsgSize(options.MaxGrpcMessageSize),
 			grpc.MaxCallSendMsgSize(options.MaxGrpcMessageSize),
 		),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial grpc function evaluator: %w", err)
@@ -63,7 +65,7 @@ func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
 	}, err
 }
 
-var _ kpt.FunctionRuntime = &grpcRuntime{}
+var _ kptops.FunctionRuntime = &grpcRuntime{}
 
 func (gr *grpcRuntime) GetRunner(ctx context.Context, fn *kptfilev1.Function) (fn.FunctionRunner, error) {
 	// TODO: Check if the function is actually available?

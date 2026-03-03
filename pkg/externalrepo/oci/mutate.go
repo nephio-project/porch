@@ -339,11 +339,3 @@ func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repositor
 
 	return nil
 }
-
-func (r *ociRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
-	return nil, fmt.Errorf("CreatePackage not supported for OCI packages")
-}
-
-func (r *ociRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
-	return fmt.Errorf("DeletePackage not supported for OCI packages")
-}

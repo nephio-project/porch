@@ -21,7 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nephio-project/porch/internal/kpt/util/update"
+	"github.com/kptdev/kpt/pkg/lib/update"
+	updatetypes "github.com/kptdev/kpt/pkg/lib/update/updatetypes"
 )
 
 const LocalUpdateDir = "kpt-pkg-update-*"
@@ -73,19 +74,6 @@ func (m *DefaultPackageUpdater) Update(
 	return loadResourcesFromDirectory(localDir)
 }
 
-func getUpdater(strategy string) update.Updater {
-	switch strategy {
-	case "fast-forward":
-		return update.FastForwardUpdater{}
-	case "force-delete-replace":
-		return update.ReplaceUpdater{}
-	case "copy-merge":
-		return update.CopyMergeUpdater{}
-	default:
-		return update.ResourceMergeUpdater{}
-	}
-}
-
 // PkgUpdate is a wrapper around `kpt pkg update`, running it against the package in packageDir
 func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDir, upstreamPkgDir, strategy string) error {
 	relPath := "."
@@ -94,14 +82,14 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 	originPath := filepath.Join(originalPkgDir, relPath)
 	isRoot := true
 
-	updateOptions := update.Options{
+	updateOptions := updatetypes.Options{
 		RelPackagePath: relPath,
 		LocalPath:      localPath,
 		UpdatedPath:    updatedPath,
 		OriginPath:     originPath,
 		IsRoot:         isRoot,
 	}
-	updater := getUpdater(strategy)
+	updater := update.GetUpdater(strategy)
 	if err := updater.Update(updateOptions); err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,10 @@ spec:
         # Update to the image of your porch-controllers build.
         image: docker.io/nephio/porch-controllers:latest
         imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
         # Note: only the existence of the variable matters for enabling the reconciler
         # So, be sure to remove the var not just change the value to false
         env:
@@ -47,6 +51,16 @@ spec:
           value: "true"
         - name: ENABLE_PACKAGEVARIANTSETS
           value: "true"
+        - name: OTEL_SERVICE_NAME
+          value: porch-controllers
+        - name: OTEL_METRICS_EXPORTER
+          value: "prometheus"
+        - name: OTEL_EXPORTER_PROMETHEUS_HOST
+          value: "0.0.0.0"
+        - name: OTEL_EXPORTER_PROMETHEUS_PORT
+          value: "9464" # Default value, showing for visibility
+        - name: OTEL_TRACES_EXPORTER
+          value: none
         livenessProbe:
           failureThreshold: 3
           httpGet:

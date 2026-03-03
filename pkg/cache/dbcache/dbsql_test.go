@@ -14,18 +14,21 @@
 
 package dbcache
 
+import "context"
+
 func (t *DbTestSuite) TestDBSQL() {
 	dbSQL := dbSQL{}
+	ctx := context.Background()
 
 	err := dbSQL.Close()
 	t.Require().ErrorContains(err, "cannot close database, database is not initialized")
 
-	_, err = dbSQL.Exec("")
+	_, err = dbSQL.Exec(ctx, "")
 	t.Require().ErrorContains(err, "cannot execute query on database, database is not initialized")
 
-	_, err = dbSQL.Query("")
+	_, err = dbSQL.Query(ctx, "")
 	t.Require().ErrorContains(err, "cannot query database, database is not initialized")
 
-	nilRow := dbSQL.QueryRow("")
+	nilRow := dbSQL.QueryRow(ctx, "")
 	t.Nil(nilRow)
 }

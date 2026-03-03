@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kptdev/kpt/pkg/lib/options"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +33,7 @@ func setupTestRunner(flags map[string]string, namespace string, client client.Cl
 	return &runner{
 		ctx:     context.Background(),
 		Command: cmd,
-		getFlags: options.Get{
+		getFlags: cmdutil.Options{
 			ConfigFlags: &genericclioptions.ConfigFlags{Namespace: strPtr(namespace)},
 		},
 		printFlags: &get.PrintFlags{
@@ -466,7 +466,7 @@ func TestRunE_ClientCreationFailure(t *testing.T) {
 	// Test the scenario where porch.CreateClientWithFlags fails
 	r := &runner{
 		ctx: context.Background(),
-		getFlags: options.Get{
+		getFlags: cmdutil.Options{
 			ConfigFlags: &genericclioptions.ConfigFlags{
 				KubeConfig: strPtr("/invalid/path/to/kubeconfig"),
 				Namespace:  strPtr("default"),
