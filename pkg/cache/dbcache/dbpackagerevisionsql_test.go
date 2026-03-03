@@ -750,7 +750,7 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 	}
 
 	err = repoDeleteFromDB(t.Context(), upstreamRepo.Key())
-	t.Assert().NoError(err)
+	t.NoError(err)
 	err = repoDeleteFromDB(t.Context(), downstreamRepo.Key())
-	t.Assert().NoError(err)
+	t.NoError(err)
 }

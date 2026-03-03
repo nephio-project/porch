@@ -35,6 +35,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -439,7 +440,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 				addDependent(tt.repo, tt.downstreamPkgName, tt.taskType, tt.upstreamRefName)
 			}
 			dep, err := cache.FindUpstreamDependent(ctx, tt.namespace, tt.upstreamPkgToDelete)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.wantDep, dep)
 		})
 	}

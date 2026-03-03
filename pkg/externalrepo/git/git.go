@@ -573,7 +573,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			return pkgerrors.Is(err, conflictingRequiredRemoteRefError)
 		},
 		func(retryNumber int) error {
-			klog.Infof("Deleting PackageRevision %v try number %d", pr2Delete.Key().K8SName(), retryNumber)
+			klog.Infof("Deleting PackageRevision %q try number %d", pr2Delete.Key().K8SName(), retryNumber)
 
 			if retryNumber > 0 {
 				if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {

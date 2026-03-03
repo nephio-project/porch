@@ -321,9 +321,9 @@ graph TD
 
 **Dependency Considerations:**
 
-- Upstream PackageRevisions with downstream dependents cannot be deleted
-- Delete downstream PackageRevisions first, then their upstream dependencies
-- The error message identifies which dependent is blocking deletion
+- Upstream PackageRevisions cannot be deleted while downstream PackageRevisions exist
+- Delete downstream PackageRevisions first, then you can delete the upstream PackageRevisions
+- The error message identifies which downstream PackageRevision is blocking deletion
 - Consider the impact on deployed workloads
 
 ---
@@ -356,7 +356,7 @@ Error from server (Forbidden): cannot delete package revision, it is an upstream
 ```
 
 - See "Dependency Considerations" in Safety Considerations above
-- Delete the downstream dependent first, then retry
+- Delete the downstream PackageRevision first, then retry
 
 **Deletion proposal stuck:**
 

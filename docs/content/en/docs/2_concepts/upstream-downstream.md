@@ -93,30 +93,28 @@ management through Porch.
 - Customizations in downstream packages are preserved during updates
 - A package can be both upstream (to others) and downstream (from another)
 - PackageVariant automates the upstream → downstream lifecycle
-- **Deletion protection**: Upstream PackageRevisions cannot be deleted while downstream dependents exist
+- **Deletion protection**: Upstream PackageRevisions cannot be deleted while downstream PackageRevisions exist
 
-## Deletion and Dependency Management
+## Deletion Protection
 
-Porch protects upstream PackageRevisions from accidental deletion when downstream packages depend on them:
+Porch prevents deletion of upstream PackageRevisions when downstream PackageRevisions exist.
 
-**Deletion order**: When deleting packages in an upstream-downstream relationship, you must delete in this order:
-1. Delete downstream PackageRevisions first
-2. Then delete the upstream PackageRevision
+**Protection mechanism**: Attempting to delete an upstream PackageRevision with existing downstream PackageRevisions will:
+- Fail with a Forbidden error
+- Identify which downstream PackageRevision blocks the deletion
+- Require deletion of downstream PackageRevisions first
 
-**Automatic protection**: If you attempt to delete an upstream PackageRevision that has downstream dependents, Porch will:
-- Block the deletion with a Forbidden error
-- Identify which downstream PackageRevision is preventing deletion
-- Require you to delete the dependent first
+**Deletion order**: Always delete from downstream to upstream:
+1. Delete all downstream PackageRevisions
+2. Delete the upstream PackageRevision
 
-**Example scenario**:
+**Example**:
 ```
-Upstream repo: nginx-template (v1)
-                    ↓
-Downstream repo: prod-nginx (cloned from nginx-template v1)
+blueprints/nginx-template:v1 (upstream)
+         ↓
+deployments/prod-nginx:v1 (downstream)
 ```
 
-To delete nginx-template v1:
-1. First delete prod-nginx (the downstream dependent)
-2. Then delete nginx-template v1 (the upstream)
+To delete nginx-template:v1, first delete prod-nginx:v1, then delete nginx-template:v1.
 
-This protection ensures you don't accidentally break downstream packages by removing their upstream source.
+This ensures downstream packages don't lose their source reference.
