@@ -21,12 +21,12 @@ import (
 // PackageRevision represents a package revision.
 // In v1alpha2, PackageRevision is a CRD stored in etcd.
 // Use controller-runtime client to access this resource (no code-gen clients).
+// Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:subresource:approval
 // +kubebuilder:resource:path=packagerevisions,singular=packagerevision,shortName=rpkg
 // +kubebuilder:printcolumn:name="Package",type=string,JSONPath=`.spec.packageName`
 // +kubebuilder:printcolumn:name="WorkspaceName",type=string,JSONPath=`.spec.workspaceName`
