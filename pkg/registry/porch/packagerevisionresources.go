@@ -18,11 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -72,7 +71,9 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(3).Infoln("List packageRevisionResources started")
+	ctx = porchcontext.WithNewRequestID(ctx)
+
+	klog.V(3).InfoS("List PackageRevisionResources started", porchcontext.LogMetadataFrom(ctx)...)
 
 	result := &porchapi.PackageRevisionResourcesList{
 		TypeMeta: metav1.TypeMeta{
@@ -97,17 +98,20 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	klog.V(3).Infof("List packageRevisionResources completed: found %d items", len(result.Items))
+	klog.V(3).InfoS("List packageRevisionResources completed",
+		porchcontext.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
 }
 
 // Get implements the Getter interface
-func (r *packageRevisionResources) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(3).Infof("Get packageRevisionResources started: %s", name)
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+
+	klog.V(3).InfoS("Get PackageRevisionResources started", porchcontext.LogMetadataFrom(ctx)...)
 
 	pkg, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -119,7 +123,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 		return nil, err
 	}
 
-	klog.V(3).Infof("Get packageRevisionResources completed: %s", name)
+	klog.V(3).InfoS("Get packageRevisionResources completed", porchcontext.LogMetadataFrom(ctx)...)
 
 	return apiPkgResources, nil
 }
@@ -127,9 +131,12 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc,
+	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update", trace.WithAttributes())
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -176,7 +183,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 			return nil, false, err
 		}
 	}
-	klog.Infof("[API] Update operation started for packageRevisionResources: %s", name)
+	klog.InfoS("[API] Update operation started for PackageRevisionResources", porchcontext.LogMetadataFrom(ctx)...)
 
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
@@ -187,7 +194,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(schema.GroupResource(porchapi.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
+			return nil, false, apierrors.NewNotFound(porchapi.PackageRevisionResourcesGVR.GroupResource(), repositoryID.Name)
 		}
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
@@ -205,7 +212,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
-	klog.Infof("[API] Update operation completed for packageRevisionResources: %s", name)
+	klog.InfoS("[API] Update operation completed for PackageRevisionResources", porchcontext.LogMetadataFrom(ctx)...)
 
 	return created, false, nil
 }
@@ -214,6 +221,8 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	filter, err := parsePackageRevisionResourcesFieldSelector(options)
 	if err != nil {

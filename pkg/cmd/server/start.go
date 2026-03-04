@@ -55,25 +55,33 @@ const (
 
 // PorchServerOptions contains state for master/api server
 type PorchServerOptions struct {
-	RecommendedOptions         *genericoptions.RecommendedOptions
-	CacheDirectory             string
-	CacheType                  string
-	CoreAPIKubeconfigPath      string
-	DbCacheDriver              string
-	DbCacheDataSource          string
-	DefaultImagePrefix         string
-	FunctionRunnerAddress      string
+	RecommendedOptions *genericoptions.RecommendedOptions
+
+	CoreAPIKubeconfigPath string
+
+	CacheDirectory    string
+	CacheType         string
+	DbCacheDriver     string
+	DbCacheDataSource string
+
+	DefaultImagePrefix       string
+	FunctionRunnerAddress    string
+	LocalStandaloneDebugging bool // Enables local standalone running/debugging of the apiserver.
+
 	ListTimeoutPerRepository   time.Duration
-	LocalStandaloneDebugging   bool // Enables local standalone running/debugging of the apiserver.
 	MaxConcurrentLists         int
 	MaxRequestBodySize         int
-	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RetryableGitErrors         []string // Additional retryable git error patterns
-	SharedInformerFactory      informers.SharedInformerFactory
-	StdOut                     io.Writer
-	StdErr                     io.Writer
-	UseUserDefinedCaBundle     bool
+
+	RepoSyncFrequency time.Duration
+
+	SharedInformerFactory informers.SharedInformerFactory
+
+	StdOut io.Writer
+	StdErr io.Writer
+
+	UseUserDefinedCaBundle bool
 }
 
 // NewPorchServerOptions returns a new PorchServerOptions
