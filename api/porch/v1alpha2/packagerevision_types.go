@@ -168,6 +168,56 @@ type PackageRevisionStatus struct {
 	// Deployment is true if this is a deployment package (in a deployment repository).
 	Deployment bool `json:"deployment,omitempty"`
 
-	// Conditions describes the reconciliation state of the object.
+	// PackageConditions are conditions from the Kptfile (package content).
+	// Set by KRM functions, used for ReadinessGates validation.
+	PackageConditions []PackageCondition `json:"packageConditions,omitempty"`
+
+	// Conditions are standard Kubernetes conditions for controller reconciliation state.
+	// Set by Porch controllers (e.g., Rendered, Ready).
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+// PackageCondition describes a condition from the Kptfile (package content).
+// This matches the structure of conditions in Kptfile and is used for ReadinessGates validation.
+type PackageCondition struct {
+	// Type of the condition
+	Type string `json:"type"`
+
+	// Status of the condition (True, False, Unknown)
+	Status PackageConditionStatus `json:"status"`
+
+	// Reason for the condition's last transition
+	Reason string `json:"reason,omitempty"`
+
+	// Message with details about the condition
+	Message string `json:"message,omitempty"`
+}
+
+// PackageConditionStatus represents the status of a package condition
+type PackageConditionStatus string
+
+const (
+	PackageConditionTrue    PackageConditionStatus = "True"
+	PackageConditionFalse   PackageConditionStatus = "False"
+	PackageConditionUnknown PackageConditionStatus = "Unknown"
+)
+
+// Condition types for PackageRevision.Conditions (controller state)
+// Additional condition types may be added in future (e.g., Rendered, Validated, Synced)
+const (
+	// ConditionReady indicates the package is ready for use.
+	// This is a summary condition that aggregates other conditions.
+	ConditionReady = "Ready"
+)
+
+// Condition reasons for PackageRevision.Conditions
+const (
+	// ReasonReady indicates the package is ready
+	ReasonReady = "Ready"
+	
+	// ReasonPending indicates the package is pending some operation
+	ReasonPending = "Pending"
+	
+	// ReasonFailed indicates an operation failed
+	ReasonFailed = "Failed"
+)
