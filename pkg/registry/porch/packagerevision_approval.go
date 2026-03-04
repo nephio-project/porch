@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/util/porchcontext"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,7 +54,7 @@ func (a *packageRevisionApproval) Get(ctx context.Context, name string, _ *metav
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Get", trace.WithAttributes())
 	defer span.End()
 
-	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	pkg, err := a.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -71,7 +71,7 @@ func (a *packageRevisionApproval) Update(ctx context.Context, name string, objIn
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Update", trace.WithAttributes())
 	defer span.End()
 
-	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
+	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	allowCreate := false // do not allow create on update
 	return a.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)

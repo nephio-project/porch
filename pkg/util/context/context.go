@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package porchcontext adds porch context to the incoming request context.
-package porchcontext
+// Package context adds porch context to the incoming request context.
+package context
 
 import (
 	"context"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package porchcontext
+package context
 
 import (
 	"context"
@@ -83,9 +83,34 @@ func TestLogMetadataFrom(t *testing.T) {
 }
 
 func TestLogMetadataFromWithExtras(t *testing.T) {
-	ctx := WithRequestID(context.Background(), uuid.New())
-	got := LogMetadataFromWithExtras(ctx, "key", "value")
-	if len(got) != 4 {
-		t.Errorf("got len %d, want 4", len(got))
+	tests := []struct {
+		name   string
+		ctx    context.Context
+		extras []any
+		want   int
+	}{
+		{"nil context, no extras", nil, nil, 0}, //nolint:SA1012
+		{"empty context, no extras", context.Background(), nil, 0},
+		{"empty context, even extras", context.Background(), []any{"key", "value"}, 2},
+		{"empty context, odd extras", context.Background(), []any{"key"}, 2},
+		{"with requestID, no extras", WithRequestID(context.Background(), uuid.New()), nil, 2},
+		{"with requestID, even extras", WithRequestID(context.Background(), uuid.New()), []any{"key", "value"}, 4},
+		{"with requestID, odd extras", WithRequestID(context.Background(), uuid.New()), []any{"key"}, 4},
+		{"with both, even extras", WithPackageRevision(WithRequestID(context.Background(), uuid.New()), "test-pr"), []any{"key1", "value1", "key2", "value2"}, 8},
+		{"with both, odd extras", WithPackageRevision(WithRequestID(context.Background(), uuid.New()), "test-pr"), []any{"key1", "value1", "key2"}, 8},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LogMetadataFromWithExtras(tt.ctx, tt.extras...)
+			if len(got) != tt.want {
+				t.Errorf("got len %d, want %d", len(got), tt.want)
+			}
+			// Verify odd extras get padded with "<no-value>"
+			if len(tt.extras)%2 != 0 && len(got) > 0 {
+				if got[len(got)-1] != "<no-value>" {
+					t.Errorf("expected last element to be '<no-value>', got %v", got[len(got)-1])
+				}
+			}
+		})
 	}
 }
