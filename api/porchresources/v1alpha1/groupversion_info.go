@@ -12,22 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha2 contains API Schema definitions for the porch v1alpha2 API group.
-// This version introduces PackageRevision as a CRD.
+// Package v1alpha1 contains API Schema definitions for PackageRevisionResources.
+// This is in a separate API group (resources.porch.kpt.dev) from PackageRevision
+// due to Kubernetes routing constraints: kube-apiserver routes entire apiGroup+version
+// to extension apiserver, so CRDs and APIService resources cannot coexist in same group.
 //
-// Note: PackageRevisionResources is in a separate API group (resources.porch.kpt.dev/v1alpha1)
-// due to Kubernetes routing constraints. See api/porchresources/v1alpha1 for PRR types.
-//
-// Note: v1alpha2 types do not have code-gen clients (clientset/listers/informers).
-// Use controller-runtime client to access these resources.
+// PackageRevisionResources must remain in APIService due to size constraints (1-100MB
+// exceeds etcd 8MB limit).
 //
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
 // +k8s:defaulter-gen=TypeMeta
 // +kubebuilder:object:generate=true
-// +groupName=porch.kpt.dev
-package v1alpha2
+// +groupName=resources.porch.kpt.dev
+package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,22 +34,19 @@ import (
 )
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 object:headerFile="../../../scripts/boilerplate.go.txt",year=$YEAR_GEN paths=.
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 crd:crdVersions=v1,headerFile="../../../scripts/boilerplate.yaml.txt",year=$YEAR_GEN output:crd:artifacts:config=. paths=.
-//go:generate sh -c "find . -maxdepth 1 -name 'porch.kpt.dev_*.yaml' ! -name 'porch.kpt.dev_packagerevisions.yaml' -delete"
 
-const GroupName = "porch.kpt.dev"
+const GroupName = "resources.porch.kpt.dev"
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha2"}
+	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder      runtime.SchemeBuilder
 	localSchemeBuilder = &SchemeBuilder
 	AddToScheme        = localSchemeBuilder.AddToScheme
 
-	PackageRevisionGVR = SchemeGroupVersion.WithResource("packagerevisions")
-	// PackageRevisionResourcesGVR moved to api/porchresources/v1alpha1 (resources.porch.kpt.dev)
+	PackageRevisionResourcesGVR = SchemeGroupVersion.WithResource("packagerevisionresources")
 )
 
 func init() {
@@ -61,9 +56,8 @@ func init() {
 // addKnownTypes adds the list of known types to the given scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&PackageRevision{},
-		&PackageRevisionList{},
-		// PackageRevisionResources moved to resources.porch.kpt.dev/v1alpha1
+		&PackageRevisionResources{},
+		&PackageRevisionResourcesList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

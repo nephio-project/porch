@@ -58,6 +58,7 @@ spec:
           PackageRevision represents a package revision.
           In v1alpha2, PackageRevision is a CRD stored in etcd.
           Use controller-runtime client to access this resource (no code-gen clients).
+          Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
         properties:
           apiVersion:
             description: |-

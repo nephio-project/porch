@@ -15,19 +15,10 @@
 package v1alpha2
 
 import (
-	"unsafe"
-
 	porch "github.com/nephio-project/porch/api/porch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 )
-
-// Convert_porch_PackageRevisionResourcesSpec_To_v1alpha2_PackageRevisionResourcesSpec
-// drops fields that don't exist in v1alpha2 (PackageName, WorkspaceName, Revision, RepositoryName)
-func Convert_porch_PackageRevisionResourcesSpec_To_v1alpha2_PackageRevisionResourcesSpec(in *porch.PackageRevisionResourcesSpec, out *PackageRevisionResourcesSpec, s conversion.Scope) error {
-	out.Resources = *(*map[string]string)(unsafe.Pointer(&in.Resources))
-	return nil
-}
 
 // Convert_porch_PackageRevisionSpec_To_v1alpha2_PackageRevisionSpec
 // drops the Parent field that doesn't exist in v1alpha2
