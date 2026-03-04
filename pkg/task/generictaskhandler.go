@@ -221,7 +221,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		if err != nil {
 			return renderStatus, &RenderPersistError{RenderErr: rendErr, PersistErr: err}
 		}
-		return renderStatus, rendErr
+		return renderStatus, &RenderError{Err: rendErr}
 	}
 
 	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})

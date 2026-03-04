@@ -16,6 +16,14 @@ package task
 
 import "fmt"
 
+// RenderError indicates that the kpt render step itself failed.
+// The draft may still contain valid (unrendered or partially-rendered) resources.
+type RenderError struct {
+	Err error
+}
+
+func (e *RenderError) Error() string { return e.Err.Error() }
+
 // RenderPersistError indicates that rendering failed and the subsequent attempt
 // to persist the (partially-rendered) resources to the draft also failed.
 // Callers should NOT push the draft to the remote when this error is returned,

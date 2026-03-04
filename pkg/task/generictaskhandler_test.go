@@ -277,7 +277,7 @@ metadata:
   name: test-pkg
 pipeline:
   mutators:
-    - image: nonexistent-fn:v0.0.1
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
 `
 		draft := &fakeextrepo.FakePackageRevision{
 			Resources: &porchapi.PackageRevisionResources{
@@ -299,6 +299,9 @@ pipeline:
 		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
 		require.Error(t, err)
 		assert.NotNil(t, renderStatus)
+		// Should return a typed RenderError
+		var renderError *RenderError
+		require.True(t, errors.As(err, &renderError))
 		// Verify resources were written to draft despite render failure
 		require.Contains(t, draft.Ops, "UpdateResources")
 		assert.Contains(t, draft.Resources.Spec.Resources, "configmap.yaml")
@@ -311,7 +314,7 @@ metadata:
   name: test-pkg
 pipeline:
   mutators:
-    - image: nonexistent-fn:v0.0.1
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
 `
 		draft := &fakeextrepo.FakePackageRevision{
 			Err: fmt.Errorf("draft update failed"),
@@ -548,4 +551,3 @@ func TestApplyMapMetadata(t *testing.T) {
 		})
 	}
 }
-

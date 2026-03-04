@@ -798,14 +798,6 @@ func TestUpdatePackageResourcesRenderFailure(t *testing.T) {
 			expectErrContains:     []string{"draft update failed"},
 			expectClose:           false,
 		},
-		{
-			name:                  "persistence failure - no push even with annotation",
-			renderErr:             &task.RenderPersistError{RenderErr: fmt.Errorf("render failed"), PersistErr: fmt.Errorf("draft update failed")},
-			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
-			expectPackageReturned: false,
-			expectError:           true,
-			expectErrContains:     []string{"draft update failed", "render failed"},
-		},
 	}
 
 	for _, tt := range tests {

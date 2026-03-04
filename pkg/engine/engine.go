@@ -518,15 +518,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	renderStatus, renderErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
 
 	if renderErr != nil {
-		// If persistence failed after render, never push — draft contents are stale.
-		var persistErr *task.RenderPersistError
-		if errors.As(renderErr, &persistErr) {
-			return nil, renderStatus, renderErr
-		}
-
-		if !rev.IsPushOnRenderFailure() {
-			return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
-				"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+		if result, status, err := handleMutationError(renderErr, renderStatus, rev); err != nil {
+			return result, status, err
 		}
 	}
 
@@ -549,8 +542,28 @@ func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Contex
 	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
 }
 
-func shouldPushOnRenderFailure(rev *porchapi.PackageRevision) bool {
-	ann := rev.GetAnnotations()
-	v, ok := ann[porchapi.PushOnRenderFailureAnnotation]
-	return ok && v == "true"
+// handleMutationError decides whether to bail out or allow push-on-render-failure.
+// Returns a non-nil error to signal the caller should return immediately.
+// Returns a nil error to signal the caller should proceed to close the draft.
+func handleMutationError(renderErr error, renderStatus *porchapi.RenderStatus, rev *porchapi.PackageRevision) (repository.PackageRevision, *porchapi.RenderStatus, error) {
+	// If persistence failed after render, never push — draft contents are stale.
+	var persistErr *task.RenderPersistError
+	if errors.As(renderErr, &persistErr) {
+		return nil, renderStatus, renderErr
+	}
+
+	// Only apply push-on-render-failure for actual render errors.
+	// For any other error (e.g. draft.UpdateResources failure when render succeeded),
+	// never push — the draft contents may be stale.
+	var renderError *task.RenderError
+	if !errors.As(renderErr, &renderError) {
+		return nil, renderStatus, renderErr
+	}
+
+	if !rev.IsPushOnRenderFailure() {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+	}
+
+	return nil, renderStatus, nil
 }

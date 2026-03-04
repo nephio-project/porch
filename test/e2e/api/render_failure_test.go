@@ -18,7 +18,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/test/e2e/suiteutils"
-	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,8 +38,7 @@ func (t *PorchSuite) TestRenderFailureNoPush() {
 	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Get resources and add a broken mutator
-	var resources porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &resources)
+	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
 	resources.Spec.Resources["configmap.yaml"] = `apiVersion: v1
 kind: ConfigMap
@@ -48,18 +47,17 @@ metadata:
 data:
   key: before-render
 `
-	t.AddMutator(&resources, "quay.io/invalid/nonexistent-fn:v0.0.1")
+	t.AddMutator(resources, "quay.io/invalid/nonexistent-fn:v0.0.1")
 
 	// Update should fail
-	err := t.Client.Update(t.GetContext(), &resources)
-	assert.Error(t, err, "expected render failure error")
-	assert.Contains(t, err.Error(), "error rendering package in kpt function pipeline")
+	err := t.Client.Update(t.GetContext(), resources)
+	t.Require().ErrorContains(err, "error rendering package in kpt function pipeline")
 
 	// Re-fetch resources — the broken mutator and configmap should NOT be persisted
 	var refetched porchapi.PackageRevisionResources
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &refetched)
 	_, hasConfigMap := refetched.Spec.Resources["configmap.yaml"]
-	assert.False(t, hasConfigMap, "configmap should not be persisted when push-on-render-failure is not set")
+	t.False(hasConfigMap, "configmap should not be persisted when push-on-render-failure is not set")
 }
 
 // TestRenderFailureWithPushAnnotation verifies that when rendering fails but
@@ -85,8 +83,7 @@ func (t *PorchSuite) TestRenderFailureWithPushAnnotation() {
 	t.UpdateF(pr)
 
 	// Get resources and add a broken mutator
-	var resources porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &resources)
+	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
 	resources.Spec.Resources["configmap.yaml"] = `apiVersion: v1
 kind: ConfigMap
@@ -95,21 +92,20 @@ metadata:
 data:
   key: before-render
 `
-	t.AddMutator(&resources, "quay.io/invalid/nonexistent-fn:v0.0.1")
+	t.AddMutator(resources, "quay.io/invalid/nonexistent-fn:v0.0.1")
 
 	// Update returns an error (render failed) but resources should be pushed
-	err := t.Client.Update(t.GetContext(), &resources)
-	assert.Error(t, err, "expected render failure error")
+	err := t.Client.Update(t.GetContext(), resources)
+	t.Require().Error(err, "expected render failure error")
 
 	// Re-fetch resources — they should be persisted (unrendered, since no save-on-render-failure in Kptfile)
 	var refetched porchapi.PackageRevisionResources
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &refetched)
 	cm, hasConfigMap := refetched.Spec.Resources["configmap.yaml"]
-	assert.True(t, hasConfigMap, "configmap should be persisted when push-on-render-failure annotation is set")
+	t.True(hasConfigMap, "configmap should be persisted when push-on-render-failure annotation is set")
 
 	// Verify the content is the original unrendered resource
-	assert.Contains(t, cm, "key: before-render",
-		"configmap should contain original unrendered content")
+	t.Contains(cm, "key: before-render", "configmap should contain original unrendered content")
 }
 
 // TestRenderFailureWithSaveAndPushAnnotations verifies the combination of both
@@ -135,10 +131,9 @@ func (t *PorchSuite) TestRenderFailureWithSaveAndPushAnnotations() {
 	t.UpdateF(pr)
 
 	// Get resources and set save-on-render-failure annotation in Kptfile
-	var resources porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &resources)
+	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-	kptfile := t.ParseKptfileF(&resources)
+	kptfile := t.ParseKptfileF(resources)
 	if kptfile.Annotations == nil {
 		kptfile.Annotations = make(map[string]string)
 	}
@@ -160,7 +155,7 @@ func (t *PorchSuite) TestRenderFailureWithSaveAndPushAnnotations() {
 			Image: "quay.io/invalid/nonexistent-fn:v0.0.1",
 		},
 	)
-	t.SaveKptfileF(&resources, kptfile)
+	t.SaveKptfileF(resources, kptfile)
 
 	resources.Spec.Resources["configmap.yaml"] = `apiVersion: v1
 kind: ConfigMap
@@ -171,21 +166,19 @@ data:
 `
 
 	// Update returns an error but partially-rendered resources should be pushed
-	err := t.Client.Update(t.GetContext(), &resources)
-	assert.Error(t, err, "expected render failure error")
+	err := t.Client.Update(t.GetContext(), resources)
+	t.Require().Error(err, "expected render failure error")
 
 	// Re-fetch resources - they should be persisted with partial rendering
 	var refetched porchapi.PackageRevisionResources
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &refetched)
 	cm, hasConfigMap := refetched.Spec.Resources["configmap.yaml"]
-	assert.True(t, hasConfigMap, "configmap should be persisted with save-on-render-failure and push-on-render-failure")
+	t.True(hasConfigMap, "configmap should be persisted with save-on-render-failure and push-on-render-failure")
 
 	// Verify partial rendering — the working set-annotations mutator should have run
-	assert.Contains(t, cm, "render-test: partial",
-		"configmap should have annotation from the working mutator (partial render)")
+	t.Contains(cm, "render-test: partial", "configmap should have annotation from the working mutator (partial render)")
 
 	// Verify the Kptfile still has the save-on-render-failure annotation
 	refetchedKptfile := t.ParseKptfileF(&refetched)
-	assert.Equal(t, "true", refetchedKptfile.Annotations[kptfilev1.SaveOnRenderFailureAnnotation],
-		"save-on-render-failure annotation should be preserved")
+	t.Equal("true", refetchedKptfile.Annotations[kptfilev1.SaveOnRenderFailureAnnotation], "save-on-render-failure annotation should be preserved")
 }
