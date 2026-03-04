@@ -10,15 +10,11 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License
+// limitations under the License.
 
 package v1alpha2
 
-import (
-	"slices"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+import "slices"
 
 func (pr *PackageRevision) IsPublished() bool {
 	return LifecycleIsPublished(pr.Spec.Lifecycle)
@@ -41,10 +37,10 @@ func (l *PackageRevisionLifecycle) IsValid() bool {
 }
 
 // PackageRevisionIsReady checks if the package has met all readiness gates
-func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []metav1.Condition) bool {
-	// Index our conditions
-	conds := make(map[string]metav1.Condition)
-	for _, c := range conditions {
+func PackageRevisionIsReady(readinessGates []ReadinessGate, packageConditions []PackageCondition) bool {
+	// Index our package conditions
+	conds := make(map[string]PackageCondition)
+	for _, c := range packageConditions {
 		conds[c.Type] = c
 	}
 
@@ -53,7 +49,7 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []metav1.
 		if _, ok := conds[g.ConditionType]; !ok {
 			return false
 		}
-		if conds[g.ConditionType].Status != metav1.ConditionTrue {
+		if conds[g.ConditionType].Status != PackageConditionTrue {
 			return false
 		}
 	}
