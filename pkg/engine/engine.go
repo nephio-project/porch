@@ -26,7 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
 	"github.com/nephio-project/porch/pkg/util"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	"github.com/nephio-project/porch/pkg/util/porchcontext"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -475,7 +475,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 
 	klog.InfoS("[CaD Engine] Processing resource updates for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision:",
+		klog.V(3).InfoS("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision",
 			porchcontext.LogMetadataFrom(ctx)...)
 	}()
 

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	"github.com/nephio-project/porch/pkg/util/porchcontext"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

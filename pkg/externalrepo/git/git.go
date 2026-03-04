@@ -41,7 +41,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	"github.com/nephio-project/porch/pkg/util/porchcontext"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"

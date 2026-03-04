@@ -28,7 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	"github.com/nephio-project/porch/pkg/util/porchcontext"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

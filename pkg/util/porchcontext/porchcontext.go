@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package context
+// Package porchcontext adds porch context to the incoming request context.
+package porchcontext
 
 import (
 	"context"
@@ -67,8 +68,12 @@ func WithNewRequestIDAndPackageRevision(ctx context.Context, prName string) cont
 func LogMetadataFrom(ctx context.Context) []any {
 	var output []any
 
-	if reqId := ctx.Value(requestIDKey); reqId != nil {
-		output = append(output, string(requestIDKey), reqId.(uuid.UUID).String())
+	if ctx == nil {
+		return output
+	}
+
+	if reqID := ctx.Value(requestIDKey); reqID != nil {
+		output = append(output, string(requestIDKey), reqID.(uuid.UUID).String())
 	}
 
 	if prName := ctx.Value(packageRevisionKey); prName != nil {

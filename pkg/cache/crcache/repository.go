@@ -26,7 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	"github.com/nephio-project/porch/pkg/util/porchcontext"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -214,9 +214,9 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 }
 
 func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
-	klog.InfoS("[CR Cache] Creating draft and preparing to save to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+	klog.InfoS("[CR Cache] Creating draft and preparing to save to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CR Cache] Draft created and saved to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+		klog.V(3).InfoS("[CR Cache] Draft created and saved to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	return r.repo.CreatePackageRevisionDraft(ctx, obj)
@@ -226,9 +226,9 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	klog.InfoS("[CR Cache] Closing draft and pushing lifecycle change to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+	klog.InfoS("[CR Cache] Closing draft and pushing lifecycle change to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CR Cache] Draft closed and lifecycle change pushed to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+		klog.V(3).InfoS("[CR Cache] Draft closed and lifecycle change pushed to Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	v, err := r.Version(ctx)
@@ -297,9 +297,9 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
-	klog.InfoS("[CR Cache] Loading draft for update from Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+	klog.InfoS("[CR Cache] Loading draft for update from Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CR Cache] Draft loaded and ready for modifications for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+		klog.V(3).InfoS("[CR Cache] Draft loaded and ready for modifications for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	// Unwrap
@@ -419,9 +419,9 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	// terminating state.
 	// But we only delete the PackageRevision from the repo once all finalizers
 	// have been removed.
-	klog.InfoS("[CR Cache] Deleting PackageRev CR from etcd and branch from Git for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+	klog.InfoS("[CR Cache] Deleting PackageRev CR from etcd and branch from Git for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CR Cache] PackageRev CR and Git branch deleted for PackageRevision", porchcontext.LogMetadataFrom(ctx))
+		klog.V(3).InfoS("[CR Cache] PackageRev CR and Git branch deleted for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
 	}()
 
 	namespacedName := types.NamespacedName{
