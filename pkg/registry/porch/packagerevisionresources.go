@@ -68,7 +68,7 @@ func (r *packageRevisionResources) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisionResources) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
 	ctx = porchcontext.WithNewRequestID(ctx)
@@ -98,7 +98,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	klog.V(3).InfoS("List packageRevisionResources completed",
+	klog.V(3).InfoS("List PackageRevisionResources completed",
 		porchcontext.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
@@ -106,7 +106,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 
 // Get implements the Getter interface
 func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
 
 	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -123,7 +123,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 		return nil, err
 	}
 
-	klog.V(3).InfoS("Get packageRevisionResources completed", porchcontext.LogMetadataFrom(ctx)...)
+	klog.V(3).InfoS("Get PackageRevisionResources completed", porchcontext.LogMetadataFrom(ctx)...)
 
 	return apiPkgResources, nil
 }
@@ -133,7 +133,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 // to true.
 func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::Update", trace.WithAttributes())
 	defer span.End()
 
 	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)

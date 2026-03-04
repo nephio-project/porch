@@ -72,17 +72,21 @@ func LogMetadataFrom(ctx context.Context) []any {
 		return output
 	}
 
-	if reqID := ctx.Value(requestIDKey); reqID != nil {
-		output = append(output, string(requestIDKey), reqID.(uuid.UUID).String())
+	if reqID := GetRequestID(ctx); reqID != uuid.Nil {
+		output = append(output, string(requestIDKey), reqID.String())
 	}
 
-	if prName := ctx.Value(packageRevisionKey); prName != nil {
-		output = append(output, string(packageRevisionKey), prName.(string))
+	if prName := GetPackageRevision(ctx); prName != EmptyPRName {
+		output = append(output, string(packageRevisionKey), prName)
 	}
 
 	return output
 }
 
 func LogMetadataFromWithExtras(ctx context.Context, extras ...any) []any {
+	if len(extras)%2 != 0 {
+		extras = append(extras, "<no-value>")
+	}
+
 	return append(LogMetadataFrom(ctx), extras...)
 }
