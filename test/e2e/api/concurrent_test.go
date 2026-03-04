@@ -179,7 +179,7 @@ func (t *PorchSuite) TestConcurrentResourceUpdates() {
 
 	// "Update" the package resources with two clients at the same time
 	updateFunction := func() any {
-		return t.Client.Update(t.GetContext(), &newPackageResources)
+		return t.Client.Update(t.GetContext(), newPackageResources.DeepCopy())
 	}
 	results := suiteutils.RunInParallel(updateFunction, updateFunction)
 	t.assertConcurrentResults(results, "resource update")
@@ -207,7 +207,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove() {
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	proposeFunction := func() any {
-		return t.Client.Update(t.GetContext(), &pkg)
+		return t.Client.Update(t.GetContext(), pkg.DeepCopy())
 	}
 	proposeResults := suiteutils.RunInParallel(proposeFunction, proposeFunction)
 	t.assertConcurrentResults(proposeResults, "propose")
@@ -221,8 +221,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove() {
 	// Approve the package
 	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	approveFunction := func() any {
-		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(proposed.Namespace).UpdateApproval(t.GetContext(), proposed.Name, &proposed, metav1.UpdateOptions{})
-		return err
+		return t.UpdateApprovalE(&proposed)
 	}
 	approveResults := suiteutils.RunInParallel(approveFunction, approveFunction)
 	t.assertConcurrentResults(approveResults, "approve")
@@ -290,8 +289,7 @@ func (t *PorchSuite) TestConcurrentProposeDeletes() {
 	// Propose deletion with two clients at once
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	proposeDeleteFunction := func() any {
-		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(t.GetContext(), pkg.Name, &pkg, metav1.UpdateOptions{})
-		return err
+		return t.UpdateApprovalE(&pkg)
 	}
 	proposeDeleteResults := suiteutils.RunInParallel(proposeDeleteFunction, proposeDeleteFunction)
 	t.assertConcurrentResults(proposeDeleteResults, "propose-delete")
@@ -336,7 +334,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 
 	// Two clients at the same time try to update the downstream package
 	updateFunction := func() any {
-		return t.Client.Update(t.GetContext(), pr)
+		return t.Client.Update(t.GetContext(), pr.DeepCopy())
 	}
 	results := suiteutils.RunInParallel(updateFunction, updateFunction)
 	t.assertConcurrentResults(results, "package update")
@@ -355,5 +353,5 @@ func (t *PorchSuite) proposeAndApprovePackage(pr *porchapi.PackageRevision) {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 }

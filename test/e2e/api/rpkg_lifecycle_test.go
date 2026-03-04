@@ -116,7 +116,7 @@ func (t *PorchSuite) runLifecycleTest(tc LifecycleTestCase) {
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 		t.UpdateF(pr)
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-		pr = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+		pr = t.UpdateApprovalF(pr)
 	case porchapi.PackageRevisionLifecycleProposed:
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 		t.UpdateF(pr)
@@ -133,7 +133,7 @@ func (t *PorchSuite) runLifecycleTest(tc LifecycleTestCase) {
 	if tc.ShouldDelete {
 		if tc.TargetState == porchapi.PackageRevisionLifecyclePublished {
 			pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+			t.UpdateApprovalF(pr)
 		}
 		t.DeleteE(&porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +167,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	t.UpdateF(&pkg)
 
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pkg)
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	_ = t.WaitUntilPackageRevisionExists(repository, packageName, -1)
@@ -180,11 +180,11 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 		t.Run(fmt.Sprintf("revision %d", pkgRev.Spec.Revision), func() {
 			// Propose deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev)
 
 			// Undo proposal of deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev)
 
 			// Try to delete the package. This should fail because the lifecycle should be changed back to Published.
 			t.DeleteL(&porchapi.PackageRevision{
@@ -197,7 +197,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 
 			// Propose deletion and then delete the package
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev)
 
 			t.DeleteE(&porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
@@ -235,7 +235,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 
 	t.Log("Approve the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pkg)
 
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
@@ -243,7 +243,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 
 	t.Log("Propose deletion and then delete the package with revision v1")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pkg)
 
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -255,7 +255,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 
 	t.Log("Propose deletion and then delete the package with revision main")
 	mainPkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(mainPkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(mainPkg)
 
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -307,7 +307,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	t.UpdateF(&pkgFirst)
 
 	pkgFirst.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pkgFirst, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pkgFirst)
 
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
 
@@ -323,7 +323,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	t.UpdateF(&pkgSecond)
 
 	pkgSecond.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pkgSecond, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pkgSecond)
 
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
 
@@ -333,9 +333,9 @@ func (t *PorchSuite) TestDeleteFromMain() {
 
 	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(firstPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(firstPkgRevFromMain)
 	secondPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(secondPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(secondPkgRevFromMain)
 
 	t.Log("Delete the first package revision from main")
 	t.DeleteE(&porchapi.PackageRevision{
@@ -359,7 +359,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	for _, pkgrev := range list.Items {
 		t.Logf("Propose deletion and delete package revision: %s", pkgrev.Name)
 		pkgrev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-		t.UpdateApprovalF(&pkgrev, metav1.UpdateOptions{})
+		t.UpdateApprovalF(&pkgrev)
 		t.DeleteE(&porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: t.Namespace,
@@ -549,5 +549,5 @@ func (t *PorchSuite) proposeAndPublish(pkg *porchapi.PackageRevision) *porchapi.
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pkg)
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	return t.UpdateApprovalF(pkg, metav1.UpdateOptions{})
+	return t.UpdateApprovalF(pkg)
 }

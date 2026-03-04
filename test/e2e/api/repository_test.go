@@ -83,7 +83,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 
 	// Unregister and re-register the same repo to mock an exisiting repo
 	// which contains a release tag and a directory

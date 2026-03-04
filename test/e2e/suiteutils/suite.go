@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
-	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
@@ -81,8 +80,6 @@ type TestSuite struct {
 	// Strongly-typed client handy for reading e.g. pod logs
 	KubeClient kubernetes.Interface
 
-	Clientset porchclient.Interface
-
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
 	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
@@ -131,12 +128,6 @@ func (t *TestSuite) Initialize() {
 		t.Fatalf("failed to initialize kubernetes clientset: %v", err)
 	} else {
 		t.KubeClient = kubeClient
-	}
-
-	if cs, err := porchclient.NewForConfig(cfg); err != nil {
-		t.Fatalf("Failed to initialize Porch clientset: %v", err)
-	} else {
-		t.Clientset = cs
 	}
 
 	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
@@ -386,16 +377,7 @@ func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.P
 	}
 }
 
-func (t *TestSuite) updateApproval(obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
-	t.T().Helper()
-	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(t.GetContext(), obj.Name, obj, opts); err != nil {
-		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
-		return nil
-	} else {
-		return res
-	}
-}
+
 
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
@@ -480,14 +462,32 @@ func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client
 	t.patch(obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Logf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Logf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
 }
 
-func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Fatalf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Fatalf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
+}
+
+// UpdateApprovalE returns error for concurrent testing
+func (t *TestSuite) UpdateApprovalE(pr *porchapi.PackageRevision) error {
+	t.T().Helper()
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	prCopy := pr.DeepCopy()
+	return t.Client.SubResource("approval").Update(t.GetContext(), prCopy)
 }
 
 func createClientScheme(t *testing.T) *runtime.Scheme {
