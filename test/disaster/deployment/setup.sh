@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Stricter error handling
-set -e # Exit on error
-set -u # Must predefine variables
-set -o pipefail # Check errors in piped commands
+# Stricter error handling:
+#   - Exit on error
+#   - Require predefined variables
+#   - Check errors in piped commands
+set -euo pipefail
 
 PORCH_DIR="$(git rev-parse --show-toplevel)"
 self_dir="$(dirname "$(readlink -f "$0")")"
