@@ -28,7 +28,6 @@ func (s ShellRunner) RunCommandLine(command string, args ...string) error {
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
-	cmd.Env = append(os.Environ(), "DOCKER_TLS_VERIFY=1", "DOCKER_CERT_PATH=/etc/docker/certs")
 
 	if err := cmd.Start(); err != nil {
 		return err
@@ -44,7 +43,6 @@ func (s ShellRunner) RunCommandLineIntoFile(file string, command string, args ..
 
 	os.Setenv("PATH", os.Getenv("PATH")+":"+s.PorchRoot+"/.build/")
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "DOCKER_TLS_VERIFY=1", "DOCKER_CERT_PATH=/etc/docker/certs")
 
 	outfile, err := os.Create(file)
 	if err != nil {
@@ -65,9 +63,9 @@ func (s ShellRunner) RunCommandLineIntoFile(file string, command string, args ..
 }
 
 func (s ShellRunner) RunCommandLineFedFromFile(file string, command string, args ...string) error {
+
 	os.Setenv("PATH", os.Getenv("PATH")+":"+s.PorchRoot+"/.build/")
 	cmd := exec.Command(command, args...)
-	cmd.Env = append(os.Environ(), "DOCKER_TLS_VERIFY=1", "DOCKER_CERT_PATH=/etc/docker/certs")
 
 	infile, err := os.Open(file)
 	if err != nil {

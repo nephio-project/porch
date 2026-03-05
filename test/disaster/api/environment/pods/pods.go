@@ -87,7 +87,7 @@ func RestartAllPorchPods(t *suiteutils.MultiClusterTestSuite) {
 	for event := range watcher.ResultChan() {
 		p, ok := event.Object.(*corev1.Pod)
 		if !ok {
-			t.Logf("unexpected type")
+			t.Logf("Got unexpected type watching porch-server pod")
 		}
 		if len(p.Status.ContainerStatuses) > 0 && p.Status.ContainerStatuses[0].Ready == true {
 			watcher.Stop()

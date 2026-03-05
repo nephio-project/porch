@@ -19,7 +19,7 @@ dbcache_kubeconfig_file="$self_dir/kubeconfigs/porch_dbcache.conf"
 
 export logs_dir='/tmp/disaster-test-logs_'$$
 mkdir -p "$logs_dir"
-trap 'set -x; cleanUpLogs' EXIT
+trap 'cleanUpLogs' EXIT
 function cleanUpLogs() {
     h1 "Clean up log pipes..."
     rm -frv "$logs_dir"

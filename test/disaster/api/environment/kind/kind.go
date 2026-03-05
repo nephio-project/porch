@@ -52,23 +52,19 @@ func Reinstall(t *suiteutils.MultiClusterTestSuite) {
 	if err := installPorchDBCache(t); err != nil {
 		t.Fatalf("error reinstalling Porch cluster %q: error deploying Porch: %w", dbCacheCluster, err.Error())
 	}
-	// UseCRCacheCluster(t)
-	// if err := installPorchCRCache(t); err != nil {
-	// 	t.Fatalf("error reinstalling Porch cluster %q: error deploying Porch: %w", crCacheCluster, err.Error())
-	// }
 }
 
-func UseDataCluster(t *suiteutils.MultiClusterTestSuite) {
+func UseDataCluster(t *suiteutils.MultiClusterTestSuite) error {
 	t.T().Helper()
 
 	t.Logf("Switching kubeconfig to data cluster")
-	t.UseKubeconfigFile(dataClusterKubeconfigFile)
+	return t.UseKubeconfigFile(dataClusterKubeconfigFile)
 }
-func UseDBCacheCluster(t *suiteutils.MultiClusterTestSuite) {
+func UseDBCacheCluster(t *suiteutils.MultiClusterTestSuite) error {
 	t.T().Helper()
 
 	t.Logf("Switching kubeconfig to Porch cluster with DB cache")
-	t.UseKubeconfigFile(dbCacheKubeconfigFile)
+	return t.UseKubeconfigFile(dbCacheKubeconfigFile)
 }
 
 func deleteCluster(t *suiteutils.MultiClusterTestSuite, clusterName string) error {

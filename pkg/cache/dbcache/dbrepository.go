@@ -29,6 +29,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -137,6 +138,13 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 	ctx, span := tracer.Start(ctx, "dbRepository::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(3).InfoS("[DB Cache] Retrieving PackageRevisions from database for repository",
+		context1.LogMetadataFromWithExtras(ctx, "repository", r.Key())...)
+	defer func() {
+		klog.V(3).InfoS("[DB Cache] Completed retrieving PackageRevisions from database for repository",
+			context1.LogMetadataFromWithExtras(ctx, "repository", r.Key())...)
+	}()
+
 	klog.V(5).Infof("ListPackageRevisions: listing package revisions in repository %+v with filter %+v", r.Key(), filter)
 
 	filter.Key.PkgKey.RepoKey = r.Key()
@@ -148,6 +156,10 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 
 	genericPkgRevs := make([]repository.PackageRevision, len(foundPkgRevs))
 	for i, pkgRev := range foundPkgRevs {
+		if pkgRev.repo == nil {
+			klog.V(4).Infof("ListPackageRevisions: skipping package revision %+v with nil repository", pkgRev.Key())
+			continue
+		}
 		genericPkgRev := repository.PackageRevision(pkgRev)
 		if filter.MatchesLabels(ctx, genericPkgRev) {
 			genericPkgRevs[i] = genericPkgRev
@@ -165,6 +177,13 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ctx, span := tracer.Start(ctx, "dbRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
+
+	klog.InfoS("[DB Cache] Creating database entry for draft object for PackageRevision",
+		context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[DB Cache] Database entry for draft object created for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+	}()
 
 	klog.V(5).Infof("dbRepository:CreatePackageRevisionDraft: creating draft for %+v on repo %+v", newPR, r.Key())
 
@@ -209,6 +228,24 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repository.PackageRevision) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
+
+	// Only published packages are deleted from external repo
+	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
+	if porchapi.LifecycleIsPublished(pr2Delete.Lifecycle(context.Background())) {
+		klog.InfoS("[DB Cache] Deleting PackageRevision from database and external repo for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] PackageRevision deleted from database and external repo for PackageRevision",
+				context1.LogMetadataFrom(ctx)...)
+		}()
+	} else {
+		klog.InfoS("[DB Cache] Deleting PackageRevision from database for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] PackageRevision deleted from database for PackageRevision",
+				context1.LogMetadataFrom(ctx)...)
+		}()
+	}
 
 	if len(pr2Delete.GetMeta().Finalizers) > 0 {
 		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion ordered on package revision %+v on repo %+v, but finalizers %+v exist", pr2Delete.Key(), r.Key(), pr2Delete.GetMeta().Finalizers)
@@ -266,6 +303,13 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	ctx, span := tracer.Start(ctx, "dbRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	klog.InfoS("[DB Cache] Loading draft from database for update for PackageRevision",
+		context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[DB Cache] Draft loaded from database and ready for modifications for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+	}()
+
 	klog.V(5).Infof("dbRepository:UpdatePackageRevision: updating package revision %+v on repo %+v", updatePR.Key(), r.Key())
 
 	updatePkgRev, ok := updatePR.(*dbPackageRevision)
@@ -316,6 +360,13 @@ func (r *dbRepository) Version(ctx context.Context) (string, error) {
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
+
+	klog.InfoS("[DB Cache] Saving PackageRevision to database for PackageRevision",
+		context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[DB Cache] PackageRevision saved to database for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+	}()
 
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
 

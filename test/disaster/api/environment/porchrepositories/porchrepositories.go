@@ -34,7 +34,7 @@ func Backup(t *suiteutils.MultiClusterTestSuite) *configapi.RepositoryList {
 func Restore(t *suiteutils.MultiClusterTestSuite, repos *configapi.RepositoryList, batchSize int) {
 	t.T().Helper()
 
-	t.Logf("Reconciling %d Porch Repository objects in batches of %d", len(repos.Items), batchSize)
+	t.Logf("Restoring %d Porch Repository objects in batches of %d", len(repos.Items), batchSize)
 	for batch := range slices.Chunk(repos.Items, batchSize) {
 		for _, each := range batch {
 			t.CreateOrUpdateE(&each)
