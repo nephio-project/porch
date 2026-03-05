@@ -591,11 +591,6 @@ func (c *PackageRevisionStatusCounts) String() string {
 			},
 		},
 	}
-	table.Rows = []metav1.TableRow{
-		{
-			Cells: []any{total, drafts, proposed, published, deletionProposed},
-		},
-	}
 
 	var buf bytes.Buffer
 	p := printers.NewTablePrinter(printers.PrintOptions{})
