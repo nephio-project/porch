@@ -1,4 +1,4 @@
-# Copyright 2024 The Nephio Authors
+# Copyright 2024,2026 The Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,11 +40,21 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Get kpt version from go.mod
+        id: kpt-version
+        run: |
+          KPT_VERSION=$(grep 'github.com/kptdev/kpt' go.mod | awk '{print $2}')
+          if [ -z "$KPT_VERSION" ]; then
+            echo "Warning: Could not extract kpt version from go.mod, using fallback"
+            KPT_VERSION="v1.0.0-beta.61.1"
+          fi
+          echo "version=${KPT_VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Install kpt
         uses: jaxxstorm/action-install-gh-release@v2.1.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.59
+          tag: ${{ steps.kpt-version.outputs.version }}
           chmod: 0755
           
       - name: Build porch blueprint
