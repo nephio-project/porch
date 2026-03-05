@@ -63,7 +63,7 @@ kube::codegen::gen_helpers \
 
 echo 'gen_helpers for v1alpha2 conversion...'
 
-conversion-gen \
+go run k8s.io/code-generator/cmd/conversion-gen@v$KUBERNETES_VERSION \
 	--extra-peer-dirs github.com/nephio-project/porch/api/porch \
 	--output-file zz_generated.conversion.go \
 	--go-header-file "$BOILERPLATE" \

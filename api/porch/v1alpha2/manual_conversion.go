@@ -42,11 +42,28 @@ func Convert_v1_Condition_To_porch_Condition(in *metav1.Condition, out *porch.Co
 }
 
 // Convert_porch_Condition_To_v1_Condition converts porch.Condition to metav1.Condition
+// Sets required fields (LastTransitionTime, Reason) to satisfy metav1.Condition schema
 func Convert_porch_Condition_To_v1_Condition(in *porch.Condition, out *metav1.Condition, s conversion.Scope) error {
 	out.Type = in.Type
 	out.Status = metav1.ConditionStatus(in.Status)
-	out.Reason = in.Reason
+	
+	// Reason is required by metav1.Condition (minLength: 1)
+	// Use "Unknown" if not set in porch.Condition
+	if in.Reason != "" {
+		out.Reason = in.Reason
+	} else {
+		out.Reason = "Unknown"
+	}
+	
 	out.Message = in.Message
+	
+	// LastTransitionTime is required by metav1.Condition
+	// Set to current time since porch.Condition doesn't track this
+	out.LastTransitionTime = metav1.Now()
+	
+	// ObservedGeneration is optional, leave at 0
+	out.ObservedGeneration = 0
+	
 	return nil
 }
 
