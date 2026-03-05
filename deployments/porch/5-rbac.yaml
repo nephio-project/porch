@@ -29,8 +29,8 @@ rules:
     resources: ["repositories", "repositories/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["porch.kpt.dev"]
-    resources: ["packagerevisions", "packagerevisions/status"]
-    verbs: ["get", "list"]
+    resources: ["packagerevisions", "packagerevisions/status", "packagerevisionresources"]
+    verbs: ["get", "list", "update", watch]
   - apiGroups: ["config.porch.kpt.dev"]
     resources: ["packagerevs", "packagerevs/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -41,6 +41,12 @@ rules:
   - apiGroups: ["flowcontrol.apiserver.k8s.io"]
     resources: ["flowschemas", "prioritylevelconfigurations"]
     verbs: ["get", "watch", "list"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs/status"]
+    verbs: ["get", "update", "patch"]
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -55,6 +61,13 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts/token"]
     verbs: ["create"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs/status"]
+    verbs: ["get", "update", "patch"]
+  
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -72,3 +85,16 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["create", "delete", "update", "get"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["config.porch.kpt.dev"]
+    resources: ["functionconfigs/status"]
+    verbs: ["get", "update", "patch"]
+  # Need to lookup and access resources containing Function Pod/Service templates
+  - apiGroups: [ "" ]
+    resources: [ "podtemplates" ]
+    verbs: [ "get", "list", "watch", "create", "update", "patch" ]
+  - apiGroups: [ "config.porch.kpt.dev" ]
+    resources: [ "servicetemplates" ]
+    verbs: [ "get", "list", "watch", "create", "update", "patch" ]

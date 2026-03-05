@@ -1,0 +1,352 @@
+# Copyright 2026 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: apply-replacements
+  namespace: porch-fn-system
+spec:
+  image: apply-replacements
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.1
+    timeToLive: 30m
+  goExecutorConfig:
+    id: apply-replacements
+    tags:
+      - v0.1
+      - v0.1.1
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: apply-setters
+  namespace: porch-fn-system
+spec:
+  image: apply-setters
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.0
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.2
+    relPath: apply-setters
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: create-setters
+  namespace: porch-fn-system
+spec:
+  image: create-setters
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.0
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: ensure-name-substring
+  namespace: porch-fn-system
+spec:
+  image: ensure-name-substring
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.0
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.1
+    relPath: ensure-name-substring
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: gatekeeper
+  namespace: porch-fn-system
+spec:
+  image: gatekeeper
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.1
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: kubeconform
+  namespace: porch-fn-system
+spec:
+  image: kubeconform
+  prefixes:
+    - ""
+  podExecutorConfig:
+    tags:
+      - v0.1.1
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: search-replace
+  namespace: porch-fn-system
+spec:
+  image: search-replace
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.0
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.1
+    relPath: search-replace
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-annotations
+  namespace: porch-fn-system
+spec:
+  image: set-annotations
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.4
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.1.5
+    relPath: set-annotations
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-enforcement-action
+  namespace: porch-fn-system
+spec:
+  image: set-enforcement-action
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.0
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-image
+  namespace: porch-fn-system
+spec:
+  image: set-image
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.1
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.1.2
+    relPath: set-image
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-labels
+  namespace: porch-fn-system
+spec:
+  image: set-labels
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.5
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.2
+    relPath: set-labels
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-namespace
+  namespace: porch-fn-system
+spec:
+  image: set-namespace
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.4.1
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.4.2
+    relPath: set-namespace
+  goExecutorConfig:
+    id: set-namespace
+    tags:
+      - v0.4
+      - v0.4.1
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: starlark
+  namespace: porch-fn-system
+spec:
+  image: starlark
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.4.3
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.5.2
+    relPath: starlark
+  goExecutorConfig:
+    id: starlark
+    tags:
+      - v0.4
+      - v0.4.3
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: upsert-resource
+  namespace: porch-fn-system
+spec:
+  image: upsert-resource
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.0
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.1
+    relPath: upsert-resource
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: enable-gcp-services
+  namespace: porch-fn-system
+spec:
+  image: enable-gcp-services
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.0
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: export-terraform
+  namespace: porch-fn-system
+spec:
+  image: export-terraform
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.0
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: generate-folders
+  namespace: porch-fn-system
+spec:
+  image: generate-folders
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.1
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: remove-local-config-resources
+  namespace: porch-fn-system
+spec:
+  image: remove-local-config-resources
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.1.0
+    timeToLive: 30m
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: FunctionConfig
+metadata:
+  name: set-project-id
+  namespace: porch-fn-system
+spec:
+  image: set-project-id
+  prefixes:
+    - ""
+    - ghcr.io/kptdev/krm-functions-catalog
+  podExecutorConfig:
+    tags:
+      - v0.2.0
+    timeToLive: 30m
+  binaryExecutorConfig:
+    tags:
+      - v0.2.1
+    relPath: set-project-id

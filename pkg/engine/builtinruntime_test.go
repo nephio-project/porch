@@ -18,19 +18,40 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const gcrImagePrefix = ""
+const (
+	defaultKRMImagePrefix = runneroptions.GHCRImagePrefix
+
+	setNamespaceFunction = "set-namespace"
+)
 
 func TestBuiltinRuntime(t *testing.T) {
-	br := newBuiltinRuntime(gcrImagePrefix)
+	functionConfig := configapi.FunctionConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: setNamespaceFunction,
+		},
+		Spec: configapi.FunctionConfigSpec{
+			GoExecutorConfig: &configapi.GoExecutorConfig{
+				Tags: []string{"v0.4.1"},
+			},
+		},
+	}
+	functionConfigStore := reconciler.NewFunctionConfigStore(defaultKRMImagePrefix, "")
+	functionConfigStore.UpdateExecCache(setNamespaceFunction, &functionConfig)
+	br := newBuiltinRuntime(functionConfigStore)
 	fn := &kptfilev1.Function{
-		Image: setNamespaceImageAliases[0],
+		Image: filepath.Join(defaultKRMImagePrefix, setNamespaceFunction) + ":v0.4.1",
 	}
 	fr, err := br.GetRunner(context.Background(), fn)
 	if err != nil {
@@ -71,7 +92,19 @@ functionConfig:
 }
 
 func TestBuiltinRuntimeNotFound(t *testing.T) {
-	br := newBuiltinRuntime(gcrImagePrefix)
+	functionConfig := configapi.FunctionConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: setNamespaceFunction,
+		},
+		Spec: configapi.FunctionConfigSpec{
+			GoExecutorConfig: &configapi.GoExecutorConfig{
+				Tags: []string{"v0.4.1"},
+			},
+		},
+	}
+	functionConfigStore := reconciler.NewFunctionConfigStore(defaultKRMImagePrefix, "")
+	functionConfigStore.UpdateExecCache(setNamespaceFunction, &functionConfig)
+	br := newBuiltinRuntime(functionConfigStore)
 	funct := &kptfilev1.Function{
 		Image: "ghcr.io/kptdev/krm-functions-catalog/not-exist:latest",
 	}
