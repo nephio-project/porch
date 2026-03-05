@@ -59,6 +59,11 @@ spec:
           In v1alpha2, PackageRevision is a CRD stored in etcd.
           Use controller-runtime client to access this resource (no code-gen clients).
           Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
+
+          The webhook will use the conversion functions in v1alpha2/manual_conversion.go
+          and v1alpha1/manual_conversion.go to handle version conversion.
+          See: https://book.kubebuilder.io/reference/webhooks-overview.html
+          This is required before adding +kubebuilder:webhook markers to the CRD.
         properties:
           apiVersion:
             description: |-
@@ -117,186 +122,157 @@ spec:
               revision:
                 description: Revision identifies the version of the package.
                 type: integer
-              tasks:
+              source:
                 description: |-
-                  The task slice holds zero or more tasks that describe the operations
-                  performed on the packagerevision. The are essentially a replayable history
-                  of the packagerevision,
-
-                  Packagerevisions that were not created in Porch may have an
-                  empty task list.
-
-                  Packagerevisions created and managed through Porch will always
-                  have either an Init, Edit, or a Clone task as the first entry in their
-                  task list. This represent packagerevisions created from scratch, based
-                  a copy of a different revision in the same package, or a packagerevision
-                  cloned from another package.
-                  Each change to the packagerevision will result in a corresponding
-                  task being added to the list of tasks. It will describe the operation
-                  performed and will have a corresponding entry (commit or layer) in git
-                  or oci.
-                  The task slice describes the history of the packagerevision, so it
-                  is an append only list (We might introduce some kind of compaction in the
-                  future to keep the number of tasks at a reasonable number).
-                items:
-                  description: Task represents an operation performed on a package
-                    revision
-                  properties:
-                    clone:
-                      description: PackageCloneTaskSpec defines the package clone
-                        task
-                      properties:
-                        upstreamRef:
-                          description: Upstream is the reference to the upstream package
-                            to clone.
-                          properties:
-                            git:
-                              description: Git upstream package specification. Required
-                                if type is git.
-                              properties:
-                                directory:
-                                  description: Directory within the Git repository
-                                    where the packages are stored.
-                                  type: string
-                                ref:
-                                  description: Ref is the git ref containing the package.
-                                    Ref can be a branch, tag, or commit SHA.
-                                  type: string
-                                repo:
-                                  description: |-
-                                    Repo is the address of the Git repository, for example:
-                                    https://github.com/GoogleCloudPlatform/blueprints.git
-                                  type: string
-                                secretRef:
-                                  description: SecretRef is a reference to secret
-                                    containing authentication credentials.
-                                  properties:
-                                    name:
-                                      description: Name of the secret. The secret
-                                        is expected to be located in the same namespace.
-                                      type: string
-                                  required:
-                                  - name
-                                  type: object
-                              required:
-                              - directory
-                              - ref
-                              - repo
-                              type: object
-                            type:
-                              description: Type of the repository (i.e. git). If empty,
-                                upstreamRef will be used.
-                              type: string
-                            upstreamRef:
-                              description: UpstreamRef is the reference to the package
-                                from a registered repository.
-                              properties:
-                                name:
-                                  description: Name is the name of the referenced
-                                    PackageRevision resource.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                          type: object
-                      type: object
-                    edit:
-                      description: PackageEditTaskSpec defines the package edit task
-                      properties:
-                        sourceRef:
-                          description: Source is the reference to the source PackageRevision
-                            to copy from.
-                          properties:
-                            name:
-                              description: Name is the name of the referenced PackageRevision
-                                resource.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                      type: object
-                    init:
-                      description: PackageInitTaskSpec defines the package initialization
-                        task
-                      properties:
-                        description:
-                          description: Description is a short description of the package.
-                          type: string
-                        keywords:
-                          description: Keywords is a list of keywords describing the
-                            package.
-                          items:
+                  Source specifies how this package was created.
+                  For new packages, exactly one field in Source must be set.
+                  For packages discovered from git (existed before Porch), Source will be nil.
+                  This field is immutable after creation.
+                properties:
+                  cloneFrom:
+                    description: CloneFrom copies a package from an upstream source
+                      (first time).
+                    properties:
+                      git:
+                        description: Git upstream package specification. Required
+                          if type is git.
+                        properties:
+                          directory:
+                            description: Directory within the Git repository where
+                              the packages are stored.
                             type: string
-                          type: array
-                        site:
-                          description: Site is a link to page with information about
-                            the package.
+                          ref:
+                            description: Ref is the git ref containing the package.
+                              Ref can be a branch, tag, or commit SHA.
+                            type: string
+                          repo:
+                            description: |-
+                              Repo is the address of the Git repository, for example:
+                              https://github.com/GoogleCloudPlatform/blueprints.git
+                            type: string
+                          secretRef:
+                            description: SecretRef is a reference to secret containing
+                              authentication credentials.
+                            properties:
+                              name:
+                                description: Name of the secret. The secret is expected
+                                  to be located in the same namespace.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - directory
+                        - ref
+                        - repo
+                        type: object
+                      type:
+                        description: Type of the repository (i.e. git). If empty,
+                          upstreamRef will be used.
+                        type: string
+                      upstreamRef:
+                        description: UpstreamRef is the reference to the package from
+                          a registered repository.
+                        properties:
+                          name:
+                            description: Name is the name of the referenced PackageRevision
+                              resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    type: object
+                  copyFrom:
+                    description: CopyFrom creates a new revision from an existing
+                      package in the same repository.
+                    properties:
+                      name:
+                        description: Name is the name of the referenced PackageRevision
+                          resource.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  init:
+                    description: Init creates a brand new package from scratch.
+                    properties:
+                      description:
+                        description: Description is a short description of the package.
+                        type: string
+                      keywords:
+                        description: Keywords is a list of keywords describing the
+                          package.
+                        items:
                           type: string
-                        subpackage:
-                          description: Subpackage is a directory path to a subpackage
-                            to initialize. If unspecified, the main package will be
-                            initialized.
-                          type: string
-                      type: object
-                    type:
-                      description: TaskType defines the type of task
-                      type: string
-                    upgrade:
-                      description: PackageUpgradeTaskSpec defines the package upgrade
-                        task
-                      properties:
-                        localPackageRevisionRef:
-                          description: |-
-                            LocalPackageRevisionRef is the reference to the local package revision that
-                            contains all the local changes on top of the OldUpstream package revision.
-                          properties:
-                            name:
-                              description: Name is the name of the referenced PackageRevision
-                                resource.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        newUpstreamRef:
-                          description: |-
-                            NewUpstream is the reference to the new upstream package revision that the
-                            local package will be upgraded to.
-                          properties:
-                            name:
-                              description: Name is the name of the referenced PackageRevision
-                                resource.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        oldUpstreamRef:
-                          description: |-
-                            OldUpstream is the reference to the original upstream package revision that is
-                            the common ancestor of the local package and the new upstream package revision.
-                          properties:
-                            name:
-                              description: Name is the name of the referenced PackageRevision
-                                resource.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        strategy:
-                          description: |-
-                            Strategy defines which strategy should be used to update the package. It defaults to 'resource-merge'.
-                             * resource-merge: Perform a structural comparison of the original /
-                               updated resources, and merge the changes into the local package.
-                             * fast-forward: Fail without updating if the local package was modified
-                               since it was fetched.
-                             * force-delete-replace: Wipe all the local changes to the package and replace
-                               it with the remote version.
-                             * copy-merge: Copy all the remote changes to the local package.
-                          type: string
-                      type: object
-                  required:
-                  - type
-                  type: object
-                type: array
+                        type: array
+                      site:
+                        description: Site is a link to page with information about
+                          the package.
+                        type: string
+                      subpackage:
+                        description: |-
+                          Subpackage is a directory path to a subpackage to initialize.
+                          If unspecified, the main package will be initialized.
+                        type: string
+                    type: object
+                  upgrade:
+                    description: Upgrade merges changes from a new upstream version
+                      into a local package.
+                    properties:
+                      localPackageRevisionRef:
+                        description: |-
+                          LocalPackageRevisionRef is the reference to the local package revision that
+                          contains all the local changes on top of the OldUpstream package revision.
+                        properties:
+                          name:
+                            description: Name is the name of the referenced PackageRevision
+                              resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      newUpstream:
+                        description: |-
+                          NewUpstream is the reference to the new upstream package revision that the
+                          local package will be upgraded to.
+                        properties:
+                          name:
+                            description: Name is the name of the referenced PackageRevision
+                              resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      oldUpstream:
+                        description: |-
+                          OldUpstream is the reference to the original upstream package revision that is
+                          the common ancestor of the local package and the new upstream package revision.
+                        properties:
+                          name:
+                            description: Name is the name of the referenced PackageRevision
+                              resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      strategy:
+                        description: |-
+                          Strategy defines which strategy should be used to update the package. It defaults to 'resource-merge'.
+                           * resource-merge: Perform a structural comparison of the original /
+                             updated resources, and merge the changes into the local package.
+                           * fast-forward: Fail without updating if the local package was modified
+                             since it was fetched.
+                           * force-delete-replace: Wipe all the local changes to the package and replace
+                             it with the remote version.
+                           * copy-merge: Copy all the remote changes to the local package.
+                        type: string
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of init, cloneFrom, copyFrom, or upgrade must
+                    be set
+                  rule: '[has(self.init), has(self.cloneFrom), has(self.copyFrom),
+                    has(self.upgrade)].filter(x, x).size() == 1'
               workspaceName:
                 description: WorkspaceName is a short, unique description of the changes
                   contained in this package revision.
@@ -362,6 +338,12 @@ spec:
                   - type
                   type: object
                 type: array
+              creationSource:
+                description: |-
+                  CreationSource indicates how this package was created (for debugging/history).
+                  Possible values: "init", "clone", "copy", "upgrade".
+                  This is a read-only field populated by the system.
+                type: string
               deployment:
                 description: Deployment is true if this is a deployment package (in
                   a deployment repository).

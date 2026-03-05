@@ -95,16 +95,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*PackageCloneTaskSpec)(nil), (*porch.PackageCloneTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(a.(*PackageCloneTaskSpec), b.(*porch.PackageCloneTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageCloneTaskSpec)(nil), (*PackageCloneTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec(a.(*porch.PackageCloneTaskSpec), b.(*PackageCloneTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*PackageCondition)(nil), (*porch.PackageCondition)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_PackageCondition_To_porch_PackageCondition(a.(*PackageCondition), b.(*porch.PackageCondition), scope)
 	}); err != nil {
@@ -112,26 +102,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*porch.PackageCondition)(nil), (*PackageCondition)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_porch_PackageCondition_To_v1alpha2_PackageCondition(a.(*porch.PackageCondition), b.(*PackageCondition), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*PackageEditTaskSpec)(nil), (*porch.PackageEditTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageEditTaskSpec_To_porch_PackageEditTaskSpec(a.(*PackageEditTaskSpec), b.(*porch.PackageEditTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageEditTaskSpec)(nil), (*PackageEditTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageEditTaskSpec_To_v1alpha2_PackageEditTaskSpec(a.(*porch.PackageEditTaskSpec), b.(*PackageEditTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*PackageInitTaskSpec)(nil), (*porch.PackageInitTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageInitTaskSpec_To_porch_PackageInitTaskSpec(a.(*PackageInitTaskSpec), b.(*porch.PackageInitTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageInitTaskSpec)(nil), (*PackageInitTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageInitTaskSpec_To_v1alpha2_PackageInitTaskSpec(a.(*porch.PackageInitTaskSpec), b.(*PackageInitTaskSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -175,28 +145,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*PackageRevisionSpec)(nil), (*porch.PackageRevisionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(a.(*PackageRevisionSpec), b.(*porch.PackageRevisionSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*PackageRevisionStatus)(nil), (*porch.PackageRevisionStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(a.(*PackageRevisionStatus), b.(*porch.PackageRevisionStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*porch.PackageRevisionStatus)(nil), (*PackageRevisionStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(a.(*porch.PackageRevisionStatus), b.(*PackageRevisionStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*PackageUpgradeTaskSpec)(nil), (*porch.PackageUpgradeTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_PackageUpgradeTaskSpec_To_porch_PackageUpgradeTaskSpec(a.(*PackageUpgradeTaskSpec), b.(*porch.PackageUpgradeTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageUpgradeTaskSpec)(nil), (*PackageUpgradeTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageUpgradeTaskSpec_To_v1alpha2_PackageUpgradeTaskSpec(a.(*porch.PackageUpgradeTaskSpec), b.(*PackageUpgradeTaskSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -280,26 +230,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*Task)(nil), (*porch.Task)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_Task_To_porch_Task(a.(*Task), b.(*porch.Task), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.Task)(nil), (*Task)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_Task_To_v1alpha2_Task(a.(*porch.Task), b.(*Task), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*TaskResult)(nil), (*porch.TaskResult)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_TaskResult_To_porch_TaskResult(a.(*TaskResult), b.(*porch.TaskResult), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.TaskResult)(nil), (*TaskResult)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_TaskResult_To_v1alpha2_TaskResult(a.(*porch.TaskResult), b.(*TaskResult), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*UpstreamPackage)(nil), (*porch.UpstreamPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_UpstreamPackage_To_porch_UpstreamPackage(a.(*UpstreamPackage), b.(*porch.UpstreamPackage), scope)
 	}); err != nil {
@@ -322,6 +252,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1.Condition)(nil), (*porch.Condition)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_Condition_To_porch_Condition(a.(*v1.Condition), b.(*porch.Condition), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*PackageRevisionSpec)(nil), (*porch.PackageRevisionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(a.(*PackageRevisionSpec), b.(*porch.PackageRevisionSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*PackageRevisionStatus)(nil), (*porch.PackageRevisionStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(a.(*PackageRevisionStatus), b.(*porch.PackageRevisionStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -474,30 +414,6 @@ func Convert_porch_NameMeta_To_v1alpha2_NameMeta(in *porch.NameMeta, out *NameMe
 	return autoConvert_porch_NameMeta_To_v1alpha2_NameMeta(in, out, s)
 }
 
-func autoConvert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(in *PackageCloneTaskSpec, out *porch.PackageCloneTaskSpec, s conversion.Scope) error {
-	if err := Convert_v1alpha2_UpstreamPackage_To_porch_UpstreamPackage(&in.Upstream, &out.Upstream, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec is an autogenerated conversion function.
-func Convert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(in *PackageCloneTaskSpec, out *porch.PackageCloneTaskSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(in, out, s)
-}
-
-func autoConvert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec(in *porch.PackageCloneTaskSpec, out *PackageCloneTaskSpec, s conversion.Scope) error {
-	if err := Convert_porch_UpstreamPackage_To_v1alpha2_UpstreamPackage(&in.Upstream, &out.Upstream, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec is an autogenerated conversion function.
-func Convert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec(in *porch.PackageCloneTaskSpec, out *PackageCloneTaskSpec, s conversion.Scope) error {
-	return autoConvert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec(in, out, s)
-}
-
 func autoConvert_v1alpha2_PackageCondition_To_porch_PackageCondition(in *PackageCondition, out *porch.PackageCondition, s conversion.Scope) error {
 	out.Type = in.Type
 	out.Status = porch.PackageConditionStatus(in.Status)
@@ -522,52 +438,6 @@ func autoConvert_porch_PackageCondition_To_v1alpha2_PackageCondition(in *porch.P
 // Convert_porch_PackageCondition_To_v1alpha2_PackageCondition is an autogenerated conversion function.
 func Convert_porch_PackageCondition_To_v1alpha2_PackageCondition(in *porch.PackageCondition, out *PackageCondition, s conversion.Scope) error {
 	return autoConvert_porch_PackageCondition_To_v1alpha2_PackageCondition(in, out, s)
-}
-
-func autoConvert_v1alpha2_PackageEditTaskSpec_To_porch_PackageEditTaskSpec(in *PackageEditTaskSpec, out *porch.PackageEditTaskSpec, s conversion.Scope) error {
-	out.Source = (*porch.PackageRevisionRef)(unsafe.Pointer(in.Source))
-	return nil
-}
-
-// Convert_v1alpha2_PackageEditTaskSpec_To_porch_PackageEditTaskSpec is an autogenerated conversion function.
-func Convert_v1alpha2_PackageEditTaskSpec_To_porch_PackageEditTaskSpec(in *PackageEditTaskSpec, out *porch.PackageEditTaskSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageEditTaskSpec_To_porch_PackageEditTaskSpec(in, out, s)
-}
-
-func autoConvert_porch_PackageEditTaskSpec_To_v1alpha2_PackageEditTaskSpec(in *porch.PackageEditTaskSpec, out *PackageEditTaskSpec, s conversion.Scope) error {
-	out.Source = (*PackageRevisionRef)(unsafe.Pointer(in.Source))
-	return nil
-}
-
-// Convert_porch_PackageEditTaskSpec_To_v1alpha2_PackageEditTaskSpec is an autogenerated conversion function.
-func Convert_porch_PackageEditTaskSpec_To_v1alpha2_PackageEditTaskSpec(in *porch.PackageEditTaskSpec, out *PackageEditTaskSpec, s conversion.Scope) error {
-	return autoConvert_porch_PackageEditTaskSpec_To_v1alpha2_PackageEditTaskSpec(in, out, s)
-}
-
-func autoConvert_v1alpha2_PackageInitTaskSpec_To_porch_PackageInitTaskSpec(in *PackageInitTaskSpec, out *porch.PackageInitTaskSpec, s conversion.Scope) error {
-	out.Subpackage = in.Subpackage
-	out.Description = in.Description
-	out.Keywords = *(*[]string)(unsafe.Pointer(&in.Keywords))
-	out.Site = in.Site
-	return nil
-}
-
-// Convert_v1alpha2_PackageInitTaskSpec_To_porch_PackageInitTaskSpec is an autogenerated conversion function.
-func Convert_v1alpha2_PackageInitTaskSpec_To_porch_PackageInitTaskSpec(in *PackageInitTaskSpec, out *porch.PackageInitTaskSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageInitTaskSpec_To_porch_PackageInitTaskSpec(in, out, s)
-}
-
-func autoConvert_porch_PackageInitTaskSpec_To_v1alpha2_PackageInitTaskSpec(in *porch.PackageInitTaskSpec, out *PackageInitTaskSpec, s conversion.Scope) error {
-	out.Subpackage = in.Subpackage
-	out.Description = in.Description
-	out.Keywords = *(*[]string)(unsafe.Pointer(&in.Keywords))
-	out.Site = in.Site
-	return nil
-}
-
-// Convert_porch_PackageInitTaskSpec_To_v1alpha2_PackageInitTaskSpec is an autogenerated conversion function.
-func Convert_porch_PackageInitTaskSpec_To_v1alpha2_PackageInitTaskSpec(in *porch.PackageInitTaskSpec, out *PackageInitTaskSpec, s conversion.Scope) error {
-	return autoConvert_porch_PackageInitTaskSpec_To_v1alpha2_PackageInitTaskSpec(in, out, s)
 }
 
 func autoConvert_v1alpha2_PackageMetadata_To_porch_PackageMetadata(in *PackageMetadata, out *porch.PackageMetadata, s conversion.Scope) error {
@@ -692,25 +562,10 @@ func autoConvert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(in *P
 	out.WorkspaceName = in.WorkspaceName
 	out.Revision = in.Revision
 	out.Lifecycle = porch.PackageRevisionLifecycle(in.Lifecycle)
-	if in.Tasks != nil {
-		in, out := &in.Tasks, &out.Tasks
-		*out = make([]porch.Task, len(*in))
-		for i := range *in {
-			if err := Convert_v1alpha2_Task_To_porch_Task(&(*in)[i], &(*out)[i], s); err != nil {
-				return err
-			}
-		}
-	} else {
-		out.Tasks = nil
-	}
+	// WARNING: in.Source requires manual conversion: does not exist in peer-type
 	out.ReadinessGates = *(*[]porch.ReadinessGate)(unsafe.Pointer(&in.ReadinessGates))
 	out.PackageMetadata = (*porch.PackageMetadata)(unsafe.Pointer(in.PackageMetadata))
 	return nil
-}
-
-// Convert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec is an autogenerated conversion function.
-func Convert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(in *PackageRevisionSpec, out *porch.PackageRevisionSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(in, out, s)
 }
 
 func autoConvert_porch_PackageRevisionSpec_To_v1alpha2_PackageRevisionSpec(in *porch.PackageRevisionSpec, out *PackageRevisionSpec, s conversion.Scope) error {
@@ -720,17 +575,7 @@ func autoConvert_porch_PackageRevisionSpec_To_v1alpha2_PackageRevisionSpec(in *p
 	out.Revision = in.Revision
 	// WARNING: in.Parent requires manual conversion: does not exist in peer-type
 	out.Lifecycle = PackageRevisionLifecycle(in.Lifecycle)
-	if in.Tasks != nil {
-		in, out := &in.Tasks, &out.Tasks
-		*out = make([]Task, len(*in))
-		for i := range *in {
-			if err := Convert_porch_Task_To_v1alpha2_Task(&(*in)[i], &(*out)[i], s); err != nil {
-				return err
-			}
-		}
-	} else {
-		out.Tasks = nil
-	}
+	// WARNING: in.Tasks requires manual conversion: does not exist in peer-type
 	out.ReadinessGates = *(*[]ReadinessGate)(unsafe.Pointer(&in.ReadinessGates))
 	out.PackageMetadata = (*PackageMetadata)(unsafe.Pointer(in.PackageMetadata))
 	return nil
@@ -744,6 +589,7 @@ func autoConvert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(i
 	out.Deployment = in.Deployment
 	out.ObservedPrrResourceVersion = in.ObservedPrrResourceVersion
 	out.RenderingPrrResourceVersion = in.RenderingPrrResourceVersion
+	// WARNING: in.CreationSource requires manual conversion: does not exist in peer-type
 	out.PackageConditions = *(*[]porch.PackageCondition)(unsafe.Pointer(&in.PackageConditions))
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
@@ -757,11 +603,6 @@ func autoConvert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(i
 		out.Conditions = nil
 	}
 	return nil
-}
-
-// Convert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus is an autogenerated conversion function.
-func Convert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(in *PackageRevisionStatus, out *porch.PackageRevisionStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(in, out, s)
 }
 
 func autoConvert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(in *porch.PackageRevisionStatus, out *PackageRevisionStatus, s conversion.Scope) error {
@@ -790,44 +631,6 @@ func autoConvert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(i
 // Convert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus is an autogenerated conversion function.
 func Convert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(in *porch.PackageRevisionStatus, out *PackageRevisionStatus, s conversion.Scope) error {
 	return autoConvert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(in, out, s)
-}
-
-func autoConvert_v1alpha2_PackageUpgradeTaskSpec_To_porch_PackageUpgradeTaskSpec(in *PackageUpgradeTaskSpec, out *porch.PackageUpgradeTaskSpec, s conversion.Scope) error {
-	if err := Convert_v1alpha2_PackageRevisionRef_To_porch_PackageRevisionRef(&in.OldUpstream, &out.OldUpstream, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha2_PackageRevisionRef_To_porch_PackageRevisionRef(&in.NewUpstream, &out.NewUpstream, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha2_PackageRevisionRef_To_porch_PackageRevisionRef(&in.LocalPackageRevisionRef, &out.LocalPackageRevisionRef, s); err != nil {
-		return err
-	}
-	out.Strategy = porch.PackageMergeStrategy(in.Strategy)
-	return nil
-}
-
-// Convert_v1alpha2_PackageUpgradeTaskSpec_To_porch_PackageUpgradeTaskSpec is an autogenerated conversion function.
-func Convert_v1alpha2_PackageUpgradeTaskSpec_To_porch_PackageUpgradeTaskSpec(in *PackageUpgradeTaskSpec, out *porch.PackageUpgradeTaskSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha2_PackageUpgradeTaskSpec_To_porch_PackageUpgradeTaskSpec(in, out, s)
-}
-
-func autoConvert_porch_PackageUpgradeTaskSpec_To_v1alpha2_PackageUpgradeTaskSpec(in *porch.PackageUpgradeTaskSpec, out *PackageUpgradeTaskSpec, s conversion.Scope) error {
-	if err := Convert_porch_PackageRevisionRef_To_v1alpha2_PackageRevisionRef(&in.OldUpstream, &out.OldUpstream, s); err != nil {
-		return err
-	}
-	if err := Convert_porch_PackageRevisionRef_To_v1alpha2_PackageRevisionRef(&in.NewUpstream, &out.NewUpstream, s); err != nil {
-		return err
-	}
-	if err := Convert_porch_PackageRevisionRef_To_v1alpha2_PackageRevisionRef(&in.LocalPackageRevisionRef, &out.LocalPackageRevisionRef, s); err != nil {
-		return err
-	}
-	out.Strategy = PackageMergeStrategy(in.Strategy)
-	return nil
-}
-
-// Convert_porch_PackageUpgradeTaskSpec_To_v1alpha2_PackageUpgradeTaskSpec is an autogenerated conversion function.
-func Convert_porch_PackageUpgradeTaskSpec_To_v1alpha2_PackageUpgradeTaskSpec(in *porch.PackageUpgradeTaskSpec, out *PackageUpgradeTaskSpec, s conversion.Scope) error {
-	return autoConvert_porch_PackageUpgradeTaskSpec_To_v1alpha2_PackageUpgradeTaskSpec(in, out, s)
 }
 
 func autoConvert_v1alpha2_ReadinessGate_To_porch_ReadinessGate(in *ReadinessGate, out *porch.ReadinessGate, s conversion.Scope) error {
@@ -1020,88 +823,6 @@ func autoConvert_porch_SecretRef_To_v1alpha2_SecretRef(in *porch.SecretRef, out 
 // Convert_porch_SecretRef_To_v1alpha2_SecretRef is an autogenerated conversion function.
 func Convert_porch_SecretRef_To_v1alpha2_SecretRef(in *porch.SecretRef, out *SecretRef, s conversion.Scope) error {
 	return autoConvert_porch_SecretRef_To_v1alpha2_SecretRef(in, out, s)
-}
-
-func autoConvert_v1alpha2_Task_To_porch_Task(in *Task, out *porch.Task, s conversion.Scope) error {
-	out.Type = porch.TaskType(in.Type)
-	out.Init = (*porch.PackageInitTaskSpec)(unsafe.Pointer(in.Init))
-	if in.Clone != nil {
-		in, out := &in.Clone, &out.Clone
-		*out = new(porch.PackageCloneTaskSpec)
-		if err := Convert_v1alpha2_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.Clone = nil
-	}
-	out.Edit = (*porch.PackageEditTaskSpec)(unsafe.Pointer(in.Edit))
-	out.Upgrade = (*porch.PackageUpgradeTaskSpec)(unsafe.Pointer(in.Upgrade))
-	return nil
-}
-
-// Convert_v1alpha2_Task_To_porch_Task is an autogenerated conversion function.
-func Convert_v1alpha2_Task_To_porch_Task(in *Task, out *porch.Task, s conversion.Scope) error {
-	return autoConvert_v1alpha2_Task_To_porch_Task(in, out, s)
-}
-
-func autoConvert_porch_Task_To_v1alpha2_Task(in *porch.Task, out *Task, s conversion.Scope) error {
-	out.Type = TaskType(in.Type)
-	out.Init = (*PackageInitTaskSpec)(unsafe.Pointer(in.Init))
-	if in.Clone != nil {
-		in, out := &in.Clone, &out.Clone
-		*out = new(PackageCloneTaskSpec)
-		if err := Convert_porch_PackageCloneTaskSpec_To_v1alpha2_PackageCloneTaskSpec(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.Clone = nil
-	}
-	out.Edit = (*PackageEditTaskSpec)(unsafe.Pointer(in.Edit))
-	out.Upgrade = (*PackageUpgradeTaskSpec)(unsafe.Pointer(in.Upgrade))
-	return nil
-}
-
-// Convert_porch_Task_To_v1alpha2_Task is an autogenerated conversion function.
-func Convert_porch_Task_To_v1alpha2_Task(in *porch.Task, out *Task, s conversion.Scope) error {
-	return autoConvert_porch_Task_To_v1alpha2_Task(in, out, s)
-}
-
-func autoConvert_v1alpha2_TaskResult_To_porch_TaskResult(in *TaskResult, out *porch.TaskResult, s conversion.Scope) error {
-	if in.Task != nil {
-		in, out := &in.Task, &out.Task
-		*out = new(porch.Task)
-		if err := Convert_v1alpha2_Task_To_porch_Task(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.Task = nil
-	}
-	out.RenderStatus = (*porch.RenderStatus)(unsafe.Pointer(in.RenderStatus))
-	return nil
-}
-
-// Convert_v1alpha2_TaskResult_To_porch_TaskResult is an autogenerated conversion function.
-func Convert_v1alpha2_TaskResult_To_porch_TaskResult(in *TaskResult, out *porch.TaskResult, s conversion.Scope) error {
-	return autoConvert_v1alpha2_TaskResult_To_porch_TaskResult(in, out, s)
-}
-
-func autoConvert_porch_TaskResult_To_v1alpha2_TaskResult(in *porch.TaskResult, out *TaskResult, s conversion.Scope) error {
-	if in.Task != nil {
-		in, out := &in.Task, &out.Task
-		*out = new(Task)
-		if err := Convert_porch_Task_To_v1alpha2_Task(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.Task = nil
-	}
-	out.RenderStatus = (*RenderStatus)(unsafe.Pointer(in.RenderStatus))
-	return nil
-}
-
-// Convert_porch_TaskResult_To_v1alpha2_TaskResult is an autogenerated conversion function.
-func Convert_porch_TaskResult_To_v1alpha2_TaskResult(in *porch.TaskResult, out *TaskResult, s conversion.Scope) error {
-	return autoConvert_porch_TaskResult_To_v1alpha2_TaskResult(in, out, s)
 }
 
 func autoConvert_v1alpha2_UpstreamPackage_To_porch_UpstreamPackage(in *UpstreamPackage, out *porch.UpstreamPackage, s conversion.Scope) error {

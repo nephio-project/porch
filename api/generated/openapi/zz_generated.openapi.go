@@ -1772,7 +1772,7 @@ func schema_porch_api_porch_v1alpha2_PackageRevision(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PackageRevision represents a package revision. In v1alpha2, PackageRevision is a CRD stored in etcd. Use controller-runtime client to access this resource (no code-gen clients). Note: Approval subresource is not yet implemented for v1alpha2 CRDs.",
+				Description: "PackageRevision represents a package revision. In v1alpha2, PackageRevision is a CRD stored in etcd. Use controller-runtime client to access this resource (no code-gen clients). Note: Approval subresource is not yet implemented for v1alpha2 CRDs.\n\nThe webhook will use the conversion functions in v1alpha2/manual_conversion.go and v1alpha1/manual_conversion.go to handle version conversion. See: https://book.kubebuilder.io/reference/webhooks-overview.html This is required before adding +kubebuilder:webhook markers to the CRD.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

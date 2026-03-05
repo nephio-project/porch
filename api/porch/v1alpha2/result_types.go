@@ -124,3 +124,13 @@ type NameMeta struct {
 	// Namespace is the metadata.namespace field of a Resource
 	Namespace string `json:"namespace,omitempty"`
 }
+
+// RenderStatus represents the result of rendering package resources.
+// This is exposed in PackageRevisionResources.Status so users can see
+// the results of KRM function execution (mutators and validators).
+type RenderStatus struct {
+	// Result contains the aggregated results from all functions in the pipeline
+	Result ResultList `json:"result,omitempty"`
+	// Err contains the error message if rendering failed
+	Err string `json:"error,omitempty"`
+}
