@@ -306,8 +306,7 @@ spec:
             description: PackageRevisionStatus defines the observed state of PackageRevision
             properties:
               conditions:
-                description: Conditions describes the reconciliation state of the
-                  object.
+                description: Conditions for controller state (e.g., Ready).
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -367,6 +366,36 @@ spec:
                 description: Deployment is true if this is a deployment package (in
                   a deployment repository).
                 type: boolean
+              observedPrrResourceVersion:
+                description: |-
+                  ObservedPrrResourceVersion tracks the last observed PRR resourceVersion.
+                  Prevents concurrent lifecycle changes and PRR updates.
+                type: string
+              packageConditions:
+                description: PackageConditions from Kptfile. Set by KRM functions,
+                  used for ReadinessGates.
+                items:
+                  description: |-
+                    PackageCondition describes a condition from the Kptfile (package content).
+                    This matches the structure of conditions in Kptfile and is used for ReadinessGates validation.
+                  properties:
+                    message:
+                      description: Message with details about the condition
+                      type: string
+                    reason:
+                      description: Reason for the condition's last transition
+                      type: string
+                    status:
+                      description: Status of the condition (True, False, Unknown)
+                      type: string
+                    type:
+                      description: Type of the condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
               publishedAt:
                 description: PublishedAt is the time when the packagerevision were
                   approved.
@@ -375,6 +404,11 @@ spec:
               publishedBy:
                 description: PublishedBy is the identity of the user who approved
                   the packagerevision.
+                type: string
+              renderingPrrResourceVersion:
+                description: |-
+                  RenderingPrrResourceVersion tracks the PRR resourceVersion currently being rendered.
+                  Prevents concurrent renders.
                 type: string
               selfLock:
                 description: SelfLock identifies the location of the current package's

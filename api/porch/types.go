@@ -161,6 +161,17 @@ type PackageRevisionStatus struct {
 	// Deployment is true if this is a deployment package (in a deployment repository).
 	Deployment bool `json:"deployment,omitempty"`
 
+	// ObservedPrrResourceVersion tracks the last observed PRR resourceVersion.
+	// Prevents concurrent lifecycle changes and PRR updates.
+	ObservedPrrResourceVersion string `json:"observedPrrResourceVersion,omitempty"`
+
+	// RenderingPrrResourceVersion tracks the PRR resourceVersion currently being rendered.
+	// Prevents concurrent renders.
+	RenderingPrrResourceVersion string `json:"renderingPrrResourceVersion,omitempty"`
+
+	// PackageConditions from Kptfile. Set by KRM functions, used for ReadinessGates.
+	PackageConditions []PackageCondition `json:"packageConditions,omitempty"`
+
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 
@@ -376,6 +387,22 @@ const (
 	ConditionTrue    ConditionStatus = "True"
 	ConditionFalse   ConditionStatus = "False"
 	ConditionUnknown ConditionStatus = "Unknown"
+)
+
+// PackageCondition describes a condition from the Kptfile (package content).
+type PackageCondition struct {
+	Type    string                 `json:"type"`
+	Status  PackageConditionStatus `json:"status"`
+	Reason  string                 `json:"reason,omitempty"`
+	Message string                 `json:"message,omitempty"`
+}
+
+type PackageConditionStatus string
+
+const (
+	PackageConditionTrue    PackageConditionStatus = "True"
+	PackageConditionFalse   PackageConditionStatus = "False"
+	PackageConditionUnknown PackageConditionStatus = "Unknown"
 )
 
 const (

@@ -168,12 +168,18 @@ type PackageRevisionStatus struct {
 	// Deployment is true if this is a deployment package (in a deployment repository).
 	Deployment bool `json:"deployment,omitempty"`
 
-	// PackageConditions are conditions from the Kptfile (package content).
-	// Set by KRM functions, used for ReadinessGates validation.
+	// ObservedPrrResourceVersion tracks the last observed PRR resourceVersion.
+	// Prevents concurrent lifecycle changes and PRR updates.
+	ObservedPrrResourceVersion string `json:"observedPrrResourceVersion,omitempty"`
+
+	// RenderingPrrResourceVersion tracks the PRR resourceVersion currently being rendered.
+	// Prevents concurrent renders.
+	RenderingPrrResourceVersion string `json:"renderingPrrResourceVersion,omitempty"`
+
+	// PackageConditions from Kptfile. Set by KRM functions, used for ReadinessGates.
 	PackageConditions []PackageCondition `json:"packageConditions,omitempty"`
 
-	// Conditions are standard Kubernetes conditions for controller reconciliation state.
-	// Set by Porch controllers (e.g., Rendered, Ready).
+	// Conditions for controller state (e.g., Ready).
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
