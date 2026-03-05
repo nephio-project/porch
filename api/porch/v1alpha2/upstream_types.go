@@ -21,7 +21,8 @@ const (
 	RepositoryTypeGit RepositoryType = "git"
 )
 
-// UpstreamPackage specifies an upstream package source
+// UpstreamPackage specifies an upstream package source.
+// Exactly one of UpstreamRef or Git must be set.
 type UpstreamPackage struct {
 	// Type of the repository (i.e. git). If empty, upstreamRef will be used.
 	Type RepositoryType `json:"type,omitempty"`

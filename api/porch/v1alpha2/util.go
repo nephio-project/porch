@@ -14,8 +14,6 @@
 
 package v1alpha2
 
-import "slices"
-
 func (pr *PackageRevision) IsPublished() bool {
 	return LifecycleIsPublished(pr.Spec.Lifecycle)
 }
@@ -57,18 +55,10 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, packageConditions []
 	return true
 }
 
-var validFirstTaskTypes = []TaskType{TaskTypeInit, TaskTypeEdit, TaskTypeClone, TaskTypeUpgrade}
-
-func IsValidFirstTaskType(t TaskType) bool {
-	return slices.Contains(validFirstTaskTypes, t)
-}
-
 // IsPackageCreation checks if the package revision is an init or clone operation
 func IsPackageCreation(pkgRev *PackageRevision) bool {
-	for _, task := range pkgRev.Spec.Tasks {
-		if task.Type == TaskTypeInit || task.Type == TaskTypeClone {
-			return true
-		}
+	if pkgRev.Spec.Source == nil {
+		return false
 	}
-	return false
+	return pkgRev.Spec.Source.Init != nil || pkgRev.Spec.Source.CloneFrom != nil
 }

@@ -14,43 +14,16 @@
 
 package v1alpha2
 
-// TaskType defines the type of task
-type TaskType string
+// Package creation source specifications.
+// In v1alpha2, the creation source is specified directly via PackageSource fields.
+// Exactly one of Init, CloneFrom, CopyFrom, or Upgrade must be set when creating a PackageRevision.
+// These fields are immutable after creation.
 
-const (
-	TaskTypeInit    TaskType = "init"
-	TaskTypeClone   TaskType = "clone"
-	TaskTypeEdit    TaskType = "edit"
-	TaskTypeUpgrade TaskType = "upgrade"
-	TaskTypeRender  TaskType = "render"
-	TaskTypePush    TaskType = "push"
-	TaskTypeNone    TaskType = ""
-)
-
-// Task represents an operation performed on a package revision
-type Task struct {
-	Type    TaskType                `json:"type"`
-	Init    *PackageInitTaskSpec    `json:"init,omitempty"`
-	Clone   *PackageCloneTaskSpec   `json:"clone,omitempty"`
-	Edit    *PackageEditTaskSpec    `json:"edit,omitempty"`
-	Upgrade *PackageUpgradeTaskSpec `json:"upgrade,omitempty"`
-}
-
-// TaskResult contains the result of executing a task
-type TaskResult struct {
-	Task         *Task         `json:"task"`
-	RenderStatus *RenderStatus `json:"renderStatus,omitempty"`
-}
-
-// RenderStatus represents the result of performing render operation on package resources
-type RenderStatus struct {
-	Result ResultList `json:"result,omitempty"`
-	Err    string     `json:"error"`
-}
-
-// PackageInitTaskSpec defines the package initialization task
-type PackageInitTaskSpec struct {
-	// Subpackage is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized.
+// PackageInitSpec defines the package initialization parameters.
+// Used when creating a brand new package from scratch.
+type PackageInitSpec struct {
+	// Subpackage is a directory path to a subpackage to initialize. 
+	// If unspecified, the main package will be initialized.
 	Subpackage string `json:"subpackage,omitempty"`
 	// Description is a short description of the package.
 	Description string `json:"description,omitempty"`
@@ -60,27 +33,16 @@ type PackageInitTaskSpec struct {
 	Site string `json:"site,omitempty"`
 }
 
-// PackageCloneTaskSpec defines the package clone task
-type PackageCloneTaskSpec struct {
-	// Upstream is the reference to the upstream package to clone.
-	Upstream UpstreamPackage `json:"upstreamRef,omitempty"`
-}
-
-// PackageEditTaskSpec defines the package edit task
-type PackageEditTaskSpec struct {
-	// Source is the reference to the source PackageRevision to copy from.
-	Source *PackageRevisionRef `json:"sourceRef,omitempty"`
-}
-
-// PackageUpgradeTaskSpec defines the package upgrade task
-type PackageUpgradeTaskSpec struct {
+// PackageUpgradeSpec defines the package upgrade parameters.
+// Used when merging changes from a new upstream version into a local package.
+type PackageUpgradeSpec struct {
 	// OldUpstream is the reference to the original upstream package revision that is
 	// the common ancestor of the local package and the new upstream package revision.
-	OldUpstream PackageRevisionRef `json:"oldUpstreamRef,omitempty"`
+	OldUpstream PackageRevisionRef `json:"oldUpstream,omitempty"`
 
 	// NewUpstream is the reference to the new upstream package revision that the
 	// local package will be upgraded to.
-	NewUpstream PackageRevisionRef `json:"newUpstreamRef,omitempty"`
+	NewUpstream PackageRevisionRef `json:"newUpstream,omitempty"`
 
 	// LocalPackageRevisionRef is the reference to the local package revision that
 	// contains all the local changes on top of the OldUpstream package revision.

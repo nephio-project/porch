@@ -23,9 +23,16 @@ import (
 // Use controller-runtime client to access this resource (no code-gen clients).
 // Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
 //
+// TODO: Implement conversion webhook for v1alpha1 ↔ v1alpha2 conversion.
+// The webhook will use the conversion functions in v1alpha2/manual_conversion.go
+// and v1alpha1/manual_conversion.go to handle version conversion.
+// See: https://book.kubebuilder.io/reference/webhooks-overview.html
+// This is required before adding +kubebuilder:webhook markers to the CRD.
+//
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=packagerevisions,singular=packagerevision,shortName=rpkg
 // +kubebuilder:printcolumn:name="Package",type=string,JSONPath=`.spec.packageName`
@@ -112,26 +119,13 @@ type PackageRevisionSpec struct {
 	// Lifecycle specifies the lifecycle state of the package revision.
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
 
-	// The task slice holds zero or more tasks that describe the operations
-	// performed on the packagerevision. The are essentially a replayable history
-	// of the packagerevision,
-	//
-	// Packagerevisions that were not created in Porch may have an
-	// empty task list.
-	//
-	// Packagerevisions created and managed through Porch will always
-	// have either an Init, Edit, or a Clone task as the first entry in their
-	// task list. This represent packagerevisions created from scratch, based
-	// a copy of a different revision in the same package, or a packagerevision
-	// cloned from another package.
-	// Each change to the packagerevision will result in a corresponding
-	// task being added to the list of tasks. It will describe the operation
-	// performed and will have a corresponding entry (commit or layer) in git
-	// or oci.
-	// The task slice describes the history of the packagerevision, so it
-	// is an append only list (We might introduce some kind of compaction in the
-	// future to keep the number of tasks at a reasonable number).
-	Tasks []Task `json:"tasks,omitempty"`
+	// Source specifies how this package was created.
+	// For new packages, exactly one field in Source must be set.
+	// For packages discovered from git (existed before Porch), Source will be nil.
+	// This field is immutable after creation.
+	// TODO: Consider adding validation webhook to require Source for user-created packages.
+	// +optional
+	Source *PackageSource `json:"source,omitempty"`
 
 	// ReadinessGates specifies conditions that must be met before the package is considered ready.
 	ReadinessGates []ReadinessGate `json:"readinessGates,omitempty"`
@@ -176,11 +170,34 @@ type PackageRevisionStatus struct {
 	// Prevents concurrent renders.
 	RenderingPrrResourceVersion string `json:"renderingPrrResourceVersion,omitempty"`
 
+	// CreationSource indicates how this package was created (for debugging/history).
+	// Possible values: "init", "clone", "copy", "upgrade".
+	// This is a read-only field populated by the system.
+	// +optional
+	CreationSource string `json:"creationSource,omitempty"`
+
 	// PackageConditions from Kptfile. Set by KRM functions, used for ReadinessGates.
 	PackageConditions []PackageCondition `json:"packageConditions,omitempty"`
 
 	// Conditions for controller state (e.g., Ready).
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// PackageSource specifies how a package was created.
+// Exactly one field must be set.
+// +kubebuilder:validation:XValidation:rule="[has(self.init), has(self.cloneFrom), has(self.copyFrom), has(self.upgrade)].filter(x, x).size() == 1",message="exactly one of init, cloneFrom, copyFrom, or upgrade must be set"
+type PackageSource struct {
+	// Init creates a brand new package from scratch.
+	Init *PackageInitSpec `json:"init,omitempty"`
+	
+	// CloneFrom copies a package from an upstream source (first time).
+	CloneFrom *UpstreamPackage `json:"cloneFrom,omitempty"`
+	
+	// CopyFrom creates a new revision from an existing package in the same repository.
+	CopyFrom *PackageRevisionRef `json:"copyFrom,omitempty"`
+	
+	// Upgrade merges changes from a new upstream version into a local package.
+	Upgrade *PackageUpgradeSpec `json:"upgrade,omitempty"`
 }
 
 // PackageCondition describes a condition from the Kptfile (package content).
