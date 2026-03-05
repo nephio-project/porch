@@ -30,6 +30,11 @@ import (
 // - PackageRevisionSpec.Parent: Already deprecated in v1alpha1
 // - PackageRevisionResourcesSpec fields: Redundant with metadata.name
 //
+// Fields not present in v1alpha1:
+// - PackageRevisionStatus.ObservedPrrResourceVersion: Added in internal version
+// - PackageRevisionStatus.RenderingPrrResourceVersion: Added in internal version
+// - PackageRevisionStatus.PackageConditions: Added in internal version
+//
 // Fields normalized during porch.Condition <-> metav1.Condition conversion:
 // - metav1.Condition.LastTransitionTime: Set to metav1.Now() when converting from porch.Condition
 // - metav1.Condition.ObservedGeneration: Always 0 (not tracked in porch.Condition)
@@ -43,6 +48,12 @@ var Funcs = func(codecs runtimeserializer.CodecFactory) []any {
 		func(obj *porch.PackageRevisionSpec, c randfill.Continue) {
 			// v1alpha2 removed deprecated Parent field
 			obj.Parent = nil
+		},
+		func(obj *porch.PackageRevisionStatus, c randfill.Continue) {
+			// v1alpha1 doesn't have these fields
+			obj.ObservedPrrResourceVersion = ""
+			obj.RenderingPrrResourceVersion = ""
+			obj.PackageConditions = nil
 		},
 		func(obj *porch.PackageRevisionResourcesSpec, c randfill.Continue) {
 			// v1alpha2 removed fields that duplicate metadata.name
