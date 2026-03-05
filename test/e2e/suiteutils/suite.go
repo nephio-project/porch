@@ -41,6 +41,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	aggregatorv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -355,8 +356,6 @@ func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.P
 	}
 }
 
-
-
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
 func (t *TestSuite) GetE(key client.ObjectKey, obj client.Object) {
@@ -572,10 +571,41 @@ type PackageRevisionStatusCounts struct {
 	Total, Draft, Proposed, Published, DeletionProposed int
 }
 
+func (c *PackageRevisionStatusCounts) String() string {
+	total := c.Total
+	drafts := c.Draft
+	proposed := c.Proposed
+	published := c.Published
+	deletionProposed := c.DeletionProposed
+	table := metav1.Table{
+		ColumnDefinitions: []metav1.TableColumnDefinition{
+			{Name: "Total", Type: "int"},
+			{Name: "Draft", Type: "int"},
+			{Name: "Proposed", Type: "int"},
+			{Name: "Published", Type: "int"},
+			{Name: "Deletion Proposed", Type: "int"},
+		},
+		Rows: []metav1.TableRow{
+			{
+				Cells: []any{total, drafts, proposed, published, deletionProposed},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	p := printers.NewTablePrinter(printers.PrintOptions{})
+	p.PrintObj((runtime.Object)(&table), &buf)
+	return fmt.Sprintf("%+v", buf.String())
+}
+
 func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *PackageRevisionStatusCounts) {
 	t.T().Helper()
 
-	actual := t.CountPackageRevisions()
+	actual, err := t.CountPackageRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Actual package revision counts:\n\n%s\n", actual)
 
 	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
 	// 		gather as much potentially-useful information as possible
@@ -583,16 +613,18 @@ func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *Package
 	assert.Equal(t.T(), expected.Proposed, actual.Proposed, "Count of Proposed PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.Published, actual.Published, "Count of Published PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.DeletionProposed, actual.DeletionProposed, "Count of DeletionProposed PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
 
-	// allow it to fail the test case at the end
-	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
+	// if failed, use require and Failed() to fail the entire test case at the end
+	require.False(t.T(), t.T().Failed(), "Actual package revision counts not equal to expected counts")
 }
 
-func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
+func (t *TestSuite) CountPackageRevisions() (*PackageRevisionStatusCounts, error) {
 	var packageRevisions porchapi.PackageRevisionList
 	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
-		t.Errorf("error listing package revisions to count: %w", err)
-		return nil
+		err := fmt.Errorf("error listing package revisions to count: %w", err)
+		t.Logf(err.Error())
+		return nil, err
 	}
 
 	counts := &PackageRevisionStatusCounts{}
@@ -609,5 +641,5 @@ func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
 			counts.DeletionProposed += 1
 		}
 	}
-	return counts
+	return counts, nil
 }
