@@ -387,4 +387,5 @@ if [[ "${RESET:-false}" != "true" ]]; then
     install
     export CLEANDOWN="false"
 fi
+
 resetTestWorkload

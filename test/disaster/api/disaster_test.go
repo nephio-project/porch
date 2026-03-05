@@ -107,6 +107,7 @@ func (t *PorchDisasterRecoverySuite) SetupSuite() {
 		initialCounts, _ = t.CountPackageRevisions()
 	}
 	t.baselineCounts = initialCounts
+	t.Logf("Baseline package revision counts:\n\n%s\n", t.baselineCounts)
 }
 
 func (t *PorchDisasterRecoverySuite) SetupTest() {
@@ -122,6 +123,11 @@ func (t *PorchDisasterRecoverySuite) SetupTest() {
 		expectedCountsBefore := t.baselineCounts
 
 		return err == nil &&
+			!(actualCounts.Total == 0 ||
+				actualCounts.Draft == 0 ||
+				actualCounts.Proposed == 0 ||
+				actualCounts.Published == 0 ||
+				actualCounts.DeletionProposed == 0) &&
 			(actualCounts.Total == expectedCountsBefore.Total &&
 				actualCounts.Draft == expectedCountsBefore.Draft &&
 				actualCounts.Proposed == expectedCountsBefore.Proposed &&
@@ -130,21 +136,25 @@ func (t *PorchDisasterRecoverySuite) SetupTest() {
 	}
 
 	if !environmentReady() {
+		t.Logf("Environment not ready - package revision counts differ from baseline as follows:\n\n%s\n", actualCounts)
 		if _, err := os.Stat("./dumped_db.sql"); err == nil {
-			t.Logf("found DB cache backup from previous test - restoring from it")
+			t.Logf("Found DB cache backup from previous test - restoring from it")
 			postgres.Restore(s)
 			kind.UseDBCacheCluster(s)
 		} else {
-			t.Logf("resetting environment before test")
+			t.Logf("Resetting environment before test")
 			resetEnv(s)
 		}
 	}
 
 	actualCounts, err = t.CountPackageRevisions()
 	if !environmentReady() {
+		t.Logf("Environment not ready - package revision counts differ from baseline as follows:\n\n%s\n", actualCounts)
 		t.Logf("DB cache restoration did not restore all expected package revisions - resetting environment")
 		resetEnv(s)
 	}
+
+	t.Logf("Package revision counts before disaster:\n\n%s\n", actualCounts)
 }
 
 func (t *PorchDisasterRecoverySuite) TestCompleteDisaster() {
@@ -175,7 +185,9 @@ func (t *PorchDisasterRecoverySuite) TestCompleteDisaster() {
 	})
 
 	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
+	t.T().Name()
 }
 
 func (t *PorchDisasterRecoverySuite) TestKubernetesClusterLoss() {
@@ -199,6 +211,7 @@ func (t *PorchDisasterRecoverySuite) TestKubernetesClusterLoss() {
 	})
 
 	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
@@ -233,6 +246,7 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithoutBackup() {
 			Published:        0,
 			DeletionProposed: 0,
 		}
+		t.Logf("Expected package revision counts after wiping DB cache:\n\n%s\n", expectedCountsAfter)
 		s.PackageRevisionCountsMustMatch(expectedCountsAfter)
 
 		// restarting porch-server microservice allows it to rebuild what it can from Git
@@ -248,6 +262,7 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithoutBackup() {
 			Published:        expectedTotalAfterServerRestart,
 			DeletionProposed: 0,
 		}
+		t.Logf("Expected package revision counts after rebuilding DB cache from Git:\n\n%s\n", expectedCountsAfterServerRestart)
 		s.PackageRevisionCountsMustMatch(expectedCountsAfterServerRestart)
 	})
 
@@ -282,6 +297,7 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithBackup() {
 	})
 
 	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
@@ -315,5 +331,6 @@ func (t *PorchDisasterRecoverySuite) TestPorchPodsUngracefulRestart() {
 	})
 
 	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
