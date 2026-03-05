@@ -124,7 +124,7 @@ type PackageRevisionSpec struct {
 	// task list. This represent packagerevisions created from scratch, based
 	// a copy of a different revision in the same package, or a packagerevision
 	// cloned from another package.
-	// Each change to the packagerevision will result in a correspondig
+	// Each change to the packagerevision will result in a corresponding
 	// task being added to the list of tasks. It will describe the operation
 	// performed and will have a corresponding entry (commit or layer) in git
 	// or oci.
@@ -220,10 +220,10 @@ const (
 const (
 	// ReasonReady indicates the package is ready
 	ReasonReady = "Ready"
-	
+
 	// ReasonPending indicates the package is pending some operation
 	ReasonPending = "Pending"
-	
+
 	// ReasonFailed indicates an operation failed
 	ReasonFailed = "Failed"
 )
