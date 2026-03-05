@@ -327,7 +327,7 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 	}
 }
 
-func TestFindUpstreamDependent(t *testing.T) {
+func TestFindUpstreamReference(t *testing.T) {
 	ctx := context.Background()
 	cache := &Cache{repositories: repomap.SafeRepoMap{}}
 	repoKey := repository.RepositoryKey{Namespace: "test-ns", Name: "test-repo"}
@@ -349,7 +349,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 		return mockRepo2, nil
 	})
 
-	addDependent := func(repo *cachedRepository, downstreamPkgName, taskType, upstreamRefName string) {
+	addDownstream := func(repo *cachedRepository, downstreamPkgName, taskType, upstreamRefName string) {
 		key := repository.PackageRevisionKey{
 			PkgKey:        repository.PackageKey{RepoKey: repo.key, Package: downstreamPkgName},
 			WorkspaceName: "v1",
@@ -384,12 +384,12 @@ func TestFindUpstreamDependent(t *testing.T) {
 		taskType            string
 		wantDep             string
 	}{
-		"no dependent": {
+		"no downstream": {
 			namespace:           "test-ns",
 			upstreamPkgToDelete: "test-repo.upstream.v1",
 			wantDep:             "",
 		},
-		"find clone dependent": {
+		"find clone downstream": {
 			namespace:           "test-ns",
 			upstreamPkgToDelete: "test-repo.upstream.v1",
 			repo:                mockRepo,
@@ -398,7 +398,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 			taskType:            "clone",
 			wantDep:             "test-repo.downstream.v1",
 		},
-		"find upgrade dependent": {
+		"find upgrade downstream": {
 			namespace:           "test-ns",
 			upstreamPkgToDelete: "test-repo.upstream.v1",
 			repo:                mockRepo,
@@ -407,7 +407,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 			taskType:            "upgrade",
 			wantDep:             "test-repo.upgrade.v1",
 		},
-		"task without dependent": {
+		"task without downstream": {
 			namespace:           "test-ns",
 			upstreamPkgToDelete: "test-repo.upstream.v1",
 			repo:                mockRepo,
@@ -421,7 +421,7 @@ func TestFindUpstreamDependent(t *testing.T) {
 			upstreamPkgToDelete: "test-repo.upstream.v1",
 			wantDep:             "",
 		},
-		"cross-repo dependent": {
+		"cross-repo downstream": {
 			namespace:           "test-ns",
 			upstreamPkgToDelete: "test-repo.base-pkg.v1",
 			repo:                mockRepo2,
@@ -437,9 +437,9 @@ func TestFindUpstreamDependent(t *testing.T) {
 			mockRepo.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
 			mockRepo2.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
 			if tt.taskType != "" {
-				addDependent(tt.repo, tt.downstreamPkgName, tt.taskType, tt.upstreamRefName)
+				addDownstream(tt.repo, tt.downstreamPkgName, tt.taskType, tt.upstreamRefName)
 			}
-			dep, err := cache.FindUpstreamDependent(ctx, tt.namespace, tt.upstreamPkgToDelete)
+			dep, err := cache.FindAllUpstreamReferencesInRepositories(ctx, tt.namespace, tt.upstreamPkgToDelete)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantDep, dep)
 		})

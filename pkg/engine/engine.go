@@ -55,7 +55,7 @@ type CaDEngine interface {
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
 
-	FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error)
+	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -528,6 +528,6 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	return repoPkgRev, renderStatus, nil
 }
 
-func (cad *cadEngine) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
-	return cad.cache.FindUpstreamDependent(ctx, namespace, prName)
+func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
 }

@@ -280,7 +280,7 @@ func TestDelete(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
-	mockEngine.On("FindUpstreamDependent", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
+	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	result, deleted, err := packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
@@ -317,7 +317,7 @@ func TestDelete(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
-	mockEngine.On("FindUpstreamDependent", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
+	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("deletion failed")).Once()
 
 	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
@@ -648,41 +648,41 @@ func TestCreateAction(t *testing.T) {
 	}
 }
 
-func TestCheckUpstreamDependencies(t *testing.T) {
+func TestCheckIfUpstreamIsReferenced(t *testing.T) {
 	_, mockEngine := setup(t)
 
 	testCases := map[string]struct {
-		dependent string
-		engineErr error
-		expectErr bool
+		downstream string
+		engineErr  error
+		expectErr  bool
 	}{
-		"no dependencies": {
-			dependent: "",
-			engineErr: nil,
-			expectErr: false,
+		"no downstream": {
+			downstream: "",
+			engineErr:  nil,
+			expectErr:  false,
 		},
-		"has dependent": {
-			dependent: "dependent-pkg",
-			engineErr: nil,
-			expectErr: true,
+		"has downstream": {
+			downstream: "downstream-pkg",
+			engineErr:  nil,
+			expectErr:  true,
 		},
 		"engine error": {
-			dependent: "",
-			engineErr: errors.New("engine failure"),
-			expectErr: true,
+			downstream: "",
+			engineErr:  errors.New("engine failure"),
+			expectErr:  true,
 		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			mockEngine.On("FindUpstreamDependent", mock.Anything, mock.Anything, mock.Anything).Return(tc.dependent, tc.engineErr).Once()
+			mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return(tc.downstream, tc.engineErr).Once()
 
 			apiPkgRev := &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pkg"},
 			}
 			ctx := request.WithNamespace(context.Background(), "test-ns")
 
-			err := packagerevisions.checkUpstreamDependencies(ctx, apiPkgRev)
+			err := packagerevisions.checkIfUpstreamIsReferenced(ctx, apiPkgRev)
 
 			if tc.expectErr {
 				assert.Error(t, err)

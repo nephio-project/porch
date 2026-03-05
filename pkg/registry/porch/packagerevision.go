@@ -320,7 +320,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 
 	klog.InfoS("[API] Delete operation started for PackageRevision", context1.LogMetadataFrom(ctx)...)
 
-	if err := r.checkUpstreamDependencies(ctx, apiPkgRev); err != nil {
+	if err := r.checkIfUpstreamIsReferenced(ctx, apiPkgRev); err != nil {
 		return nil, false, err
 	}
 
@@ -369,22 +369,22 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 	)
 }
 
-func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
-	klog.Infof("[API] Checking upstream dependencies for PackageRevision: %s", apiPkgRev.Name)
+func (r *packageRevisions) checkIfUpstreamIsReferenced(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
+	klog.Infof("[API] Checking if upstream PackageRevision is referenced: %s", apiPkgRev.Name)
 	ns, _ := genericapirequest.NamespaceFrom(ctx)
-	dependent, err := r.cad.FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
+	downstream, err := r.cad.FindAllUpstreamReferencesInRepositories(ctx, ns, apiPkgRev.Name)
 	if err != nil {
-		klog.Warningf("[API] Failed to check upstream dependencies for PackageRevision %s: %v", apiPkgRev.Name, err)
-		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream dependencies: %w", err))
+		klog.Warningf("[API] Failed to check if upstream is referenced for PackageRevision %s: %v", apiPkgRev.Name, err)
+		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream references: %w", err))
 	}
 
-	if dependent != "" {
-		klog.Infof("[API] Found upstream dependent for PackageRevision %s: %s", apiPkgRev.Name, dependent)
+	if downstream != "" {
+		klog.Infof("[API] PackageRevision %s is referenced as upstream by: %s", apiPkgRev.Name, downstream)
 		return apierrors.NewForbidden(
 			porchapi.Resource("packagerevisions"),
 			apiPkgRev.Name,
-			fmt.Errorf("cannot delete package revision, it is an upstream package revision for: %s", dependent))
+			fmt.Errorf("cannot delete package revision, it is referenced as upstream by: %s", downstream))
 	}
-	klog.Infof("[API] No upstream dependencies found for PackageRevision: %s", apiPkgRev.Name)
+	klog.Infof("[API] PackageRevision %s is not referenced as upstream", apiPkgRev.Name)
 	return nil
 }

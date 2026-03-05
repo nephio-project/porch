@@ -658,7 +658,7 @@ func (t *DbTestSuite) assertPackageRevLatestIs(expectedLatest int, prList []*dbP
 	}
 }
 
-func (t *DbTestSuite) TestFindUpstreamDependent() {
+func (t *DbTestSuite) TestFindUpstreamReference() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
@@ -688,7 +688,7 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 		taskType  string
 		wantDep   string
 	}{
-		"no dependent": {
+		"no downstream": {
 			namespace: "test-ns",
 			wantDep:   "",
 		},
@@ -743,9 +743,9 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 				defer pkgRevDeleteFromDB(t.Context(), pr.Key())
 				defer pkgDeleteFromDB(t.Context(), downstreamPkg.Key())
 			}
-			dependent, err := pkgRevFindUpstreamDependentFromDB(t.Context(), tt.namespace, upstreamPR.meta.Name)
+			downstream, err := findUpstreamRefsFromDB(t.Context(), tt.namespace, upstreamPR.meta.Name)
 			t.Require().NoError(err)
-			t.Equal(tt.wantDep, dependent)
+			t.Equal(tt.wantDep, downstream)
 		})
 	}
 

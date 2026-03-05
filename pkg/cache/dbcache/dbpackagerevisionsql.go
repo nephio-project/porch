@@ -455,8 +455,8 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	return err
 }
 
-func pkgRevFindUpstreamDependentFromDB(ctx context.Context, namespace, prName string) (string, error) {
-	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevFindUpstreamDependentFromDB")
+func findUpstreamRefsFromDB(ctx context.Context, namespace, prName string) (string, error) {
+	_, span := tracer.Start(ctx, "dbpackagerevisionsql::findUpstreamRefsFromDB")
 	defer span.End()
 
 	// Match newUpstreamRef (upgrade) or nested upstreamRef (clone)
@@ -469,13 +469,13 @@ func pkgRevFindUpstreamDependentFromDB(ctx context.Context, namespace, prName st
 		LIMIT 1
 	`
 
-	var dependentName string
-	err := GetDB().db.QueryRow(ctx, sqlStatement, namespace, prName).Scan(&dependentName)
+	var downstreamName string
+	err := GetDB().db.QueryRow(ctx, sqlStatement, namespace, prName).Scan(&downstreamName)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
 	if err != nil {
 		return "", err
 	}
-	return dependentName, nil
+	return downstreamName, nil
 }

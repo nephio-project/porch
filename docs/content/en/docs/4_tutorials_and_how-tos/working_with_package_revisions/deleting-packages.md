@@ -319,9 +319,9 @@ graph TD
 - Published deletions remove Git tags and references
 - Deletion is permanent and cannot be undone
 
-**Dependency Considerations:**
+**Upstream Reference Considerations:**
 
-- Upstream PackageRevisions cannot be deleted while downstream PackageRevisions exist
+- Upstream PackageRevisions cannot be deleted while downstream PackageRevisions reference them
 - Delete downstream PackageRevisions first, then you can delete the upstream PackageRevisions
 - The error message identifies which downstream PackageRevision is blocking deletion
 - Consider the impact on deployed workloads
@@ -352,10 +352,10 @@ Error: cannot delete published package revision directly, use propose-delete fir
 **Cannot delete upstream PackageRevision:**
 
 ```bash
-Error from server (Forbidden): cannot delete package revision, it is an upstream package revision for: <dependent-packagerevision-name>
+Error from server (Forbidden): cannot delete package revision, it is referenced as upstream by: <downstream-packagerevision-name>
 ```
 
-- See "Dependency Considerations" in Safety Considerations above
+- See "Upstream Reference Considerations" in Safety Considerations above
 - Delete the downstream PackageRevision first, then retry
 
 **Deletion proposal stuck:**

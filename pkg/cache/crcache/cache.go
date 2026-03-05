@@ -120,8 +120,8 @@ func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec 
 	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
 
-func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
-	var dependentName string
+func (c *Cache) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	var downstreamName string
 	c.repositories.Range(func(key, value any) bool {
 		cachedRepo := value.(*cachedRepository)
 		if cachedRepo.Key().Namespace != namespace {
@@ -146,7 +146,7 @@ func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName str
 					matched = task.Upgrade != nil && task.Upgrade.NewUpstream.Name == prName
 				}
 				if matched {
-					dependentName = pr.KubeObjectName()
+					downstreamName = pr.KubeObjectName()
 					cachedRepo.mutex.RUnlock()
 					return false
 				}
@@ -155,5 +155,5 @@ func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName str
 		cachedRepo.mutex.RUnlock()
 		return true
 	})
-	return dependentName, nil
+	return downstreamName, nil
 }

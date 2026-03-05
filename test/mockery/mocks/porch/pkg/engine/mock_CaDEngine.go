@@ -184,12 +184,12 @@ func (_c *MockCaDEngine_DeletePackageRevision_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
-// FindUpstreamDependent provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) FindUpstreamDependent(ctx context.Context, namespace string, prName string) (string, error) {
+// FindAllUpstreamReferencesInRepositories provides a mock function for the type MockCaDEngine
+func (_mock *MockCaDEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace string, prName string) (string, error) {
 	ret := _mock.Called(ctx, namespace, prName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FindUpstreamDependent")
+		panic("no return value specified for FindAllUpstreamReferencesInRepositories")
 	}
 
 	var r0 string
@@ -210,20 +210,20 @@ func (_mock *MockCaDEngine) FindUpstreamDependent(ctx context.Context, namespace
 	return r0, r1
 }
 
-// MockCaDEngine_FindUpstreamDependent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindUpstreamDependent'
-type MockCaDEngine_FindUpstreamDependent_Call struct {
+// MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindAllUpstreamReferencesInRepositories'
+type MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call struct {
 	*mock.Call
 }
 
-// FindUpstreamDependent is a helper method to define mock.On call
+// FindAllUpstreamReferencesInRepositories is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namespace string
 //   - prName string
-func (_e *MockCaDEngine_Expecter) FindUpstreamDependent(ctx interface{}, namespace interface{}, prName interface{}) *MockCaDEngine_FindUpstreamDependent_Call {
-	return &MockCaDEngine_FindUpstreamDependent_Call{Call: _e.mock.On("FindUpstreamDependent", ctx, namespace, prName)}
+func (_e *MockCaDEngine_Expecter) FindAllUpstreamReferencesInRepositories(ctx interface{}, namespace interface{}, prName interface{}) *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call {
+	return &MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call{Call: _e.mock.On("FindAllUpstreamReferencesInRepositories", ctx, namespace, prName)}
 }
 
-func (_c *MockCaDEngine_FindUpstreamDependent_Call) Run(run func(ctx context.Context, namespace string, prName string)) *MockCaDEngine_FindUpstreamDependent_Call {
+func (_c *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call) Run(run func(ctx context.Context, namespace string, prName string)) *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -246,12 +246,12 @@ func (_c *MockCaDEngine_FindUpstreamDependent_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockCaDEngine_FindUpstreamDependent_Call) Return(s string, err error) *MockCaDEngine_FindUpstreamDependent_Call {
+func (_c *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call) Return(s string, err error) *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call {
 	_c.Call.Return(s, err)
 	return _c
 }
 
-func (_c *MockCaDEngine_FindUpstreamDependent_Call) RunAndReturn(run func(ctx context.Context, namespace string, prName string) (string, error)) *MockCaDEngine_FindUpstreamDependent_Call {
+func (_c *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call) RunAndReturn(run func(ctx context.Context, namespace string, prName string) (string, error)) *MockCaDEngine_FindAllUpstreamReferencesInRepositories_Call {
 	_c.Call.Return(run)
 	return _c
 }
