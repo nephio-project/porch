@@ -992,10 +992,11 @@ func (t *TestSuite) TimingHelper(operationDescription string, toTime func(t *Tes
 func RunInParallel(functions ...func() any) []any {
 	var group sync.WaitGroup
 	var results []any
-	for _, eachFunction := range functions {
+	for i, eachFunction := range functions {
 		group.Add(1)
 		go func() {
 			defer group.Done()
+			fmt.Printf("[RunInParallel] goroutine %d started at %s\n", i, time.Now().Format(time.RFC3339Nano))
 			if reflect.TypeOf(eachFunction).NumOut() == 0 {
 				results = append(results, nil)
 				eachFunction()
@@ -1004,6 +1005,7 @@ func RunInParallel(functions ...func() any) []any {
 
 				results = append(results, eachResult)
 			}
+			fmt.Printf("[RunInParallel] goroutine %d finished at %s\n", i, time.Now().Format(time.RFC3339Nano))
 		}()
 	}
 	group.Wait()
