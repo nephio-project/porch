@@ -35,27 +35,8 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Get kpt version from go.mod
-        id: kpt-version
-        run: |
-          KPT_VERSION=$(grep 'github.com/kptdev/kpt' go.mod | awk '{print $2}')
-          if [ -z "$KPT_VERSION" ]; then
-            echo "Warning: Could not extract kpt version from go.mod, using fallback"
-            KPT_VERSION="v1.0.0-beta.61.1"
-          fi
-          echo "version=${KPT_VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Install kpt
-        uses: jaxxstorm/action-install-gh-release@v2.1.0
-        with:
-          repo: kptdev/kpt
-          tag: ${{ steps.kpt-version.outputs.version }}
-          chmod: 0755
+      - name: Set up Go and kpt
+        uses: ./.github/actions/setup-go-kpt
           
       - name: Build porch blueprint
         run: PATH=./bin:$PATH IMAGE_REPO=docker.io/nephio IMAGE_TAG=${{ github.ref_name }} PORCH_CACHE_TYPE=CR make deployment-config
