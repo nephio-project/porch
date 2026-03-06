@@ -286,6 +286,11 @@ func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositoryS
 	return args.Error(0)
 }
 
+func (m *mockCache) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	args := m.Called(ctx, namespace, prName)
+	return args.String(0), args.Error(1)
+}
+
 func TestCreatePRWith2Tasks(t *testing.T) {
 	pr := &porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
@@ -670,6 +675,63 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestFindUpstreamReference(t *testing.T) {
+	tests := []struct {
+		name          string
+		namespace     string
+		prName        string
+		expected      string
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name:          "success - finds downstream",
+			namespace:     "default",
+			prName:        "upstream-pkg",
+			expected:      "downstream-pkg",
+			expectedError: false,
+		},
+		{
+			name:          "success - no downstream found",
+			namespace:     "test",
+			prName:        "upstream-pkg",
+			expected:      "",
+			expectedError: false,
+		},
+		{
+			name:          "error - cache query fails",
+			namespace:     "default",
+			prName:        "upstream-pkg",
+			expectedError: true,
+			errorContains: "cache error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCache := &mockCache{}
+			if tt.expectedError {
+				mockCache.On("FindAllUpstreamReferencesInRepositories", mock.Anything, tt.namespace, tt.prName).Return("", fmt.Errorf("cache error"))
+			} else {
+				mockCache.On("FindAllUpstreamReferencesInRepositories", mock.Anything, tt.namespace, tt.prName).Return(tt.expected, nil)
+			}
+
+			engine := &cadEngine{cache: mockCache}
+			result, err := engine.FindAllUpstreamReferencesInRepositories(context.Background(), tt.namespace, tt.prName)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, tt.errorContains)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+
+			mockCache.AssertExpectations(t)
 		})
 	}
 }

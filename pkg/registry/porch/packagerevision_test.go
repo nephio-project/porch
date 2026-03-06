@@ -280,6 +280,7 @@ func TestDelete(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
+	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	result, deleted, err := packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
@@ -316,6 +317,7 @@ func TestDelete(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
+	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("deletion failed")).Once()
 
 	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
@@ -642,6 +644,51 @@ func TestCreateAction(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := createAction(tc.pkgRev)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestCheckIfUpstreamIsReferenced(t *testing.T) {
+	_, mockEngine := setup(t)
+
+	testCases := map[string]struct {
+		downstream string
+		engineErr  error
+		expectErr  bool
+	}{
+		"no downstream": {
+			downstream: "",
+			engineErr:  nil,
+			expectErr:  false,
+		},
+		"has downstream": {
+			downstream: "downstream-pkg",
+			engineErr:  nil,
+			expectErr:  true,
+		},
+		"engine error": {
+			downstream: "",
+			engineErr:  errors.New("engine failure"),
+			expectErr:  true,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return(tc.downstream, tc.engineErr).Once()
+
+			apiPkgRev := &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pkg"},
+			}
+			ctx := request.WithNamespace(context.Background(), "test-ns")
+
+			err := packagerevisions.checkIfUpstreamIsReferenced(ctx, apiPkgRev)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

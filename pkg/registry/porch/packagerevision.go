@@ -320,6 +320,10 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 
 	klog.InfoS("[API] Delete operation started for PackageRevision", context1.LogMetadataFrom(ctx)...)
 
+	if err := r.checkIfUpstreamIsReferenced(ctx, apiPkgRev); err != nil {
+		return nil, false, err
+	}
+
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 
@@ -363,4 +367,24 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName,
 	)
+}
+
+func (r *packageRevisions) checkIfUpstreamIsReferenced(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
+	klog.Infof("[API] Checking if upstream PackageRevision is referenced: %s", apiPkgRev.Name)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+	downstream, err := r.cad.FindAllUpstreamReferencesInRepositories(ctx, ns, apiPkgRev.Name)
+	if err != nil {
+		klog.Warningf("[API] Failed to check if upstream is referenced for PackageRevision %s: %v", apiPkgRev.Name, err)
+		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream references: %w", err))
+	}
+
+	if downstream != "" {
+		klog.Infof("[API] PackageRevision %s is referenced as upstream by: %s", apiPkgRev.Name, downstream)
+		return apierrors.NewForbidden(
+			porchapi.Resource("packagerevisions"),
+			apiPkgRev.Name,
+			fmt.Errorf("cannot delete package revision, it is referenced as upstream by: %s", downstream))
+	}
+	klog.Infof("[API] PackageRevision %s is not referenced as upstream", apiPkgRev.Name)
+	return nil
 }

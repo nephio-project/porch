@@ -454,3 +454,28 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 
 	return err
 }
+
+func findUpstreamRefsFromDB(ctx context.Context, namespace, prName string) (string, error) {
+	_, span := tracer.Start(ctx, "dbpackagerevisionsql::findUpstreamRefsFromDB")
+	defer span.End()
+
+	// Match newUpstreamRef (upgrade) or nested upstreamRef (clone)
+	// Exclude main branch packages (revision = -1) as they are auto-managed
+	sqlStatement := `
+		SELECT k8s_name FROM package_revisions
+		WHERE k8s_name_space=$1
+		  AND revision != -1
+		  AND tasks::text ~ ('"(upstreamRef|newUpstreamRef)":\{"name":"' || $2 || '"')
+		LIMIT 1
+	`
+
+	var downstreamName string
+	err := GetDB().db.QueryRow(ctx, sqlStatement, namespace, prName).Scan(&downstreamName)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return downstreamName, nil
+}

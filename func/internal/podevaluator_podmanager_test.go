@@ -287,7 +287,7 @@ func TestPodManager(t *testing.T) {
 					Command: []string{
 						"cp",
 						"-a",
-						"/wrapper-server/.",
+						"/home/nonroot/wrapper-server/.",
 						volumeMountPath,
 					},
 					VolumeMounts: []corev1.VolumeMount{

@@ -318,7 +318,7 @@ data:
           command: 
             - cp
             - -a
-            - /wrapper-server/.
+            - /home/nonroot/wrapper-server/.
             - /wrapper-server-tools
           volumeMounts:
             - name: wrapper-server-tools
