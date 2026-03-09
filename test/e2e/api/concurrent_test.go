@@ -15,8 +15,10 @@
 package api
 
 import (
+	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -261,7 +263,8 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 		deleteFunction,
 		deleteFunction,
 		deleteFunction)
-
+	
+	fmt.Printf("After completion %s \n", time.Now())
 	assert.True(t, len(results) >= 7, "expected at least 7 results but was %d", len(results))
 	t.assertConcurrentResults(results, "delete")
 	t.MustNotExist(&draft)
@@ -341,6 +344,15 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 }
 
 func (t *PorchSuite) assertConcurrentResults(results []any, operation string) {
+	t.Logf("DEBUG: %s operation returned %d results:", operation, len(results))
+	for i, r := range results {
+		if r == nil {
+			t.Logf("  result[%d]: <nil> (success)", i)
+		} else {
+			t.Logf("  result[%d]: %v", i, r)
+		}
+	}
+
 	assert.Contains(t, results, nil, "expected one %s request to succeed, but did not happen - results: %v", operation, results)
 
 	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
