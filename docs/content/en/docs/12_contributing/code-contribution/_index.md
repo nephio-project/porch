@@ -149,17 +149,17 @@ git push origin feature-add-package-validation
 
 The EasyCLA bot will prompt you to sign the CLA if you haven't already (see [Before You Start]({{% relref "../" %}})).
 
-## CI Checks on your PR
+## CI Checks on Your PR
 
-When you create a Pull Request the Continuous Integration (CI) framework will run some checks on your PR. It will:
+When you create a Pull Request, the Continuous Integration (CI) framework will run some checks on your PR. It will:
 
 1. Compile, build and test the code including the code changes in your PR. It will:
-1. Build and verify the documentation including the dcumentation changes in your PR, carrying out checks such as making sure there are no dead links in the documentation
+1. Build and verify the documentation including the documentation changes in your PR, carrying out checks such as making sure there are no dead links in the documentation
 1. Run linters and other checks on your code
 1. Run SonarCloud to check that the code in your PR meets quality criteria such as 80% test coverage
 1. Run some AI tools (such as Copilot or [Dosu](https://dosu.dev/)) to review the code
 
-## Update your PR
+## Update Your PR
 
 If the CI checks flag changes or if the maintainers request changes:
 
@@ -169,21 +169,22 @@ If the CI checks flag changes or if the maintainers request changes:
 
 The PR will automatically update with your new commits.
 
-## Reviews of your PR
+## Reviews of Your PR
 
 Before your PR is merged, it must be reviewed by community members and maintainers. Generally, in order to make the best
 use of their time they will review your PR when:
 
-1. The code including the code changes in your PR is compiling and building
-1. The documentation is building and verified
-1. All lint checks are passing
-1. SonarCloud quality checks such as code coverage levels are passing
-1. The comments from the first run of AI on the commit of the PR are addressed, further re-runs of AI is optional
+1. The code including the code changes in your PR is compiling and building.
+1. The documentation is building and verified.
+1. All lint checks are passing.
+1. SonarCloud quality checks such as code coverage levels are passing.
+1. The comments from the first run of AI on the commit of the PR are addressed. Further re-runs of AI are optional.
 
-> [!NOTE]
-> If you are having difficulty in getting tests to pass, need guidance in how to address an AI generated comment, or
-> want to request an exception on a quality metric such as code coverage, please add a comment on your PR and the
-> community members and maintainers will consider your request.
+{{% alert title="Note" color="info" %}}
+If you are having difficulty in getting tests to pass, need guidance in how to address an AI-generated comment, or
+want to request an exception on a quality metric such as code coverage, please add a comment on your PR and the
+community members and maintainers will consider your request.
+{{% /alert %}}
 
 ## Rebase on Latest Main
 
