@@ -168,6 +168,11 @@ Common issues when working with PackageRevisions and their solutions:
 - Check function image availability and version
 - Verify function configuration in Kptfile
 - Review function logs in Porch server output during push operations
+- **To save work-in-progress despite failures**: Add `porch.kpt.dev/push-on-render-failure: "true"` annotation to the PackageRevision
+  ```bash
+  kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=true
+  ```
+- **To save partially-rendered output**: Also add `kpt.dev/save-on-render-failure: "true"` annotation to the Kptfile
 
 ---
 
