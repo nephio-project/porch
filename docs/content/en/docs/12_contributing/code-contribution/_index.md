@@ -151,7 +151,7 @@ The EasyCLA bot will prompt you to sign the CLA if you haven't already (see [Bef
 
 ## CI Checks on your PR
 
-When you create a Pull Request the Continuous Integration (CI) framework will run some checks on your PR
+When you create a Pull Request the Continuous Integration (CI) framework will run some checks on your PR. It will:
 
 1. Compile, build and test the code including the code changes in your PR. It will:
 1. Build and verify the documentation including the dcumentation changes in your PR, carrying out checks such as making sure there are no dead links in the documentation
