@@ -262,6 +262,13 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 	}
 
 	if r.pushDraftsToGit {
+		prName := repository.ComposePkgRevObjName(dbPkgRev.Key())
+		klog.InfoS("[DB Cache] Creating draft in Git for PackageRevision",
+			context1.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Draft created in Git for PackageRevision",
+				context1.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
+		}()
 		gitPRDraft, err := r.externalRepo.CreatePackageRevisionDraft(ctx, newPR)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to create git draft for %+v, not saving to DB", dbPkgRev.Key())
@@ -381,6 +388,12 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	updatePkgRev.updatedBy = getCurrentUser()
 
 	if r.pushDraftsToGit && updatePkgRev.gitPRDraft == nil {
+		klog.InfoS("[DB Cache] Getting or creating Git draft for PackageRevision",
+			context1.LogMetadataFromWithExtras(ctx, "packageRevision", repository.ComposePkgRevObjName(updatePkgRev.Key()))...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Git draft get or create completed for PackageRevision",
+				context1.LogMetadataFromWithExtras(ctx, "packageRevision", repository.ComposePkgRevObjName(updatePkgRev.Key()))...)
+		}()
 		gitPRToUse := r.getCachedGitPR(updatePkgRev.Key().PkgKey, updatePkgRev.Key().WorkspaceName)
 
 		gitPRDraft, gitPR, err := engine.GetOrCreateGitDraft(ctx, r.externalRepo, updatePkgRev, gitPRToUse)
@@ -437,9 +450,15 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 			context1.LogMetadataFrom(ctx)...)
 	}()
   
-  dbPrd := prd.(*dbPackageRevision)
+	dbPrd := prd.(*dbPackageRevision)
 
 	if r.pushDraftsToGit && dbPrd.gitPRDraft != nil {
+		klog.InfoS("[DB Cache] Closing Git draft and pushing to Git for PackageRevision",
+			context1.LogMetadataFromWithExtras(ctx, "packageRevision", repository.ComposePkgRevObjName(dbPrd.Key()))...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Git draft closed and pushed for PackageRevision",
+				context1.LogMetadataFromWithExtras(ctx, "packageRevision", repository.ComposePkgRevObjName(dbPrd.Key()))...)
+		}()
 		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, dbPrd.gitPRDraft, 0)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to close git draft for %+v, not saving to DB", dbPrd.Key())

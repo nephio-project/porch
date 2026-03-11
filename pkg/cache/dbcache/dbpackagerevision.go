@@ -145,6 +145,11 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision",
 				context1.LogMetadataFrom(ctx)...)
 		}()
+	} else if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		klog.InfoS("[DB Cache] Updating lifecycle in database and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
 	} else {
 		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
 		defer func() {
@@ -425,10 +430,17 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
-	defer func() {
-		klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
-	}()
+	if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		klog.InfoS("[DB Cache] Updating resources in memory and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Resources updated in memory and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	} else {
+		klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	}
 
 	pr.resources = new.Spec.Resources
 
