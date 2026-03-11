@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import (
 	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -53,6 +54,8 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
+
+	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -84,14 +87,14 @@ func (cad *cadEngine) ObjectCache() WatcherManager {
 }
 
 func (cad *cadEngine) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::OpenRepository")
+	ctx, span := tracer.Start(ctx, "cadEngine::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
 	return cad.cache.OpenRepository(ctx, repositorySpec)
 }
 
 func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListPackageRevisions")
+	ctx, span := tracer.Start(ctx, "cadEngine::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
 	klog.V(3).InfoS("[CaD Engine] Opening cached repository for listing",
@@ -113,7 +116,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 }
 
 func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision")
+	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	packageConfig, err := repository.BuildPackageConfig(ctx, newPr, parent)
@@ -295,7 +298,7 @@ func validateCloneTask(obj *porchapi.PackageRevision, existingRevs []repository.
 }
 
 func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision")
+	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	newRV := newObj.GetResourceVersion()
@@ -420,7 +423,7 @@ func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repositor
 }
 
 func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, pr2Del repository.PackageRevision) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision")
+	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	klog.InfoS("[CaD Engine] Preparing to delete PackageRevision",
@@ -439,7 +442,7 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 }
 
 func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository.Repository, repoPkgRev repository.PackageRevision) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::deletePackageRevision")
+	ctx, span := tracer.Start(ctx, "cadEngine::deletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	if err := repo.DeletePackageRevision(ctx, repoPkgRev); err != nil {
@@ -450,7 +453,7 @@ func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository
 }
 
 func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListPackages")
+	ctx, span := tracer.Start(ctx, "cadEngine::ListPackages", trace.WithAttributes())
 	defer span.End()
 
 	repo, err := cad.cache.OpenRepository(ctx, repositorySpec)
@@ -469,12 +472,12 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 }
 
 func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources")
+	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources", trace.WithAttributes())
 	defer span.End()
 
 	klog.InfoS("[CaD Engine] Processing resource updates for PackageRevision", context1.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision:",
+		klog.V(3).InfoS("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision",
 			context1.LogMetadataFrom(ctx)...)
 	}()
 
@@ -512,15 +515,55 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
-	}
-	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, renderErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+
+	if renderErr != nil {
+		if result, status, err := handleMutationError(renderErr, renderStatus, rev); err != nil {
+			return result, status, err
+		}
 	}
 
+	// No render error, or annotation allows push on render failure
+	repoPkgRev, closeErr := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if closeErr != nil {
+		if renderErr != nil {
+			return nil, renderStatus, fmt.Errorf("failed to push package to remote: %w; render error: %v", closeErr, renderErr)
+		}
+		return nil, renderStatus, closeErr
+	}
+	if renderErr != nil {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package pushed to remote despite render failure. Details: %w", renderErr)
+	}
 	return repoPkgRev, renderStatus, nil
+}
+
+func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
+}
+
+// handleMutationError decides whether to bail out or allow push-on-render-failure.
+// Returns a non-nil error to signal the caller should return immediately.
+// Returns a nil error to signal the caller should proceed to close the draft.
+func handleMutationError(renderErr error, renderStatus *porchapi.RenderStatus, rev *porchapi.PackageRevision) (repository.PackageRevision, *porchapi.RenderStatus, error) {
+	// If persistence failed after render, never push — draft contents are stale.
+	var persistErr *task.RenderPersistError
+	if errors.As(renderErr, &persistErr) {
+		return nil, renderStatus, renderErr
+	}
+
+	// Only apply push-on-render-failure for actual render errors.
+	// For any other error (e.g. draft.UpdateResources failure when render succeeded),
+	// never push — the draft contents may be stale.
+	var renderError *task.RenderError
+	if !errors.As(renderErr, &renderError) {
+		return nil, renderStatus, renderErr
+	}
+
+	if !rev.IsPushOnRenderFailure() {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+	}
+
+	return nil, renderStatus, nil
 }

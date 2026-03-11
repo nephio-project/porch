@@ -1,4 +1,4 @@
-# Copyright 2024 The Nephio Authors
+# Copyright 2024,2026 The Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,17 +35,8 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install kpt
-        uses: jaxxstorm/action-install-gh-release@v2.1.0
-        with:
-          repo: kptdev/kpt
-          tag: v1.0.0-beta.59
-          chmod: 0755
+      - name: Set up Go and kpt
+        uses: ./.github/actions/setup-go-kpt
           
       - name: Build porch blueprint
         run: PATH=./bin:$PATH IMAGE_REPO=docker.io/nephio IMAGE_TAG=${{ github.ref_name }} PORCH_CACHE_TYPE=CR make deployment-config

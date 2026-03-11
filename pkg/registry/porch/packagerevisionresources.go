@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	context1 "github.com/nephio-project/porch/pkg/util/context"
+	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,7 +68,7 @@ func (r *packageRevisionResources) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisionResources) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List")
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestID(ctx)
@@ -97,7 +98,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	klog.V(3).InfoS("List packageRevisionResources completed",
+	klog.V(3).InfoS("List PackageRevisionResources completed",
 		context1.LogMetadataFromWithExtras(ctx, "found", len(result.Items))...)
 
 	return result, nil
@@ -105,7 +106,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 
 // Get implements the Getter interface
 func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get")
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -122,7 +123,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 		return nil, err
 	}
 
-	klog.V(3).InfoS("Get packageRevisionResources completed", context1.LogMetadataFrom(ctx)...)
+	klog.V(3).InfoS("Get PackageRevisionResources completed", context1.LogMetadataFrom(ctx)...)
 
 	return apiPkgResources, nil
 }
@@ -132,7 +133,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 // to true.
 func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update")
+	ctx, span := tracer.Start(ctx, "[START]::PackageRevisionResources::Update", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -218,7 +219,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 
 // Watch supports watching for PackageRevisionResources changes.
 func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestID(ctx)

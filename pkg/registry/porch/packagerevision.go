@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	context1 "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,7 @@ func (r *packageRevisions) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisions) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestID(ctx)
@@ -110,7 +111,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 
 // Get implements the Getter interface
 func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -135,7 +136,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOp
 // Create implements the Creater interface.
 func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, _ rest.ValidateObjectFunc,
 	_ *metav1.CreateOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestID(ctx)
@@ -272,7 +273,7 @@ func createAction(pkgRev *porchapi.PackageRevision) string {
 // to true.
 func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -292,7 +293,7 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 // It also returns a boolean which is set to true if the resource was instantly
 // deleted or false if it will be deleted asynchronously.
 func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, _ *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -318,6 +319,10 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	}
 
 	klog.InfoS("[API] Delete operation started for PackageRevision", context1.LogMetadataFrom(ctx)...)
+
+	if err := r.checkIfUpstreamIsReferenced(ctx, apiPkgRev); err != nil {
+		return nil, false, err
+	}
 
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
@@ -362,4 +367,24 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName,
 	)
+}
+
+func (r *packageRevisions) checkIfUpstreamIsReferenced(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
+	klog.Infof("[API] Checking if upstream PackageRevision is referenced: %s", apiPkgRev.Name)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+	downstream, err := r.cad.FindAllUpstreamReferencesInRepositories(ctx, ns, apiPkgRev.Name)
+	if err != nil {
+		klog.Warningf("[API] Failed to check if upstream is referenced for PackageRevision %s: %v", apiPkgRev.Name, err)
+		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream references: %w", err))
+	}
+
+	if downstream != "" {
+		klog.Infof("[API] PackageRevision %s is referenced as upstream by: %s", apiPkgRev.Name, downstream)
+		return apierrors.NewForbidden(
+			porchapi.Resource("packagerevisions"),
+			apiPkgRev.Name,
+			fmt.Errorf("cannot delete package revision, it is referenced as upstream by: %s", downstream))
+	}
+	klog.Infof("[API] PackageRevision %s is not referenced as upstream", apiPkgRev.Name)
+	return nil
 }

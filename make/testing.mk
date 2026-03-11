@@ -82,4 +82,4 @@ test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
 test-disaster-recovery: ## Run disaster-recovery test scenarios against environment deployed by `test/disaster/deployment/setup.sh`
 # To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
 #	to the `go test` command line below
-	DISASTER=1 gotestsum --format standard-verbose -- -count 1 -v -failfast -timeout 60m ./test/disaster/api
+	go test -count 1 -v -failfast -timeout 60m ./test/disaster/api

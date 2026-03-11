@@ -39,6 +39,11 @@ func Wipe(t *suiteutils.MultiClusterTestSuite) {
 	t.Logf("Wiped Porch Kind clusters")
 }
 
+func ReconnectDBCacheCluster(t *suiteutils.MultiClusterTestSuite) {
+	t.DropCachedClients(dbCacheKubeconfigFile)
+	UseDBCacheCluster(t)
+}
+
 func Reinstall(t *suiteutils.MultiClusterTestSuite) {
 	t.T().Helper()
 

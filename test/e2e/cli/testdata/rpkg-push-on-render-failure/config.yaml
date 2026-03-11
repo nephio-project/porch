@@ -1,0 +1,159 @@
+commands:
+  # Register a repository
+  - args:
+      - porchctl
+      - repo
+      - register
+      - --namespace=rpkg-push-on-render-failure
+      - --name=git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-push-on-render-failure
+
+  # Render failure WITH annotation=true → pushed despite failure
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --namespace=rpkg-push-on-render-failure
+      - --repository=git
+      - --workspace=v1
+      - test-push-true
+    stdout: |
+      git.test-push-true.v1 created
+  - args:
+      - kubectl
+      - annotate
+      - packagerevision
+      - git.test-push-true.v1
+      - --namespace=rpkg-push-on-render-failure
+      - porch.kpt.dev/push-on-render-failure=true
+    stdout: |
+      packagerevision.porch.kpt.dev/git.test-push-true.v1 annotated
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-true.v1
+      - /tmp/porch-e2e/push-true
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: quay.io/invalid/nonexistent-fn:v0.0.1\n" >> /tmp/porch-e2e/push-true/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-true.v1
+      - /tmp/porch-e2e/push-true
+    stderr: "Package pushed to remote despite render failure"
+    containsErrorString: true
+    exitCode: 1
+  # Verify resources were persisted
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-true.v1
+      - /tmp/porch-e2e/push-true-verify
+  - args:
+      - sh
+      - -c
+      - grep -q "nonexistent-fn" /tmp/porch-e2e/push-true-verify/Kptfile && echo "found"
+    stdout: |
+      found
+
+  # Render failure WITH annotation=false → NOT pushed
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --namespace=rpkg-push-on-render-failure
+      - --repository=git
+      - --workspace=v1
+      - test-push-false
+    stdout: |
+      git.test-push-false.v1 created
+  - args:
+      - kubectl
+      - annotate
+      - packagerevision
+      - git.test-push-false.v1
+      - --namespace=rpkg-push-on-render-failure
+      - porch.kpt.dev/push-on-render-failure=false
+    stdout: |
+      packagerevision.porch.kpt.dev/git.test-push-false.v1 annotated
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-false.v1
+      - /tmp/porch-e2e/push-false
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: quay.io/invalid/nonexistent-fn:v0.0.1\n" >> /tmp/porch-e2e/push-false/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-false.v1
+      - /tmp/porch-e2e/push-false
+    stderr: "Package NOT pushed to remote"
+    containsErrorString: true
+    exitCode: 1
+  # Verify resources were NOT persisted — Kptfile should not have the broken mutator
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-push-false.v1
+      - /tmp/porch-e2e/push-false-verify
+  - args:
+      - sh
+      - -c
+      - grep -q "nonexistent-fn" /tmp/porch-e2e/push-false-verify/Kptfile && echo "found" || echo "not-found"
+    stdout: |
+      not-found
+
+  # Render failure WITHOUT annotation → NOT pushed (default)
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --namespace=rpkg-push-on-render-failure
+      - --repository=git
+      - --workspace=v1
+      - test-no-annotation
+    stdout: |
+      git.test-no-annotation.v1 created
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-no-annotation.v1
+      - /tmp/porch-e2e/no-annotation
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: quay.io/invalid/nonexistent-fn:v0.0.1\n" >> /tmp/porch-e2e/no-annotation/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push-on-render-failure
+      - git.test-no-annotation.v1
+      - /tmp/porch-e2e/no-annotation
+    stderr: "Package NOT pushed to remote"
+    containsErrorString: true
+    exitCode: 1

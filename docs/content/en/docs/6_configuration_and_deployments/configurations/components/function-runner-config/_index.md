@@ -34,12 +34,14 @@ args:
 ```bash
 args:
 - --pod-cache-config=/pod-cache-config/pod-cache-config.yaml  # Pod cache config file path
-- --warm-up-pod-cache=true        # Warm up pod cache on startup (default: true)
-- --pod-namespace=porch-fn-system # Namespace for KRM function pods (default: porch-fn-system)
-- --pod-ttl=30m                   # Pod TTL before GC (default: 30m)
-- --scan-interval=1m              # GC scan interval (default: 1m)
-- --function-pod-template=        # ConfigMap with pod specification
-- --max-request-body-size=6291456 # Max gRPC message size in bytes (default: 6MB)
+- --warm-up-pod-cache=true         # Warm up pod cache on startup (default: true)
+- --pod-namespace=porch-fn-system  # Namespace for KRM function pods (default: porch-fn-system)
+- --pod-ttl=30m                    # Pod TTL before GC (default: 30m)
+- --scan-interval=1m               # GC scan interval (default: 1m)
+- --function-pod-template=         # ConfigMap with pod specification
+- --max-request-body-size=6291456  # Max gRPC message size in bytes (default: 6MB)
+- --max-waitlist-length            # Maximum waitlist length per pod
+- --max-parallel-pods-per-function # Maximum parallel pods per function
 ```
 
 #### Private Registry Arguments

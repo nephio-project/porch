@@ -21,6 +21,7 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	context1 "github.com/nephio-project/porch/pkg/util/context"
+	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -50,7 +51,7 @@ func (a *packageRevisionApproval) NamespaceScoped() bool {
 }
 
 func (a *packageRevisionApproval) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Get")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Get", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
@@ -67,7 +68,7 @@ func (a *packageRevisionApproval) Get(ctx context.Context, name string, _ *metav
 // to true.
 func (a *packageRevisionApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Update")
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionApproval::Update", trace.WithAttributes())
 	defer span.End()
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
