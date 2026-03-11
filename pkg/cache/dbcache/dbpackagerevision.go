@@ -425,7 +425,16 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr, pr.repo.pushDraftsToGit, pr.gitPR)
+	var gitPR repository.PackageRevision
+	if pr.repo.pushDraftsToGit {
+		if pr.gitPR != nil {
+			gitPR = pr.gitPR
+		} else {
+			gitPR = pr.repo.getCachedGitPR(pr.Key().PkgKey, pr.Key().WorkspaceName)
+		}
+	}
+
+	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr, pr.repo.pushDraftsToGit, gitPR)
 	if err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.pkgRevKey.Revision = 0

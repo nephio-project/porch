@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -49,7 +50,44 @@ type dbRepository struct {
 	updatedBy            string
 	deployment           bool
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
-	pushDraftsToGit      bool
+
+	pushDraftsToGit bool
+	gitPRCacheMutex sync.RWMutex
+	gitPRCache      map[string]repository.PackageRevision
+}
+
+func (r *dbRepository) gitPRCacheKey(pkgKey repository.PackageKey, workspaceName string) string {
+	return fmt.Sprintf("%s/%s/%s", pkgKey.Package, pkgKey.Path, workspaceName)
+}
+
+func (r *dbRepository) getCachedGitPR(pkgKey repository.PackageKey, workspaceName string) repository.PackageRevision {
+	r.gitPRCacheMutex.RLock()
+	defer r.gitPRCacheMutex.RUnlock()
+
+	cacheKey := r.gitPRCacheKey(pkgKey, workspaceName)
+	return r.gitPRCache[cacheKey]
+}
+
+func (r *dbRepository) setCachedGitPR(pkgKey repository.PackageKey, workspaceName string, gitPR repository.PackageRevision) {
+	if gitPR == nil {
+		return
+	}
+
+	r.gitPRCacheMutex.Lock()
+	defer r.gitPRCacheMutex.Unlock()
+
+	cacheKey := r.gitPRCacheKey(pkgKey, workspaceName)
+	r.gitPRCache[cacheKey] = gitPR
+	klog.V(5).Infof("cached gitPR for %s", cacheKey)
+}
+
+func (r *dbRepository) deleteCachedGitPR(pkgKey repository.PackageKey, workspaceName string) {
+	r.gitPRCacheMutex.Lock()
+	defer r.gitPRCacheMutex.Unlock()
+
+	cacheKey := r.gitPRCacheKey(pkgKey, workspaceName)
+	delete(r.gitPRCache, cacheKey)
+	klog.V(5).Infof("deleted cached gitPR for %s", cacheKey)
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -73,6 +111,10 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 	defer span.End()
 
 	klog.V(5).Infof("dbRepository:OpenRepository: opening repository %+v", r.Key())
+
+	if r.pushDraftsToGit {
+		r.gitPRCache = make(map[string]repository.PackageRevision)
+	}
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, r.spec, externalRepoOptions)
 	if err != nil {
@@ -255,6 +297,10 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 		return err
 	}
 
+	if r.pushDraftsToGit {
+		r.deleteCachedGitPR(pr2Delete.Key().PkgKey, pr2Delete.Key().WorkspaceName)
+	}
+
 	foundPRs, err := pkgRevReadPRsFromDB(ctx, foundPkg.Key())
 	if err != nil {
 		return err
@@ -291,7 +337,9 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	updatePkgRev.updatedBy = getCurrentUser()
 
 	if r.pushDraftsToGit && updatePkgRev.gitPRDraft == nil {
-		gitPRDraft, gitPR, err := engine.GetOrCreateGitDraft(ctx, r.externalRepo, updatePkgRev, updatePkgRev.gitPR)
+		gitPRToUse := r.getCachedGitPR(updatePkgRev.Key().PkgKey, updatePkgRev.Key().WorkspaceName)
+
+		gitPRDraft, gitPR, err := engine.GetOrCreateGitDraft(ctx, r.externalRepo, updatePkgRev, gitPRToUse)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to get or create git draft for %+v", updatePkgRev.Key())
 		}
@@ -347,11 +395,22 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 		}
 		dbPrd.gitPR = gitPR
 		dbPrd.gitPRDraft = nil
+		r.setCachedGitPR(dbPrd.Key().PkgKey, dbPrd.Key().WorkspaceName, gitPR)
 	}
 
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
 	if err != nil {
 		return nil, err
+	}
+
+	if r.pushDraftsToGit && pr.gitPRDraft != nil && r.externalRepo != nil {
+		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, pr.gitPRDraft, 0)
+		if err != nil {
+			klog.Warningf("failed to close git draft for %+v: %v", pr.Key(), err)
+		} else {
+			pr.gitPR = gitPR
+			pr.gitPRDraft = nil
+		}
 	}
 
 	return repository.PackageRevision(pr), nil
