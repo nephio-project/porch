@@ -66,8 +66,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		},
 	}
 
-	packageRevisionsApproval := &packageRevisionsApproval{
-		common: packageCommon{
+	packageRevisionsApproval := &packageRevisionApproval{
+		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
 			coreClient:               r.CoreClient,

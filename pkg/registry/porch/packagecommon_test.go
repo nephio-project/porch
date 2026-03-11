@@ -16,6 +16,7 @@ package porch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -895,4 +897,162 @@ func TestGetLifecycleTransition(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestUpdatePackageRevision(t *testing.T) {
+	tests := []struct {
+		name          string
+		pkgRevName    string
+		setupMocks    func(*mockclient.MockClient, *mockcad.MockCaDEngine, *mockrepo.MockPackageRevision)
+		expectedError bool
+		expectCreate  bool
+	}{
+		{
+			name:       "Successful update - Propose lifecycle",
+			pkgRevName: "repo.pkg.wsn",
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine, pkgRev *mockrepo.MockPackageRevision) {
+				oldPkgRev := &porchapi.PackageRevision{
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					},
+				}
+				newPkgRev := &porchapi.PackageRevision{
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						RepositoryName: "repo",
+					},
+				}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
+					Return(nil).Twice()
+
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+					repository.ListPackageRevisionFilter{Key: prKey}).
+					Return([]repository.PackageRevision{pkgRev}, nil).Once()
+
+				pkgRev.On("KubeObjectName").Return("repo.pkg.wsn")
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(oldPkgRev, nil).Once()
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(newPkgRev, nil).Once()
+
+				cad.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything,
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(pkgRev, nil).Once()
+			},
+			expectedError: false,
+			expectCreate:  false,
+		},
+		{
+			name:       "Missing namespace",
+			pkgRevName: "repo.pkg.wsn",
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine, pkgRev *mockrepo.MockPackageRevision) {
+				// No mocks needed - should fail before any calls
+			},
+			expectedError: true,
+			expectCreate:  false,
+		},
+		{
+			name:       "Package not found - no forceAllowCreate",
+			pkgRevName: "repo.pkg.wsn",
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine, pkgRev *mockrepo.MockPackageRevision) {
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
+					Return(nil).Once()
+
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+					repository.ListPackageRevisionFilter{Key: prKey}).
+					Return([]repository.PackageRevision{}, nil).Once()
+			},
+			expectedError: true,
+			expectCreate:  false,
+		},
+		{
+			name:       "Error from UpdatePackageRevision",
+			pkgRevName: "repo.pkg.wsn",
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine, pkgRev *mockrepo.MockPackageRevision) {
+				oldPkgRev := &porchapi.PackageRevision{
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					},
+				}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
+					Return(nil).Twice()
+
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+					repository.ListPackageRevisionFilter{Key: prKey}).
+					Return([]repository.PackageRevision{pkgRev}, nil).Once()
+
+				pkgRev.On("KubeObjectName").Return("repo.pkg.wsn")
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(oldPkgRev, nil).Once()
+
+				cad.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything,
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(nil, errors.New("update failed")).Once()
+			},
+			expectedError: true,
+			expectCreate:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCoreClient := &mockclient.MockClient{}
+			mockCaDEngine := &mockcad.MockCaDEngine{}
+			mockPkgRev := &mockrepo.MockPackageRevision{}
+
+			pc := &packageCommon{
+				coreClient:     mockCoreClient,
+				cad:            mockCaDEngine,
+				gr:             porchapi.Resource("packagerevisions"),
+				scheme:         runtime.NewScheme(),
+				updateStrategy: packageRevisionStrategy{},
+			}
+
+			tt.setupMocks(mockCoreClient, mockCaDEngine, mockPkgRev)
+
+			ctx := context.Background()
+			if tt.name != "Missing namespace" {
+				ctx = genericapirequest.WithNamespace(ctx, "test-ns")
+			}
+
+			objInfo := &fakeUpdatedObjectInfo{
+				obj: &porchapi.PackageRevision{
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						RepositoryName: "repo",
+					},
+				},
+			}
+
+			result, created, err := pc.updatePackageRevision(ctx, tt.pkgRevName, objInfo, nil, nil, false)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, tt.expectCreate, created)
+			}
+
+			mockCoreClient.AssertExpectations(t)
+			mockCaDEngine.AssertExpectations(t)
+			mockPkgRev.AssertExpectations(t)
+		})
+	}
+}
+
+// fakeUpdatedObjectInfo implements rest.UpdatedObjectInfo for testing
+type fakeUpdatedObjectInfo struct {
+	obj runtime.Object
+}
+
+func (f *fakeUpdatedObjectInfo) UpdatedObject(ctx context.Context, oldObj runtime.Object) (runtime.Object, error) {
+	return f.obj, nil
+}
+
+func (f *fakeUpdatedObjectInfo) Preconditions() *metav1.Preconditions {
+	return nil
 }

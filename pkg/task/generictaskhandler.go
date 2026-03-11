@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -91,7 +92,7 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 	}
 
 	// Upsert labels/annotations/readinessGates from obj.Spec.PackageMetadata and obj.Spec.ReadinessGates
-	kptf, err := kptfn.NewKptfileFromPackage(resources.Contents)
+	kptf, err := kptfileko.NewFromPackage(resources.Contents)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to parse Kptfile")
 	}
@@ -195,15 +196,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	// Render failure will fail the overall API operation.
 	// The render error and result are captured as part of renderStatus above
 	// and are returned in the PackageRevisionResources API's status field.
-	// We do not push the package further to remote:
-	// the user's changes are captured on their local package,
-	// and can be amended using the error returned as a reference point to ensure
-	// the package renders properly, before retrying the push.
+	// The renderMutation always returns resources (kpt controls unrendered vs
+	// partially-rendered via the Kptfile annotation kpt.dev/save-on-render-failure).
 	var (
 		renderStatus *porchapi.RenderStatus
 		renderResult *porchapi.TaskResult
 	)
-	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
+	appliedResources, renderResult, rendErr := th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
 	// keep last render result on empty patch
 	if renderResult != nil &&
 		renderResult.RenderStatus != nil &&
@@ -211,15 +210,18 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 			len(renderResult.RenderStatus.Result.Items) != 0) {
 		renderStatus = renderResult.RenderStatus
 	}
-	if err != nil {
-		klog.Error(err)
-		return renderStatus, renderError(err)
-	}
-
 	prr := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: appliedResources.Contents,
 		},
+	}
+	if rendErr != nil {
+		klog.Error(rendErr)
+		err := draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
+		if err != nil {
+			return renderStatus, &RenderPersistError{RenderErr: rendErr, PersistErr: err}
+		}
+		return renderStatus, &RenderError{Err: rendErr}
 	}
 
 	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
@@ -306,7 +308,7 @@ func PatchKptfile(
 		resourceMap = res.Spec.Resources
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resourceMap)
+	kptf, err := kptfileko.NewFromPackage(resourceMap)
 	if err != nil {
 		return "", false, fmt.Errorf("parse Kptfile: %w", err)
 	}
@@ -389,91 +391,82 @@ func PatchKptfile(
 	return content, true, nil
 }
 
-func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, replace bool) (bool, error) {
+func applyMetadataToKptfile(kptf *kptfileko.KptfileKubeObject, obj *porchapi.PackageRevision, replace bool) (bool, error) {
 	var changed bool
 
 	if obj.Spec.PackageMetadata != nil {
 		if obj.Spec.PackageMetadata.Labels != nil {
-			cur := kptf.GetLabels()
-			desired := obj.Spec.PackageMetadata.Labels
-			if replace {
-				if !maps.Equal(cur, desired) {
-					changed = true
-					kptf.SetLabels(desired)
-				}
-			} else {
-				didChange := false
-				for k, v := range desired {
-					if cv, ok := cur[k]; !ok || cv != v {
-						cur[k] = v
-						didChange = true
-					}
-				}
-				if didChange {
-					changed = true
-					kptf.SetLabels(cur)
-				}
+			if applyMapMetadata(kptf.GetLabels(), obj.Spec.PackageMetadata.Labels, replace, kptf.SetLabels) {
+				changed = true
 			}
 		}
 		if obj.Spec.PackageMetadata.Annotations != nil {
-			cur := kptf.GetAnnotations()
-			desired := obj.Spec.PackageMetadata.Annotations
-			if replace {
-				if !maps.Equal(cur, desired) {
-					changed = true
-					kptf.SetAnnotations(desired)
-				}
-			} else {
-				didChange := false
-				for k, v := range desired {
-					if cv, ok := cur[k]; !ok || cv != v {
-						cur[k] = v
-						didChange = true
-					}
-				}
-				if didChange {
-					changed = true
-					kptf.SetAnnotations(cur)
-				}
+			if applyMapMetadata(kptf.GetAnnotations(), obj.Spec.PackageMetadata.Annotations, replace, kptf.SetAnnotations) {
+				changed = true
 			}
 		}
 	}
 
 	if obj.Spec.ReadinessGates != nil {
-		desiredGatesMap := make(map[string]porchapi.ReadinessGate)
-		for _, rg := range obj.Spec.ReadinessGates {
-			desiredGatesMap[rg.ConditionType] = rg
-		}
-		existingGates := kptf.ReadinessGates()
-		finalGates := make(kptfn.SliceSubObjects, 0, len(desiredGatesMap))
-		hasChangedInGates := false
-		for _, so := range existingGates {
-			gateType := so.GetString("conditionType")
-			if _, found := desiredGatesMap[gateType]; found {
-				finalGates = append(finalGates, so)
-				delete(desiredGatesMap, gateType)
-			} else {
-				hasChangedInGates = true
-			}
-		}
-		if len(desiredGatesMap) > 0 {
-			hasChangedInGates = true
-			for _, newGate := range desiredGatesMap {
-				ko, err := kptfn.NewFromTypedObject(newGate)
-				if err != nil {
-					return false, fmt.Errorf("convert new readiness gate: %w", err)
-				}
-				finalGates = append(finalGates, &ko.SubObject)
-			}
-		}
-		if hasChangedInGates {
+		if gatesChanged, err := syncReadinessGates(kptf, obj.Spec.ReadinessGates); err != nil {
+			return false, err
+		} else if gatesChanged {
 			changed = true
-			if err := kptf.SetReadinessGates(finalGates); err != nil {
-				return false, fmt.Errorf("set final readiness gates: %w", err)
-			}
 		}
 	}
 
+	return changed, nil
+}
+
+func applyMapMetadata(cur, desired map[string]string, replace bool, setter func(map[string]string)) bool {
+	if replace {
+		if !maps.Equal(cur, desired) {
+			setter(desired)
+			return true
+		}
+		return false
+	}
+	changed := false
+	for k, v := range desired {
+		if cv, ok := cur[k]; !ok || cv != v {
+			cur[k] = v
+			changed = true
+		}
+	}
+	if changed {
+		setter(cur)
+	}
+	return changed
+}
+
+func syncReadinessGates(kptf *kptfileko.KptfileKubeObject, desired []porchapi.ReadinessGate) (bool, error) {
+	desiredMap := make(map[string]porchapi.ReadinessGate, len(desired))
+	for _, rg := range desired {
+		desiredMap[rg.ConditionType] = rg
+	}
+	final := make(kptfn.SliceSubObjects, 0, len(desiredMap))
+	changed := false
+	for _, so := range kptf.ReadinessGates() {
+		if _, found := desiredMap[so.GetString("conditionType")]; found {
+			final = append(final, so)
+			delete(desiredMap, so.GetString("conditionType"))
+		} else {
+			changed = true
+		}
+	}
+	for _, newGate := range desiredMap {
+		changed = true
+		ko, err := kptfn.NewFromTypedObject(newGate)
+		if err != nil {
+			return false, fmt.Errorf("convert new readiness gate: %w", err)
+		}
+		final = append(final, &ko.SubObject)
+	}
+	if changed {
+		if err := kptf.SetReadinessGates(final); err != nil {
+			return false, fmt.Errorf("set final readiness gates: %w", err)
+		}
+	}
 	return changed, nil
 }
 

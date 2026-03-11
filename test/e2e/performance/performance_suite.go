@@ -1,3 +1,17 @@
+// Copyright 2025-2026 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package performance
 
 import (
@@ -9,7 +23,6 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -176,17 +189,17 @@ func (t *PerformanceSuite) PatchE(obj client.Object, patch client.Patch, opts ..
 	MeasureAndRecord(OperationPatch, obj, func() { t.TestSuiteWithGit.PatchE(obj, patch, opts...) })
 }
 
-func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr) })
 	return ret
 }
 
-func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr) })
 	return ret
 }
 

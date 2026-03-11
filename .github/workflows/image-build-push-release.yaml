@@ -42,10 +42,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-      - name: Extract ALPINE_VERSION from Makefile
-        id: alpine
+      - name: Extract image versions from Makefile
+        id: versions
         run: |
-          echo "version=$(make --eval='print: ; @echo $(ALPINE_VERSION)' print)" >> "$GITHUB_OUTPUT"
+          echo "alpine=$(make --eval='print: ; @echo $(ALPINE_VERSION)' print)" >> "$GITHUB_OUTPUT"
+          echo "golang_bookworm=$(make --eval='print: ; @echo $(GOLANG_BOOKWORM_VERSION)' print)" >> "$GITHUB_OUTPUT"
+          echo "golang_alpine=$(make --eval='print: ; @echo $(GOLANG_ALPINE_VERSION)' print)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to the Container registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -78,4 +80,6 @@ jobs:
           no-cache: true
           sbom: true
           build-args: |
-            ALPINE_VERSION=${{ steps.alpine.outputs.version }}
+            ALPINE_VERSION=${{ steps.versions.outputs.alpine }}
+            GOLANG_BOOKWORM_VERSION=${{ steps.versions.outputs.golang_bookworm }}
+            GOLANG_ALPINE_VERSION=${{ steps.versions.outputs.golang_alpine }}

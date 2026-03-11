@@ -94,6 +94,14 @@ spec:
               value: /etc/webhook/certs
             - name: GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB
               value: "true"
+            - name: OTEL_METRICS_EXPORTER
+              value: "prometheus"
+            - name: OTEL_EXPORTER_PROMETHEUS_HOST
+              value: 0.0.0.0
+            - name: OTEL_EXPORTER_PROMETHEUS_PORT
+              value: "9464" # Default value, showing for visibility
+            - name: OTEL_TRACES_EXPORTER
+              value: none
           args:
             - --function-runner=function-runner:9445
             - --cache-directory=/cache

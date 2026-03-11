@@ -193,7 +193,7 @@ func (t *IterativeTest) ensureTestPackagesDeleted() {
 	t.ListE(list, client.InNamespace(t.Namespace), client.MatchingFields{"spec.packageName": testPackageName})
 	for _, pr := range list.Items {
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-		t.UpdateApprovalL(&pr, metav1.UpdateOptions{})
+		t.UpdateApprovalL(&pr)
 		t.DeleteL(&pr)
 	}
 }
@@ -253,12 +253,12 @@ func (t *IterativeTest) collectMetrics() *IterationMetricsData {
 	output.GetAfterPropose = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	output.Approve = Measure(func() { t.UpdateApprovalF(pr, metav1.UpdateOptions{}) })
+	output.Approve = Measure(func() { t.UpdateApprovalF(pr) })
 
 	output.GetAfterPublish = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	output.DeleteProposed = Measure(func() { t.UpdateApprovalF(pr, metav1.UpdateOptions{}) })
+	output.DeleteProposed = Measure(func() { t.UpdateApprovalF(pr) })
 
 	output.GetAfterProposeDelete = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
@@ -291,7 +291,7 @@ func (t *IterativeTest) deletePackageRevisions() {
 			t.ListE(prs, client.MatchingFields{"spec.repository": repo})
 			for _, pr := range prs.Items {
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-				t.UpdateApprovalL(&pr, metav1.UpdateOptions{})
+				t.UpdateApprovalL(&pr)
 				t.DeleteL(&pr)
 			}
 		}()
@@ -324,7 +324,7 @@ func (t *IterativeTest) publishPackageRevision(pr *porchapi.PackageRevision) {
 	t.UpdateF(pr)
 
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 }
 
 // printResults prints all the gathered metrics to the log

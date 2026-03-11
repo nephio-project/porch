@@ -17,11 +17,14 @@ package task
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -219,6 +222,7 @@ func TestDoPrResourceMutations(t *testing.T) {
 
 	th := &genericTaskHandler{
 		runnerOptionsResolver: ror,
+		runtime:               kptops.NewSimpleFunctionRuntime(),
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
@@ -266,7 +270,78 @@ func TestDoPrResourceMutations(t *testing.T) {
 		}, draft.Resources.Spec.Resources)
 	})
 
-	// TODO: test rendering
+	t.Run("Render failure persists resources to draft", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+		newRes.Spec.Resources["configmap.yaml"] = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n"
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+		// Should return a typed RenderError
+		var renderError *RenderError
+		require.True(t, errors.As(err, &renderError))
+		// Verify resources were written to draft despite render failure
+		require.Contains(t, draft.Ops, "UpdateResources")
+		assert.Contains(t, draft.Resources.Spec.Resources, "configmap.yaml")
+	})
+
+	t.Run("Render failure with draft update error", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Err: fmt.Errorf("draft update failed"),
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+		// Should return a typed RenderPersistError
+		var persistErr *RenderPersistError
+		require.True(t, errors.As(err, &persistErr))
+		assert.Contains(t, persistErr.PersistErr.Error(), "draft update failed")
+		assert.NotNil(t, persistErr.RenderErr)
+	})
 }
 
 func TestRenderError(t *testing.T) {
@@ -277,15 +352,14 @@ func TestRenderError(t *testing.T) {
 		t.Fatal("expected non-nil error")
 	}
 
-	// Check that the error message contains both the base error and the wrapper message
 	got := wrappedErr.Error()
 
 	if !strings.Contains(got, "some base error") {
 		t.Errorf("expected base error message to be included, got: %q", got)
 	}
 
-	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
-		t.Errorf("expected wrapper message to be included, got: %q", got)
+	if !strings.Contains(got, "Package NOT pushed to remote") {
+		t.Errorf("expected 'NOT pushed' message, got: %q", got)
 	}
 }
 
@@ -332,7 +406,7 @@ info:
 		},
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resources)
+	kptf, err := kptfileko.NewFromPackage(resources)
 	require.NoError(t, err)
 
 	kptf.SetLabels(obj.Spec.PackageMetadata.Labels)
@@ -393,7 +467,7 @@ info:
 			},
 		},
 	}
-	kptf2, err := kptfn.NewKptfileFromPackage(resources2)
+	kptf2, err := kptfileko.NewFromPackage(resources2)
 	require.NoError(t, err)
 
 	labels2 := kptf2.GetLabels()
@@ -411,4 +485,69 @@ info:
 	got2 := resources2["Kptfile"]
 	assert.Contains(t, got2, "foo: bar")
 	assert.Contains(t, got2, "# Top-level comment")
+}
+
+func TestApplyMapMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		cur     map[string]string
+		desired map[string]string
+		replace bool
+		want    bool
+		wantMap map[string]string
+	}{
+		{
+			name:    "replace mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: true,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "replace mode - with change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: true,
+			want:    true,
+			wantMap: map[string]string{"b": "2"},
+		},
+		{
+			name:    "merge mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: false,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "merge mode - add new key",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "1", "b": "2"},
+		},
+		{
+			name:    "merge mode - update existing",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result map[string]string
+			got := applyMapMetadata(tt.cur, tt.desired, tt.replace, func(m map[string]string) {
+				result = m
+			})
+			assert.Equal(t, tt.want, got)
+			if got {
+				assert.Equal(t, tt.wantMap, result)
+			}
+		})
+	}
 }

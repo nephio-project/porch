@@ -16,6 +16,7 @@
 
 MYGOBIN := $(shell go env GOPATH)/bin
 PORCHCTL_VERSION := $(shell date '+development-%Y-%m-%dT%H:%M:%S')
+YEAR_GEN := $(shell date '+%Y')
 
 PORCH = $(BUILDDIR)/porch
 PORCHCTL = $(BUILDDIR)/porchctl
@@ -34,8 +35,8 @@ generate-api:
 
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
-	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
- 
+	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; YEAR_GEN=$(YEAR_GEN) go generate -v ./...) || exit 1; done
+
 .PHONY: tidy
 tidy:
 	go mod tidy
@@ -50,17 +51,17 @@ porchctl:
 
 .PHONY: build-images
 build-images:
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ build-image
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
-	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_ALPINE_VERSION="$(GOLANG_ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
+	GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image
 
 .PHONY: push-images
 push-images:
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ push-image
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
-	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
-	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" GOLANG_ALPINE_VERSION="$(GOLANG_ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
+	GOLANG_BOOKWORM_VERSION="$(GOLANG_BOOKWORM_VERSION)" IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ push-image
 
 .PHONY: dev-server
 dev-server:

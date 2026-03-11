@@ -169,21 +169,24 @@ func K8SName2PkgName(k8sName string) string {
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
+	path, name := SplitPackagePathName(fullpath)
+
+	return PackageKey{
+		RepoKey: repoKey,
+		Path:    path,
+		Package: name,
+	}
+}
+
+func SplitPackagePathName(fullpath string) (path, name string) {
 	pkgPath := strings.Trim(fullpath, "/")
 	slashIndex := strings.LastIndex(pkgPath, "/")
 
 	if slashIndex >= 0 {
-		return PackageKey{
-			RepoKey: repoKey,
-			Path:    pkgPath[:slashIndex],
-			Package: pkgPath[slashIndex+1:],
-		}
-	} else {
-		return PackageKey{
-			RepoKey: repoKey,
-			Package: pkgPath,
-		}
+		return pkgPath[:slashIndex], pkgPath[slashIndex+1:]
 	}
+
+	return "", pkgPath
 }
 
 func (k PackageKey) RKey() RepositoryKey {

@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -106,7 +105,7 @@ func createAndSetupRepo(t *testing.T, ctx context.Context, c client.Client, name
 	return metrics
 }
 
-func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, porchClientset *versioned.Clientset, namespace, repoName, pkgName string) []OperationMetrics {
+func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, namespace, repoName, pkgName string) []OperationMetrics {
 	var metrics []OperationMetrics
 	start := time.Now()
 
@@ -179,7 +178,7 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 			// Publish the package with approval
 			start = time.Now()
 			pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-			_, err = porchClientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(ctx, pkg.Name, &pkg, metav1.UpdateOptions{})
+			err = c.SubResource("approval").Update(ctx, &pkg)
 			duration = time.Since(start).Seconds()
 			recordMetric("Update to Published", repoName, pkgName, duration, err)
 			metrics = append(metrics, OperationMetrics{
@@ -201,7 +200,7 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 	if err == nil {
 		start = time.Now()
 		pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-		_, err = porchClientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(ctx, pkg.Name, &pkg, metav1.UpdateOptions{})
+		err = c.SubResource("approval").Update(ctx, &pkg)
 		if err == nil {
 			time.Sleep(2 * time.Second)
 			err = c.Delete(ctx, &pkg)
@@ -373,11 +372,6 @@ func TestPorchScalePerformance(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	porchClientset, err := getPorchClientset(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create Porch clientset: %v", err)
-	}
-
 	ctx := context.Background()
 	namespace := "porch-demo"
 	var allMetrics []TestMetrics
@@ -408,7 +402,7 @@ func TestPorchScalePerformance(t *testing.T) {
 			pkgName := fmt.Sprintf("test-package-%d", j)
 			t.Logf("\n--- Testing Package %d: %s ---", j+1, pkgName)
 
-			pkgMetrics := createAndTestPackage(t, ctx, c, porchClientset, namespace, repoName, pkgName)
+			pkgMetrics := createAndTestPackage(t, ctx, c, namespace, repoName, pkgName)
 			for _, m := range pkgMetrics {
 				recordMetric(m.Operation, repoName, pkgName, m.Duration.Seconds(), m.Error)
 			}

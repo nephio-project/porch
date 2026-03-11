@@ -32,10 +32,10 @@ $(COMPILED_PROTO): evaluator/evaluator.proto
 
 .PHONY: build-image docker-build
 build-image docker-build:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
-	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) --build-arg GOLANG_ALPINE_VERSION=$(GOLANG_ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) --build-arg GOLANG_ALPINE_VERSION=$(GOLANG_ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
 
 .PHONY: push-image docker-push
 push-image docker-push:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
-	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) --build-arg GOLANG_ALPINE_VERSION=$(GOLANG_ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) --build-arg GOLANG_ALPINE_VERSION=$(GOLANG_ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"

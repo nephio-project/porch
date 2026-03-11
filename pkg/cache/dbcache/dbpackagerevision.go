@@ -28,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,6 +132,26 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
+	if pr.repo == nil {
+		return fmt.Errorf("cannot update lifecycle for package revision %s: no associated repository", pr.KubeObjectName())
+	}
+
+	// Only Approve (Proposed → Published) pushes to external repo
+	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
+	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
+		klog.InfoS("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision",
+				context1.LogMetadataFrom(ctx)...)
+		}()
+	} else {
+		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	}
+
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		if err := pr.publishPR(ctx, newLifecycle); err != nil {
 			pr.pkgRevKey.Revision = 0
@@ -155,6 +176,15 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	if pr == nil {
+		return nil, fmt.Errorf("invalid package revision: nil object")
+	}
+
+	if pr.repo == nil {
+		klog.Warningf("package revision %+v has nil repository, skipping", pr.Key())
+		return nil, fmt.Errorf("package revision %s has no associated repository (may be deleted or not yet cached)", pr.KubeObjectName())
+	}
+
 	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
 		if pr.GetMeta().DeletionTimestamp != nil || strings.Contains(err.Error(), "sql: no rows in result set") {
@@ -165,14 +195,14 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
-	_, selfLock, _ := pr.GetLock(ctx)
+	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
+	_, selfLock, _ := readPR.GetLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
-		Deployment:   pr.repo.deployment,
+		Deployment:   readPR.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
@@ -394,6 +424,11 @@ func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
+
+	klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	}()
 
 	pr.resources = new.Spec.Resources
 

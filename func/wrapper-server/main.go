@@ -29,13 +29,19 @@ import (
 	"github.com/kptdev/krm-functions-sdk/go/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
+	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	contextsignal "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
+
+var tracer = otel.Tracer("wrapper-server")
 
 func main() {
 	op := &options{}
@@ -72,6 +78,14 @@ type options struct {
 }
 
 func (o *options) run() error {
+	ctx := contextsignal.SetupSignalContext()
+	err := porchotel.SetupOpenTelemetry(ctx)
+	if err != nil {
+		contextsignal.RequestShutdown()
+		klog.Errorf("%v\n", err)
+		return err
+	}
+	klog.Info("OpenTelemetry initialized")
 	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
@@ -88,10 +102,17 @@ func (o *options) run() error {
 	server := grpc.NewServer(
 		grpc.MaxRecvMsgSize(o.maxGrpcMessageSize),
 		grpc.MaxSendMsgSize(o.maxGrpcMessageSize),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 	pb.RegisterFunctionEvaluatorServer(server, evaluator)
 	healthService := healthchecker.NewHealthChecker()
 	grpc_health_v1.RegisterHealthServer(server, healthService)
+
+	go func() {
+		<-ctx.Done()
+		klog.Info("Shutting down server...")
+		server.GracefulStop()
+	}()
 
 	if err := server.Serve(lis); err != nil {
 		return fmt.Errorf("server failed: %w", err)
@@ -107,6 +128,8 @@ type singleFunctionEvaluator struct {
 
 func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 	var stdout, stderr bytes.Buffer
+	ctx, span := tracer.Start(ctx, "EvaluateFunction")
+	defer span.End()
 	cmd := exec.CommandContext(ctx, e.entrypoint[0], e.entrypoint[1:]...) // #nosec G204 -- variables controlled internally
 	cmd.Stdin = bytes.NewReader(req.ResourceList)
 	cmd.Stdout = &stdout

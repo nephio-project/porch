@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/task"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -284,6 +285,11 @@ func (m *mockCache) UpdateRepository(ctx context.Context, repositoryObj *configa
 func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
 	args := m.Called(ctx, repositorySpec)
 	return args.Error(0)
+}
+
+func (m *mockCache) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	args := m.Called(ctx, namespace, prName)
+	return args.String(0), args.Error(1)
 }
 
 func TestCreatePRWith2Tasks(t *testing.T) {
@@ -670,6 +676,213 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestFindUpstreamReference(t *testing.T) {
+	tests := []struct {
+		name          string
+		namespace     string
+		prName        string
+		expected      string
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name:          "success - finds downstream",
+			namespace:     "default",
+			prName:        "upstream-pkg",
+			expected:      "downstream-pkg",
+			expectedError: false,
+		},
+		{
+			name:          "success - no downstream found",
+			namespace:     "test",
+			prName:        "upstream-pkg",
+			expected:      "",
+			expectedError: false,
+		},
+		{
+			name:          "error - cache query fails",
+			namespace:     "default",
+			prName:        "upstream-pkg",
+			expectedError: true,
+			errorContains: "cache error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCache := &mockCache{}
+			if tt.expectedError {
+				mockCache.On("FindAllUpstreamReferencesInRepositories", mock.Anything, tt.namespace, tt.prName).Return("", fmt.Errorf("cache error"))
+			} else {
+				mockCache.On("FindAllUpstreamReferencesInRepositories", mock.Anything, tt.namespace, tt.prName).Return(tt.expected, nil)
+			}
+
+			engine := &cadEngine{cache: mockCache}
+			result, err := engine.FindAllUpstreamReferencesInRepositories(context.Background(), tt.namespace, tt.prName)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, tt.errorContains)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+
+			mockCache.AssertExpectations(t)
+		})
+	}
+}
+
+func TestUpdatePackageResourcesRenderFailure(t *testing.T) {
+	tests := []struct {
+		name                  string
+		renderErr             error
+		closeErr              error
+		prAnnotations         map[string]string
+		expectPackageReturned bool
+		expectError           bool
+		expectErrContains     []string
+		expectClose           bool
+	}{
+		{
+			name:                  "success - no render error",
+			renderErr:             nil,
+			expectPackageReturned: true,
+			expectError:           false,
+			expectClose:           true,
+		},
+		{
+			name:                  "push on render failure - annotation enabled",
+			renderErr:             &task.RenderError{Err: fmt.Errorf("render failed")},
+			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectClose:           true,
+		},
+		{
+			name:                  "no push on render failure - no annotation",
+			renderErr:             &task.RenderError{Err: fmt.Errorf("render failed")},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectClose:           false,
+		},
+		{
+			name:                  "push on render failure - close draft also fails",
+			renderErr:             &task.RenderError{Err: fmt.Errorf("render failed")},
+			closeErr:              fmt.Errorf("git push failed"),
+			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectErrContains:     []string{"git push failed", "render failed"},
+			expectClose:           true,
+		},
+		{
+			name:                  "persistence failure - no push even with annotation",
+			renderErr:             &task.RenderPersistError{RenderErr: fmt.Errorf("render failed"), PersistErr: fmt.Errorf("draft update failed")},
+			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectErrContains:     []string{"draft update failed", "render failed"},
+			expectClose:           false,
+		},
+		{
+			name:                  "generic persistence error - no push even with annotation",
+			renderErr:             fmt.Errorf("draft update failed"),
+			prAnnotations:         map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			expectPackageReturned: false,
+			expectError:           true,
+			expectErrContains:     []string{"draft update failed"},
+			expectClose:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockrepo.MockRepository{}
+			mockCache := &mockCache{}
+			mockTaskHandler := &mockTaskHandler{}
+			mockPkgRev := &mockrepo.MockPackageRevision{}
+			mockDraft := &mockrepo.MockPackageRevisionDraft{}
+
+			repositoryObj := &configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-repo",
+					Namespace: "default",
+				},
+			}
+
+			oldRes := &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-pkg",
+					ResourceVersion: "1",
+				},
+			}
+			newRes := &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-pkg",
+					ResourceVersion: "1",
+				},
+			}
+
+			mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tt.prAnnotations,
+				},
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+				},
+			}, nil)
+
+			mockPkgRev.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+
+			mockCache.On("OpenRepository", mock.Anything, repositoryObj).Return(mockRepo, nil)
+			mockRepo.On("UpdatePackageRevision", mock.Anything, mockPkgRev).Return(mockDraft, nil)
+
+			if tt.expectClose {
+				closeRet := mockPkgRev
+				if tt.closeErr != nil {
+					closeRet = nil
+				}
+				mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mockDraft, 0).Return(closeRet, tt.closeErr).Once()
+			}
+
+			mockTaskHandler.On("DoPRResourceMutations", mock.Anything, mockPkgRev, mockDraft, oldRes, newRes).Return(&porchapi.RenderStatus{}, tt.renderErr)
+
+			engine := &cadEngine{
+				cache:       mockCache,
+				taskHandler: mockTaskHandler,
+			}
+
+			pkgRev, renderStatus, err := engine.UpdatePackageResources(context.Background(), repositoryObj, mockPkgRev, oldRes, newRes)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				for _, s := range tt.expectErrContains {
+					assert.Contains(t, err.Error(), s)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.expectPackageReturned {
+				assert.NotNil(t, pkgRev)
+			} else {
+				assert.Nil(t, pkgRev)
+			}
+
+			assert.NotNil(t, renderStatus)
+
+			if !tt.expectClose {
+				mockRepo.AssertNotCalled(t, "ClosePackageRevisionDraft", mock.Anything, mockDraft, 0)
+			}
+
+			mockRepo.AssertExpectations(t)
+			mockTaskHandler.AssertExpectations(t)
+			mockCache.AssertExpectations(t)
 		})
 	}
 }

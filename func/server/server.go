@@ -26,8 +26,11 @@ import (
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/nephio-project/porch/func/internal"
+	porchotel "github.com/nephio-project/porch/internal/otel"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	contextsignal "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
 
@@ -74,6 +77,8 @@ func main() {
 	flag.BoolVar(&o.pod.EnablePrivateRegistriesTls, "enable-private-registries-tls", false, "if enabled, will prioritize use of user provided TLS secret when accessing registries")
 	flag.StringVar(&o.pod.TlsSecretPath, "tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
 	flag.IntVar(&o.pod.MaxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes. Keep this in sync with porch-server's corresponding argument.")
+	flag.IntVar(&o.pod.MaxWaitlistLength, "max-waitlist-length", 2, "Maximum waitlist length per pod")
+	flag.IntVar(&o.pod.MaxParallelPodsPerFunction, "max-parallel-pods-per-function", 1, "Maximum parallel pods per function")
 
 	flag.Parse()
 
@@ -84,6 +89,8 @@ func main() {
 }
 
 func run(o *options) error {
+	ctx := contextsignal.SetupSignalContext()
+
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.logLevel)})
@@ -92,6 +99,17 @@ func run(o *options) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
+	}
+	go func() {
+		<-ctx.Done()
+		lis.Close()
+	}()
+
+	err = porchotel.SetupOpenTelemetry(ctx)
+	if err != nil {
+		contextsignal.RequestShutdown()
+		klog.Errorf("%v\n", err)
+		return err
 	}
 
 	availableRuntimes := map[string]struct{}{
@@ -118,7 +136,7 @@ func run(o *options) error {
 			if o.pod.WrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(o.pod)
+			podEval, err := internal.NewPodEvaluator(ctx, o.pod)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
@@ -136,7 +154,12 @@ func run(o *options) error {
 	server := grpc.NewServer(
 		grpc.MaxRecvMsgSize(o.pod.MaxGrpcMessageSize),
 		grpc.MaxSendMsgSize(o.pod.MaxGrpcMessageSize),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
+	go func() {
+		<-ctx.Done()
+		server.Stop()
+	}()
 	pb.RegisterFunctionEvaluatorServer(server, evaluator)
 	healthService := healthchecker.NewHealthChecker()
 	grpc_health_v1.RegisterHealthServer(server, healthService)

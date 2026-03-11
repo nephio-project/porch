@@ -41,6 +41,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -435,6 +436,15 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
+	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
+	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
+		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
+	}
+	klog.InfoS("[Git] Creating in-memory draft object started for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Creating in-memory draft object completed for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	}()
+
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
 	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
@@ -451,11 +461,6 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
-		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	draftKey := repository.PackageRevisionKey{
@@ -489,6 +494,11 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	if !ok {
 		return nil, fmt.Errorf("cannot update non-git package %T", old)
 	}
+
+	klog.InfoS("[Git] Loading draft for update started for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Loading draft for update completed for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	}()
 
 	ref := oldGitPackage.ref
 	if ref == nil {
@@ -546,6 +556,10 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			referenceName = ""
 		}
 	}
+	klog.InfoS("[Git] Deleting branch from Git repository started for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Deleting branch from Git repository completed for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	}()
 
 	if referenceName == "" {
 		// This is an internal error. In some rare cases (see GetPackageRevision below) we create
@@ -559,7 +573,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			return pkgerrors.Is(err, conflictingRequiredRemoteRefError)
 		},
 		func(retryNumber int) error {
-			klog.Infof("Deleting PackageRevision try number %d", retryNumber)
+			klog.Infof("Deleting PackageRevision %q try number %d", pr2Delete.Key().K8SName(), retryNumber)
 
 			if retryNumber > 0 {
 				if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
@@ -1371,6 +1385,13 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
 	defer span.End()
 
+	klog.InfoS("[Git] Pushing changes to remote Git repository started",
+		context1.LogMetadataFromWithExtras(ctx, "repository", r.key.Name)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Pushing changes to remote Git repository completed",
+			context1.LogMetadataFromWithExtras(ctx, "repository", r.key.Name)...)
+	}()
+
 	maxRetries := r.repoOperationRetryAttempts
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
@@ -1676,6 +1697,14 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
+	oldLifecycle := pkgRev.Lifecycle(ctx)
+	klog.InfoS("[Git] Updating lifecycle started for PackageRevision",
+		context1.LogMetadataFromWithExtras(ctx, "old", oldLifecycle, "new", newLifecycle)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Updating lifecycle completed for PackageRevision",
+			context1.LogMetadataFromWithExtras(ctx, "old", oldLifecycle, "new", newLifecycle)...)
+	}()
+
 	r.mutex.Lock()
 	old := r.getLifecycle(pkgRev)
 	if !porchapi.LifecycleIsPublished(old) {
@@ -1784,6 +1813,12 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	defer span.End()
 
 	d := prd.(*gitPackageRevisionDraft)
+	klog.InfoS("[Git] Changing lifecycle and pushing to Git started for PackageRevision",
+		context1.LogMetadataFromWithExtras(ctx, "lifecycle", d.lifecycle)...)
+	defer func() {
+		klog.V(3).InfoS("[Git] Changing lifecycle and pushing to Git completed for PackageRevision",
+			context1.LogMetadataFromWithExtras(ctx, "lifecycle", d.lifecycle)...)
+	}()
 
 	refSpecs := newPushRefSpecBuilder()
 	commitOps := NewCommitOperationBuilder()

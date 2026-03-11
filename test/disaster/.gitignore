@@ -1,0 +1,8 @@
+deployment/kubeconfigs
+
+# cloned Git repositories used for loading up Porch
+*-load-*
+edge1
+
+# Postgres dump used to back up DB cache
+dumped_db.sql

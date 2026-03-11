@@ -142,7 +142,7 @@ func TestWatchCertificatesInvalidDirectory(t *testing.T) {
 	assertLogMessages := func(log string) error {
 		if len(log) > 0 {
 			if log[0] == 'E' || log[0] == 'W' || log[0] == 'F' {
-				return errors.New("Error Occured in Watcher")
+				return errors.New("Error Occurred in Watcher")
 			}
 		}
 		return nil
