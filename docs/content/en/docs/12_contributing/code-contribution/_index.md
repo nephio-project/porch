@@ -172,7 +172,7 @@ The PR will automatically update with your new commits.
 ## Reviews of Your PR
 
 Before your PR is merged, it must be reviewed by community members and maintainers. Generally, in order to make the best
-use of their time they will review your PR when:
+use of their time, they will review your PR when:
 
 1. The code including the code changes in your PR is compiling and building
 2. The documentation is building and verified
