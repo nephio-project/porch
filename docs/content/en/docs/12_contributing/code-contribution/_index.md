@@ -161,7 +161,7 @@ When you create a Pull Request, the Continuous Integration (CI) framework will r
 
 ## Update Your PR
 
-If the CI checks flag changes or if the maintainers request changes:
+If the CI checks fail or raise comments, or if the maintainers request changes:
 
 1. Make the requested changes on your local branch
 2. Commit the changes: `git commit -sm "fix: address review feedback"`
