@@ -359,13 +359,13 @@ UpdatePackageResources Request
         ↓
   Execute Render
         ↓
-  Error? ──Yes──> Check push-on-render-failure annotation
-        │                 ↓
-        No          "true"? ──Yes──> Close Draft + Return Error
-        ↓                 │
-        │                 No
-        │                 ↓
-        │           Return Error (no push)
+  Error? ──Yes──> Check `porch.kpt.dev/push-on-render-failure` annotation
+        │                           ↓
+        No                    "true"? ──Yes──> Close Draft + Return Error
+        ↓                           │
+        │                           No
+        │                           ↓
+        │                      Return Error (no push)
         ↓
   Close Draft (no lifecycle change)
         ↓
@@ -414,8 +414,7 @@ TaskHandler.DoPRResourceMutations
 - **Render failure handling**:
   - Default behavior: Render errors prevent draft closure (no resources persisted)
   - With `porch.kpt.dev/push-on-render-failure: "true"` annotation: Draft is closed even on render failure
-  - With `kpt.dev/save-on-render-failure: "true"` in Kptfile: kpt saves partially-rendered resources,
-which are then persisted if the PackageRevision annotation is also set
+  - With `kpt.dev/save-on-render-failure: "true"` in Kptfile: kpt saves partially-rendered resources, which are then persisted if the PackageRevision annotation is also set
   - Error is always returned to caller regardless of persistence behavior
 
 ### Persisting Resources on Render Failure
@@ -432,7 +431,7 @@ The `porch.kpt.dev/push-on-render-failure` annotation enables saving work-in-pro
 | `"true"` | Not set | Failure | Push unrendered resources, error returned |
 | `"true"` | `"true"` | Failure | Push partially-rendered resources, error returned |
 | `"false"` | Not set | Failure | No push, error returned |
-| Not set | `"true"` | Failure | No push (kpt saves in-memory but Porch doesn't push) |
+| Not set | `"true"` | Failure | No push, error returned (kpt may have produced partial output internally) |
 
 **How to use:**
 ```bash
@@ -441,7 +440,8 @@ kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=tru
 ```
 
 **Important notes:**
-- Only applies to Draft PackageRevisions during resource updates
+- Only applies to Draft PackageRevisions during resource updates (via `UpdatePackageResources`)
+- Does not apply to package creation operations (init, clone, edit, copy)
 - Error is always returned even when resources are persisted
 - Combine with `kpt.dev/save-on-render-failure: "true"` in Kptfile to persist partially-rendered output instead of unrendered resources
 - In rare cases (e.g., internal errors during resource persistence), push may be prevented regardless of the annotation
