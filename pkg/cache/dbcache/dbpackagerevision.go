@@ -28,7 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
-	porchcontext "github.com/nephio-project/porch/pkg/util/context"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,15 +134,15 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		klog.InfoS("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision",
-			porchcontext.LogMetadataFrom(ctx)...)
+			context1.LogMetadataFrom(ctx)...)
 		defer func() {
 			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision",
-				porchcontext.LogMetadataFrom(ctx)...)
+				context1.LogMetadataFrom(ctx)...)
 		}()
 	} else {
-		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
+		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
 		defer func() {
-			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
 		}()
 	}
 
@@ -412,9 +412,9 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
+	klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
 	defer func() {
-		klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", porchcontext.LogMetadataFrom(ctx)...)
+		klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
 	}()
 
 	pr.resources = new.Spec.Resources
