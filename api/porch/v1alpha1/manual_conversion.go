@@ -19,6 +19,28 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 )
 
+// Convert_porch_Condition_To_v1alpha1_Condition converts porch.Condition to v1alpha1.Condition.
+// The ObservedGeneration and LastTransitionTime fields are dropped since v1alpha1.Condition doesn't have them.
+func Convert_porch_Condition_To_v1alpha1_Condition(in *porch.Condition, out *Condition, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Status = ConditionStatus(in.Status)
+	out.Reason = in.Reason
+	out.Message = in.Message
+	// ObservedGeneration and LastTransitionTime are not present in v1alpha1.Condition
+	return nil
+}
+
+// Convert_v1alpha1_Condition_To_porch_Condition converts v1alpha1.Condition to porch.Condition.
+// The ObservedGeneration and LastTransitionTime fields are left as zero values.
+func Convert_v1alpha1_Condition_To_porch_Condition(in *Condition, out *porch.Condition, s conversion.Scope) error {
+	out.Type = in.Type
+	out.Status = porch.ConditionStatus(in.Status)
+	out.Reason = in.Reason
+	out.Message = in.Message
+	// ObservedGeneration and LastTransitionTime remain at zero values (v1alpha1 doesn't have them)
+	return nil
+}
+
 // Convert_porch_PackageRevisionStatus_To_v1alpha1_PackageRevisionStatus is a manual conversion function
 // that handles the conversion from internal PackageRevisionStatus to v1alpha1 PackageRevisionStatus.
 // The new fields (ObservedPrrResourceVersion, RenderingPrrResourceVersion, PackageConditions) are dropped

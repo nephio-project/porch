@@ -37,7 +37,6 @@ import (
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 object:headerFile="../../../scripts/boilerplate.go.txt",year=$YEAR_GEN paths=.
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 crd:crdVersions=v1,headerFile="../../../scripts/boilerplate.yaml.txt",year=$YEAR_GEN output:crd:artifacts:config=. paths=.
-//go:generate sh -c "find . -maxdepth 1 -name 'porch.kpt.dev_*.yaml' ! -name 'porch.kpt.dev_packagerevisions.yaml' -delete"
 
 const GroupName = "porch.kpt.dev"
 
