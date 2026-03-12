@@ -68,9 +68,6 @@ type RenderStatus struct {
 
 // ResultList contains aggregated results from multiple functions.
 // These types are intentionally duplicated from the kpt library to maintain API independence.
-//
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:skip
 type ResultList struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

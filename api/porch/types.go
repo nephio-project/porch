@@ -371,6 +371,8 @@ type GitLock struct {
 	Commit string `json:"commit,omitempty"`
 }
 
+// Condition represents a condition for PackageRevision resources.
+// TODO: Replace with metav1.Condition when migrating from v1alpha1 to v1alpha2 (breaking change for v1alpha1).
 type Condition struct {
 	Type string `json:"type"`
 
@@ -379,6 +381,12 @@ type Condition struct {
 	Reason string `json:"reason,omitempty"`
 
 	Message string `json:"message,omitempty"`
+
+	// ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// LastTransitionTime is the last time the condition transitioned from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 }
 
 type ConditionStatus string
