@@ -14,11 +14,7 @@ This relationship is fundamental to package reuse, customization, upgrade contro
 - **Upstream package**: The source or template package that provides the base content
 - **Downstream package**: A derived package created by cloning or copying from an upstream package
 
-This relationship enables:
-- Package reuse across teams and environments
-- Centralized maintenance of template packages
-- Tracking of package lineage and updates
-- Automated propagation of upstream changes to downstream packages
+This relationship enables package reuse across teams and environments, centralized maintenance of template packages, tracking of package lineage and updates, and automated propagation of upstream changes to downstream packages.
 
 ## How the Relationship Works
 
@@ -26,29 +22,16 @@ When you create a downstream package revision from an upstream package revision,
 The downstream package revision maintains a record of its upstream source, including the exact version (Git commit) it was
 derived from.
 
-This tracking enables:
-- **Lineage visibility**: Know where a package revision came from
-- **Update awareness**: Detect when upstream has new versions
-- **Merge intelligence**: Preserve downstream customizations when upgrading to new upstream versions
-- **Audit trail**: Understand the evolution of a package over time
+This tracking enables **lineage visibility** (knowing where a package revision came from), **update awareness** (detecting when upstream has new versions), **merge intelligence** (preserving downstream customizations when upgrading to new upstream versions), and an **audit trail** (understanding how a package has evolved over time).
 
 ## Common Patterns
 
 ### Blueprint → Deployment
 
-The most common pattern in Porch:
+The most common pattern in Porch is:
 
-**Blueprint repositories** (upstream):
-- Contain reusable template packages
-- Maintained by platform teams
-- Represent best practices and organizational standards
-- Examples: application templates, infrastructure patterns, policy bundles
-
-**Deployment repositories** (downstream):
-- Contain environment-specific packages
-- Created by cloning from blueprints
-- Customized for specific clusters, regions, or teams
-- Examples: prod-app, staging-database, dev-cluster-config
+- **Blueprint repositories** (upstream) contain reusable template packages, are maintained by platform teams, and represent best practices and organizational standards. Some examples are application templates, infrastructure patterns, and policy bundles.
+- **Deployment repositories** (downstream) contain environment-specific packages that are created by cloning from blueprints and customized for specific clusters, regions, or teams. Some examples are prod-app, staging-database, and dev-cluster-config.
 
 ### Multi-Level Derivation
 
@@ -75,11 +58,7 @@ during upstream updates through intelligent merge strategies.
 
 ## Upstream Sources
 
-Upstream packages can originate from:
-
-- **Registered repositories**: Packages in repositories that Porch manages
-- **External Git repositories**: Direct references to Git repos not registered in Porch
-- **External OCI registries**: Direct references to OCI artifacts
+Upstream packages can originate from **registered repositories** (packages in repositories that Porch manages), **external Git repositories** (direct references to Git repos not registered in Porch), or **external OCI registries** (direct references to OCI artifacts).
 
 This flexibility allows organizations to consume packages from various sources while maintaining consistent downstream
 management through Porch.

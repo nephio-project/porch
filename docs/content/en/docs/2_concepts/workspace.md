@@ -19,20 +19,11 @@ The content of this page will shortly be updated to reflect this fact and moved 
 A **workspace** is a named, isolated environment for working on a package revision in Porch. Each Draft or Proposed
 package revision has a unique workspace name that identifies the specific set of changes being made to a package.
 
-Workspaces enable:
-- Multiple users to work on different changes to the same package simultaneously
-- Isolation of work-in-progress changes from published package revisions
-- Clear identification of what changes a package revision contains
-- Tracking of package revision history and lineage
+Workspaces enable multiple users to work on different changes to the same package simultaneously, isolate work-in-progress changes from published package revisions, provide clear identification of what changes a package revision contains, and support tracking of package revision history and lineage.
 
 ## How Workspaces Work
 
-When you create a new Draft package revision, you specify a workspace name. This workspace name:
-
-- **Must be unique** within a package (no two package revisions of the same package can share a workspace name)
-- **Identifies the changes** contained in that package revision
-- **Maps to Git branches** (for Git repositories) in the format `drafts/<package-path>/<workspace-name>`
-- **Persists through lifecycle** transitions (Draft → Proposed → Published)
+When you create a new Draft package revision, you specify a workspace name. That workspace name **must be unique** within a package (no two package revisions of the same package can share it), **identifies the changes** contained in that package revision, **maps to Git branches** (for Git repositories) in the format `drafts/<package-path>/<workspace-name>`, and **persists through lifecycle** transitions (Draft → Proposed → Published).
 
 ## Workspaces and Lifecycle
 
@@ -71,14 +62,9 @@ workspace names form part of the branches in Git:
 - Example: `proposed/my-app/add-monitoring`
 
 **Published package revisions**: Committed to the `main` branch and tagged
-- The workspace name is preserved in the PackageRevision API resource's metadata
-- The Git branch is deleted after publication
+- The workspace name is preserved in the PackageRevision API resource's metadata and he Git branch is deleted after publication.
 
-This Git mapping provides:
-- Native Git workflow integration
-- Branch-based isolation
-- Standard Git operations (diff, merge, rebase) on package changes
-- Audit trail through Git history
+This Git mapping provides native Git workflow integration, branch-based isolation, standard Git operations (diff, merge, rebase) on package changes, and an audit trail through Git history.
 
 ## Multiple Workspaces on the Same Package
 
