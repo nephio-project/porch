@@ -148,13 +148,23 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	}
 	key := client.ObjectKeyFromObject(pr)
 	var newPr *porchapi.PackageRevision
+	var lastErr error
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() (err error) {
 		if err = r.client.Get(r.ctx, key, pr); err != nil {
+			lastErr = err
 			return err
 		}
 		newPr, err = r.doUpgrade(pr)
+		if err == nil {
+			lastErr = nil
+		} else {
+			lastErr = err
+		}
 		return err
 	})
+	if err == nil && lastErr != nil {
+		err = lastErr
+	}
 	if err != nil {
 		return errors.E(op, err)
 	}

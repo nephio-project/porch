@@ -92,24 +92,42 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				lastErr = err
 				return err
 			}
 			switch pr.Spec.Lifecycle {
 			case porchapi.PackageRevisionLifecycleProposed:
 				proposedFor = "approval"
-				return cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+				err := cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+				if err == nil {
+					lastErr = nil
+				} else {
+					lastErr = err
+				}
+				return err
 			case porchapi.PackageRevisionLifecycleDeletionProposed:
 				proposedFor = "deletion"
 				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-				return r.client.Update(r.ctx, &pr)
+				err := r.client.Update(r.ctx, &pr)
+				if err == nil {
+					lastErr = nil
+				} else {
+					lastErr = err
+				}
+				return err
 			default:
-				return fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
+				lastErr = fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
+				return lastErr
 			}
 		})
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
