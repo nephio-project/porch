@@ -414,7 +414,7 @@ TaskHandler.DoPRResourceMutations
 - **Render failure handling**:
   - Default behavior: Render errors prevent draft closure (no resources persisted)
   - With `porch.kpt.dev/push-on-render-failure: "true"` annotation: Draft is closed even on render failure
-  - With `kpt.dev/save-on-render-failure: "true"` in Kptfile: kpt saves partially-rendered resources, which are then persisted if the PackageRevision annotation is also set
+  - The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures))
   - Error is always returned to caller regardless of persistence behavior
 
 ### Persisting Resources on Render Failure
@@ -443,7 +443,7 @@ kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=tru
 - Only applies to Draft PackageRevisions during resource updates (via `UpdatePackageResources`)
 - Does not apply to package creation operations (init, clone, edit, copy)
 - Error is always returned even when resources are persisted
-- Combine with `kpt.dev/save-on-render-failure: "true"` in Kptfile to persist partially-rendered output instead of unrendered resources
+- The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures))
 - In rare cases (e.g., internal errors during resource persistence), push may be prevented regardless of the annotation
 
 ## Rollback Mechanism

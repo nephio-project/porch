@@ -11,7 +11,7 @@ Porch supports OpenTelemetry observability through the [autoexport package](http
 
 All Porch components (porch-server, porch-controllers, function-runner, and wrapper-server) support OpenTelemetry configuration through standardized environment variables as defined by the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
 
-{{% alert title="Note" color="info" %}}
+{{% alert title="Note" color="primary" %}}
 **Current Implementation Status**: Porch currently implements metrics and traces export. Logs export is not supported.
 {{% /alert %}}
 

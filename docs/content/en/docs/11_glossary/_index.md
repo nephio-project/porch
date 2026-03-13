@@ -239,7 +239,7 @@ By default, render failures prevent resources from being persisted. The `porch.k
 
 An annotation (`porch.kpt.dev/push-on-render-failure: "true"`) that enables persisting Draft PackageRevision resources even when the kpt function render pipeline fails during resource updates. This allows saving work-in-progress packages during iterative development when the pipeline isn't fully functional yet. It does not apply to package creation operations (clone, init, edit, copy).
 
-When combined with the Kptfile annotation `kpt.dev/save-on-render-failure: "true"`, partially-rendered resources are persisted instead of unrendered resources. The error is always returned to the caller regardless of whether resources are persisted.
+The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures)).
 
 *See also*: [Rendering](#rendering), [Draft](#draft)
 

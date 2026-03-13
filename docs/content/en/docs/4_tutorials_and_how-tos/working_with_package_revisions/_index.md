@@ -172,7 +172,7 @@ Common issues when working with PackageRevisions and their solutions:
   ```bash
   kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=true
   ```
-- **To save partially-rendered output**: Also add `kpt.dev/save-on-render-failure: "true"` annotation to the Kptfile
+- The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures))
 
 ---
 
