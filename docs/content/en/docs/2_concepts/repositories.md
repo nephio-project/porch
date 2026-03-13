@@ -22,22 +22,11 @@ Porch supports two storage backends:
 
 ### Git Repositories
 
-Git repositories are the primary and fully-supported storage backend for Porch:
-
-- Packages are stored as kpt packages in a Git branch, each in a directory with a Kptfile
-- When using the CR cache, Draft and Proposed package revisions are stored in temporary branches (e.g., `drafts/my-package/v1`,
-  `proposed/my-package/v1`)
-- Published package revisions are committed to the registerd deployment branch
-- The full Git history is preserved for audit and rollback
-- Standard Git authentication (username/password, SSH keys, tokens) is used
+Git repositories are the primary and fully-supported storage backend for Porch. Packages are stored as kpt packages in a Git branch, each in a directory with a Kptfile. When using the CR cache, Draft and Proposed package revisions live on temporary branches (for example, `drafts/my-package/v1` or `proposed/my-package/v1`), while Published package revisions are committed to the registered deployment branch. The full Git history is preserved for audit and rollback, and standard Git authentication (username/password, SSH keys, tokens) is used.
 
 ### OCI Repositories (Experimental)
 
-OCI (Open Container Initiative) registries provide an alternative storage backend:
-
-- Packages stored as OCI artifacts (similar to container images)
-- Experimental support - may be unstable
-- Useful for environments already using OCI registries
+OCI (Open Container Initiative) registries provide an alternative storage backend. Packages are stored as OCI artifacts (similar to container images). Support is experimental and may be unstable. This option is useful in environments that already use OCI registries.
 
 {{% alert title="Note" color="warning" %}}
 OCI repository support is **experimental** and **may be unstable**. Git repositories are recommended for production use.
@@ -48,28 +37,12 @@ OCI repository support is **experimental** and **may be unstable**. Git reposito
 Repositories can be designated as either deployment or blueprint repositories via the `spec.deployment` field. This field
 is merely an indicator - Porch does not treat deployment repositories differently from blueprint repositories in any respect.
 
-**Blueprint repositories** (`deployment: false`):
-- Store reusable template packages
-- Contain packages to be cloned and customized
-- Are typically maintained by platform teams
-- Examples: shared infrastructure patterns, application templates
-
-**Deployment repositories** (`deployment: true`):
-- Store deployment-ready packages
-- Contain published packages, ready for GitOps tools (like Flux) to deploy
-- Typically target specific environments or clusters
-- Examples: prod-cluster-configs, dev-environment-packages
+- **Blueprint repositories** (`deployment: false`) store reusable template packages that are meant to be cloned and customized. They are typically maintained by platform teams. Examples include shared infrastructure patterns and application templates.
+- **Deployment repositories** (`deployment: true`) store deployment-ready packages: published packages that GitOps tools (such as Flux) can deploy. They typically target specific environments or clusters. Examples include prod-cluster-configs and dev-environment-packages.
 
 ## The Repository-Package Relationship
 
-When a Repository resource is registered with Porch, Porch automatically conducts [package revision discovery]({{% relref "package-revisions#package-revision-discovery" %}}):
-- Scans the storage backend for kpt packages (directories containing a Kptfile)
-- Creates PackageRevision resources for each discovered package
-- Maintains a cache of package metadata for performance
-- Periodically syncs to detect new or updated packages
-
-This means the Repository resource acts as the bridge between Porch's Kubernetes API and the actual Git repository where
-kpt package files are stored.
+When a Repository resource is registered with Porch, Porch automatically conducts [package revision discovery]({{% relref "package-revisions#package-revision-discovery" %}}): it scans the storage backend for kpt packages (directories containing a Kptfile), creates PackageRevision resources for each discovered package, maintains a cache of package metadata for performance, and periodically syncs to detect new or updated packages. This means the Repository resource acts as the bridge between Porch's Kubernetes API and the actual Git repository where kpt package files are stored.
 
 ## Key Points
 

@@ -22,34 +22,21 @@ For details on how to declare and configure functions in the Kptfile pipeline, s
 
 ## Function Execution in Porch
 
-Porch executes functions through a **function runner** component that calls kpt to orchestrate containerized function execution:
-
-- The functions are run in isolated containers (Kubernetes pods managed by the `function-runner` microservice)
-- Porch passes the package's resources to kpt, which passes the resources on as a [ResourceList](https://github.com/kubernetes-sigs/kustomize/blob/master/cmd/config/docs/api-conventions/functions-spec.md#resourcelist)
-  to each function in the pipeline in turn
-- kpt executes the functions sequentially in the order declared in the Kptfile pipeline
-- kpt passes the function results back to Porch and Porch stores them in the PackageRevisionResources's `status.renderStatus`
-  field
-- Execution is triggered automatically following creation/clone of a package revision, update of a package revision, and
-  when a package revision is proposed
+Porch executes functions through a **function runner** component that calls kpt to orchestrate containerized function execution. The functions run in isolated containers (Kubernetes pods managed by the `function-runner` microservice). Porch passes the package's resources to kpt, which passes the resources on as a [ResourceList](https://github.com/kubernetes-sigs/kustomize/blob/master/cmd/config/docs/api-conventions/functions-spec.md#resourcelist) to each function in the pipeline in turn. kpt executes the functions sequentially in the order declared in the Kptfile pipeline and passes the function results back to Porch, which stores them in the PackageRevisionResources's `status.renderStatus` field. Execution is triggered automatically following creation or clone of a package revision, update of a package revision, and when a package revision is proposed.
 
 ## When Functions Execute
 
-**Automatic rendering occurs when:**
-- A Draft package revision is created (init, clone, edit tasks)
-- Package resources are modified by an update through the PackageRevisionResources API resource
-- A package revision is proposed
+### Automatic rendering
 
-**Manual rendering via render task:**
-- Users can add an explicit `render` task to force re-execution of the pipeline
-    - N.B.: the `render` task is not persisted in the package revision's task list
+This occurs when a Draft package revision is created (init, clone, or edit tasks), when package resources are modified by an update through the PackageRevisionResources API resource, or when a package revision is proposed.
 
-**Lifecycle constraints:**
-- Functions only execute on **Draft** package revisions
-- Proposed package revisions must be rejected back to **Draft** status in order to be eligible for rendering
-- Published package revisions are immutable - their rendered state is frozen
-- Function results are preserved in the `status.renderStatus` of the PackageRevisionResources API resource across lifecycle
-  transitions
+### Manual rendering via render task
+
+Users can add an explicit `render` task to force re-execution of the pipeline. Note that the `render` task is not persisted in the package revision's task list.
+
+### Lifecycle constraints
+
+Functions execute only on **Draft** package revisions. Proposed package revisions must be rejected back to **Draft** status to be eligible for rendering again. Published package revisions are immutable—their rendered state is frozen. Function results are preserved in the `status.renderStatus` of the PackageRevisionResources API resource across lifecycle transitions.
 
 ## Function Results in Porch
 

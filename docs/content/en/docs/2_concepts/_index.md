@@ -17,7 +17,7 @@ This section introduces some core concepts of Porch's package orchestration:
   and not directly with packages.
 
 * ***[Repository]({{% relref "repositories" %}})***: This is a version-control repository used to store package file
-* contents. For example, a [Git](https://git-scm.org/) or (experimentally) [OCI](https://github.com/opencontainers/image-spec/blob/main/spec.md)
+ contents. For example, a [Git](https://git-scm.org/) or (experimentally) [OCI](https://github.com/opencontainers/image-spec/blob/main/spec.md)
   repository.
 
 * ***[Package Revision]({{% relref "package-revisions" %}})***: This is a single version of a package. Many versions of
