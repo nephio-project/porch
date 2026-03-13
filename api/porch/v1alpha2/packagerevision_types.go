@@ -23,12 +23,6 @@ import (
 // Use controller-runtime client to access this resource (no code-gen clients).
 // Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
 //
-// TODO: Implement conversion webhook for v1alpha1 ↔ v1alpha2 conversion.
-// The webhook will use the conversion functions in v1alpha2/manual_conversion.go
-// and v1alpha1/manual_conversion.go to handle version conversion.
-// See: https://book.kubebuilder.io/reference/webhooks-overview.html
-// This is required before adding +kubebuilder:webhook markers to the CRD.
-//
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
