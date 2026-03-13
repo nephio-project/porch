@@ -991,21 +991,33 @@ func (t *TestSuite) TimingHelper(operationDescription string, toTime func(t *Tes
 
 func RunInParallel(functions ...func() any) []any {
 	var group sync.WaitGroup
-	var results []any
-	for _, eachFunction := range functions {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			if reflect.TypeOf(eachFunction).NumOut() == 0 {
-				results = append(results, nil)
-				eachFunction()
-			} else {
-				eachResult := eachFunction()
+	var mu sync.Mutex
+	results := make([]any, len(functions))
 
-				results = append(results, eachResult)
+	startSignal := make(chan struct{})
+
+	for i, eachFunction := range functions {
+		group.Add(1)
+		go func(index int, fn func() any) {
+			defer group.Done()
+
+			<-startSignal
+
+			var result any
+			if reflect.TypeOf(fn).NumOut() == 0 {
+				fn()
+				result = nil
+			} else {
+				result = fn()
 			}
-		}()
+
+			mu.Lock()
+			results[index] = result
+			mu.Unlock()
+		}(i, eachFunction)
 	}
+	close(startSignal)
+
 	group.Wait()
 	return results
 }
