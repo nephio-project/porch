@@ -37,7 +37,6 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: kubebuilder:printcolumn:name="Applied",type=integer,JSONPath=`.status.applied`
         properties:
           apiVersion:
             description: |-
@@ -63,6 +62,7 @@ spec:
                   path:
                     description: Path defines the absolute file path of the binary
                       or the relative file path to the default `functions` directory
+                    minLength: 1
                     type: string
                   tags:
                     description: Image tags which can be substituted with the specified
@@ -72,11 +72,9 @@ spec:
                     minItems: 1
                     type: array
                 required:
+                - path
                 - tags
                 type: object
-                x-kubernetes-validations:
-                - message: Exactly one of relPath or absPath must be specified
-                  rule: has(self.relPath) != has(self.absPath)
               goExecutor:
                 properties:
                   id:
@@ -905,8 +903,7 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: At least one configuration must be specified
-              rule: has(self.podExecutorConfig) || has(self.binaryExecutorConfig)
-                || has(self.goExecutorConfig)
+              rule: has(self.podExecutor) || has(self.binaryExecutor) || has(self.goExecutor)
           status:
             properties:
               apiServerObservedGeneration:

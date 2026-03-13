@@ -22,7 +22,6 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=functionconfigs,singular=functionconfig
-// kubebuilder:printcolumn:name="Applied",type=integer,JSONPath=`.status.applied`
 // +kubebuilder:printcolumn:name="Server Applied",type=integer,JSONPath=`.status.apiServerObservedGeneration`
 // +kubebuilder:printcolumn:name="FnRunner Applied",type=integer,JSONPath=`.status.functionRunnerObservedGeneration`
 type FunctionConfig struct {
@@ -41,7 +40,7 @@ type FunctionConfigList struct {
 	Items []FunctionConfig `json:"items"`
 }
 
-// +kubebuilder:validation:XValidation:message="At least one configuration must be specified",rule="has(self.podExecutorConfig) || has(self.binaryExecutorConfig) || has(self.goExecutorConfig)"
+// +kubebuilder:validation:XValidation:message="At least one configuration must be specified",rule="has(self.podExecutor) || has(self.binaryExecutor) || has(self.goExecutor)"
 type FunctionConfigSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Image          string                `json:"image"`
@@ -90,13 +89,13 @@ type ContainerOverrides struct {
 	Env       []corev1.EnvVar              `json:"env,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:message="Exactly one of relPath or absPath must be specified",rule="has(self.relPath) != has(self.absPath)"
 type BinaryExecutorConfig struct {
 	// Image tags which can be substituted with the specified KRM function binary.
 	// +kubebuilder:validation:MinItems=1
 	Tags []string `json:"tags"`
 	// Path defines the absolute file path of the binary or the relative file path to the default `functions` directory
-	Path string `json:"path,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Path string `json:"path"`
 }
 
 type GoExecutorConfig struct {

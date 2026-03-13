@@ -22,15 +22,15 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.1
     timeToLive: 30m
-  goExecutorConfig:
+  goExecutor:
     id: apply-replacements
     tags:
       - v0.1
-      - v0.1.1
+      - v0.1.5
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -42,14 +42,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
-    tags:
-      - v0.2.0
-    timeToLive: 30m
-  binaryExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.2
-    relPath: apply-setters
+    timeToLive: 30m
+  binaryExecutor:
+    tags:
+      - v0.2.0
+    path: apply-setters
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -61,7 +61,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.0
     timeToLive: 30m
@@ -76,14 +76,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.0
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
-      - v0.2.1
-    relPath: ensure-name-substring
+      - v0.1.1
+    path: ensure-name-substring
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -95,7 +95,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.1
     timeToLive: 30m
@@ -109,7 +109,7 @@ spec:
   image: kubeconform
   prefixes:
     - ""
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.1
     timeToLive: 30m
@@ -124,14 +124,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.0
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.2.1
-    relPath: search-replace
+    path: search-replace
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -143,14 +143,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.4
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.1.5
-    relPath: set-annotations
+    path: set-annotations
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -162,7 +162,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.0
     timeToLive: 30m
@@ -177,14 +177,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.1
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.1.2
-    relPath: set-image
+    path: set-image
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -196,14 +196,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.5
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.2.2
-    relPath: set-labels
+    path: set-labels
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -215,19 +215,19 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.4.1
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.4.2
-    relPath: set-namespace
-  goExecutorConfig:
+    path: set-namespace
+  goExecutor:
     id: set-namespace
     tags:
       - v0.4
-      - v0.4.1
+      - v0.4.5
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -239,19 +239,19 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.4.3
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.5.2
-    relPath: starlark
-  goExecutorConfig:
+    path: starlark
+  goExecutor:
     id: starlark
     tags:
-      - v0.4
-      - v0.4.3
+      - v0.5
+      - v0.5.5
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -263,14 +263,14 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.0
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.2.1
-    relPath: upsert-resource
+    path: upsert-resource
 ---
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: FunctionConfig
@@ -282,7 +282,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.0
     timeToLive: 30m
@@ -297,7 +297,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.0
     timeToLive: 30m
@@ -312,7 +312,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.1
     timeToLive: 30m
@@ -327,7 +327,7 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.1.0
     timeToLive: 30m
@@ -342,11 +342,11 @@ spec:
   prefixes:
     - ""
     - ghcr.io/kptdev/krm-functions-catalog
-  podExecutorConfig:
+  podExecutor:
     tags:
       - v0.2.0
     timeToLive: 30m
-  binaryExecutorConfig:
+  binaryExecutor:
     tags:
       - v0.2.1
-    relPath: set-project-id
+    path: set-project-id
