@@ -135,7 +135,7 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 					functionConfig = &configapi.FunctionConfig{}
 				}
 
-				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, len(fn.pods), functionConfig.Spec.PodExecutorConfig, true)
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, len(fn.pods), functionConfig.Spec.PodExecutor, true)
 			} else {
 				pod := &fn.pods[bestPodIndex]
 				klog.Infof("Queuing request for %s on pod instance #%d (queue length will be %d)", req.image, bestPodIndex, bestWaitlistLen+1)
@@ -208,23 +208,21 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 // If the image is present in the configMap, it returns the specific parameters for that image.
 // Otherwise, it falls back to the global defaults (pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction).
 func (pcm *podCacheManager) getParamsForImage(image string) (ttl time.Duration, maxWaitlist, maxPods int) {
-	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(getImageName(image)); ok {
-		if entry.Spec.PodExecutorConfig != nil {
-			podExecutorConfig := entry.Spec.PodExecutorConfig
-			parsedTTL := podExecutorConfig.TimeToLive.Duration
-			if parsedTTL <= 0 {
-				parsedTTL = pcm.podTTL
-			}
-			maxWaitlist := podExecutorConfig.PreferredMaxQueueLength
-			if maxWaitlist == 0 {
-				maxWaitlist = pcm.maxWaitlistLength
-			}
-			maxPods := podExecutorConfig.MaxParallelExecutions
-			if maxPods == 0 {
-				maxPods = pcm.maxParallelPodsPerFunction
-			}
-			return parsedTTL, maxWaitlist, maxPods
+	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(getImageName(image)); ok && entry.Spec.PodExecutor != nil {
+		podExecutorConfig := entry.Spec.PodExecutor
+		parsedTTL := podExecutorConfig.TimeToLive.Duration
+		if parsedTTL <= 0 {
+			parsedTTL = pcm.podTTL
 		}
+		maxWaitlist := podExecutorConfig.PreferredMaxQueueLength
+		if maxWaitlist == 0 {
+			maxWaitlist = pcm.maxWaitlistLength
+		}
+		maxPods := podExecutorConfig.MaxParallelExecutions
+		if maxPods == 0 {
+			maxPods = pcm.maxParallelPodsPerFunction
+		}
+		return parsedTTL, maxWaitlist, maxPods
 	}
 	return pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction
 }
@@ -310,10 +308,10 @@ func (pcm *podCacheManager) warmupCache(defaultImagePrefix string) error {
 		klog.Infof("cache warming is completed and it took %v", time.Since(start))
 	}()
 	for _, entry := range pcm.functionConfigMap.List() {
-		if entry.Spec.PodExecutorConfig != nil && len(entry.Spec.PodExecutorConfig.Tags) > 0 {
+		if entry.Spec.PodExecutor != nil && len(entry.Spec.PodExecutor.Tags) > 0 {
 			image := entry.Spec.Image
-			if len(entry.Spec.PodExecutorConfig.Tags[0]) > 0 {
-				image = fmt.Sprintf("%s:%s", entry.Spec.Image, entry.Spec.PodExecutorConfig.Tags[0])
+			if len(entry.Spec.PodExecutor.Tags[0]) > 0 {
+				image = fmt.Sprintf("%s:%s", entry.Spec.Image, entry.Spec.PodExecutor.Tags[0])
 			}
 			if len(entry.Spec.Prefixes) > 0 && entry.Spec.Prefixes[0] != "" {
 				image = ImageJoin(entry.Spec.Prefixes[0], image)
@@ -331,7 +329,7 @@ func (pcm *podCacheManager) warmupCache(defaultImagePrefix string) error {
 					if !exists {
 						functionConfig = &configapi.FunctionConfig{}
 					}
-					pcm.podManager.getFuncEvalPodClient(ctx, fnImage, 1, functionConfig.Spec.PodExecutorConfig, false)
+					pcm.podManager.getFuncEvalPodClient(ctx, fnImage, 1, functionConfig.Spec.PodExecutor, false)
 				}(image)
 			}
 		}

@@ -36,12 +36,14 @@ import (
 )
 
 type FunctionConfigStore struct {
-	mu                     sync.RWMutex
+	mu sync.RWMutex
+
 	functionConfigurations map[string]*configapi.FunctionConfig
 	binaryExecutorCache    map[string]string
 	builtInExecutorCache   map[string]fnsdk.ResourceListProcessor
-	defaultImagePrefix     string
-	defaultBinaryDir       string
+
+	defaultImagePrefix string
+	defaultBinaryDir   string
 }
 
 func NewFunctionConfigStore(defaultImagePrefix, defaultBinaryDir string) *FunctionConfigStore {
@@ -65,7 +67,7 @@ func (s *FunctionConfigStore) UpdateBinaryCache(_ string, obj *configapi.Functio
 	defer s.mu.Unlock()
 
 	imageResolver := (&runneroptions.RunnerOptions{}).ResolveToImageForCLIFunc(s.defaultImagePrefix) // TODO: port porch version to kpt
-	for _, tag := range obj.Spec.BinaryExecutorConfig.Tags {
+	for _, tag := range obj.Spec.BinaryExecutor.Tags {
 		image := obj.Spec.Image + ":" + tag
 		if len(obj.Spec.Prefixes) > 0 && obj.Spec.Prefixes[0] != "" {
 			image = filepath.Join(obj.Spec.Prefixes[0], image)
@@ -76,11 +78,16 @@ func (s *FunctionConfigStore) UpdateBinaryCache(_ string, obj *configapi.Functio
 		if _, exists := s.binaryExecutorCache[im]; exists {
 			klog.Warningf("Ignoring duplicate image %q (%s)", im, image)
 		} else {
-			abs, err := filepath.Abs(filepath.Join(s.defaultBinaryDir, obj.Spec.BinaryExecutorConfig.RelPath))
-			if err != nil {
-				return
+			abs := obj.Spec.BinaryExecutor.Path
+			if abs[0] != '/' {
+				var err error
+				abs, err = filepath.Abs(filepath.Join(s.defaultBinaryDir, obj.Spec.BinaryExecutor.Path))
+				if err != nil {
+					klog.Warningf("Failed to cache %q: %v", im, err)
+					return
+				}
 			}
-			klog.Infof("Caching %s as %s", im, abs)
+			klog.Infof("Caching %q as %q", im, abs)
 			s.binaryExecutorCache[im] = abs
 		}
 	}
@@ -90,10 +97,10 @@ func (s *FunctionConfigStore) UpdateExecCache(name string, functionConfig *confi
 	functionAliases := map[string][]string{}
 
 	id := name
-	if functionConfig.Spec.GoExecutorConfig.ID != nil {
-		id = *functionConfig.Spec.GoExecutorConfig.ID
+	if functionConfig.Spec.GoExecutor.ID != nil {
+		id = *functionConfig.Spec.GoExecutor.ID
 	}
-	for _, tag := range functionConfig.Spec.GoExecutorConfig.Tags {
+	for _, tag := range functionConfig.Spec.GoExecutor.Tags {
 		image := id + ":" + tag
 		functionAliases[name] = append(functionAliases[name], image)
 	}
@@ -216,11 +223,11 @@ func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	r.FunctionConfigStore.UpsertFunctionConfig(obj.Name, obj)
 
-	if obj.Spec.BinaryExecutorConfig != nil {
+	if obj.Spec.BinaryExecutor != nil {
 		r.FunctionConfigStore.UpdateBinaryCache(obj.Name, obj)
 	}
 
-	if obj.Spec.GoExecutorConfig != nil {
+	if obj.Spec.GoExecutor != nil {
 		r.FunctionConfigStore.UpdateExecCache(obj.Name, obj)
 	}
 

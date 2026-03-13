@@ -152,7 +152,7 @@ func makeFunctionConfig(name string, ttl time.Duration, maxWaitlistLength, maxPa
 				"",
 				runneroptions.GHCRImagePrefix,
 			},
-			PodExecutorConfig: &configapi.PodExecutorConfig{
+			PodExecutor: &configapi.PodExecutorConfig{
 				TimeToLive:              metav1.Duration{Duration: ttl},
 				MaxParallelExecutions:   maxParallelPodsPerFunction,
 				PreferredMaxQueueLength: maxWaitlistLength,
@@ -368,7 +368,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 
 	t.Run("pod under creation (nil podData) is kept", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(),
@@ -396,7 +396,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		conn, _ := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(), // empty - no pods
@@ -428,7 +428,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -460,7 +460,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -492,7 +492,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -524,7 +524,7 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -560,7 +560,7 @@ func TestGarbageCollectorUnit(t *testing.T) {
 
 	t.Run("removes empty function entries from map", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    1 * time.Minute,
+			podTTL:            1 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -606,7 +606,7 @@ func TestRedistributeLoad(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
@@ -635,7 +635,7 @@ func TestRedistributeLoad(t *testing.T) {
 
 	t.Run("returns false when no pods available", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
+			podTTL:            10 * time.Minute,
 			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(),
