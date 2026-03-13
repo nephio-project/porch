@@ -23,7 +23,6 @@
 //
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
 // +k8s:defaulter-gen=TypeMeta
 // +kubebuilder:object:generate=true
 // +groupName=porch.kpt.dev

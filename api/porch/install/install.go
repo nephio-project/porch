@@ -18,15 +18,15 @@ import (
 	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	prr "github.com/nephio-project/porch/api/porchresources/v1alpha1"
-	"github.com/nephio-project/porch/api/porch/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 // Install registers the API group and adds types to a scheme
+// for the aggregated API server (v1alpha1 only).
+// v1alpha2 is a CRD and doesn't need to be registered here.
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(porch.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
 	utilruntime.Must(prr.AddToScheme(scheme))
 }

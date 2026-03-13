@@ -59,11 +59,6 @@ spec:
           In v1alpha2, PackageRevision is a CRD stored in etcd.
           Use controller-runtime client to access this resource (no code-gen clients).
           Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
-
-          The webhook will use the conversion functions in v1alpha2/manual_conversion.go
-          and v1alpha1/manual_conversion.go to handle version conversion.
-          See: https://book.kubebuilder.io/reference/webhooks-overview.html
-          This is required before adding +kubebuilder:webhook markers to the CRD.
         properties:
           apiVersion:
             description: |-
