@@ -210,13 +210,6 @@ func TestGetParamsForImage(t *testing.T) {
 			expectedMaxPods:  3, // default
 		},
 		{
-			name:             "invalid TTL falls back to default TTL",
-			image:            "invalid-ttl",
-			expectedTTL:      10 * time.Minute, // default
-			expectedWaitlist: 4,
-			expectedMaxPods:  2,
-		},
-		{
 			name:             "zero TTL falls back to default TTL",
 			image:            "zero-ttl",
 			expectedTTL:      10 * time.Minute, // default

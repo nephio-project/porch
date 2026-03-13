@@ -211,16 +211,19 @@ func (pcm *podCacheManager) getParamsForImage(image string) (ttl time.Duration, 
 	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(getImageName(image)); ok {
 		if entry.Spec.PodExecutorConfig != nil {
 			podExecutorConfig := entry.Spec.PodExecutorConfig
-			parsedTTL := podExecutorConfig.TimeToLive
+			parsedTTL := podExecutorConfig.TimeToLive.Duration
+			if parsedTTL <= 0 {
+				parsedTTL = pcm.podTTL
+			}
 			maxWaitlist := podExecutorConfig.PreferredMaxQueueLength
 			if maxWaitlist == 0 {
 				maxWaitlist = pcm.maxWaitlistLength
 			}
-			maxPods := podExecutorConfig.PreferredMaxQueueLength
+			maxPods := podExecutorConfig.MaxParallelExecutions
 			if maxPods == 0 {
 				maxPods = pcm.maxParallelPodsPerFunction
 			}
-			return parsedTTL.Duration, maxWaitlist, maxPods
+			return parsedTTL, maxWaitlist, maxPods
 		}
 	}
 	return pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction
