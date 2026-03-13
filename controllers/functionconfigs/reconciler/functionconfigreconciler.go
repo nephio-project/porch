@@ -24,7 +24,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
-	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
+	setNamespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -125,12 +125,11 @@ func (s *FunctionConfigStore) UpdateExecCache(name string, functionConfig *confi
 		applyMappings(functionAliases["apply-replacements"], replacements.ApplyReplacements)
 	}
 	if _, exists := functionAliases["set-namespace"]; exists {
-		applyMappings(functionAliases["set-namespace"], set_namespace.Run)
+		applyMappings(functionAliases["set-namespace"], setNamespace.Run)
 	}
 	if _, exists := functionAliases["starlark"]; exists {
 		applyMappings(functionAliases["starlark"], starlark.Process)
 	}
-
 }
 
 func (s *FunctionConfigStore) DeleteFunctionConfig(key types.NamespacedName) {
@@ -175,7 +174,7 @@ const (
 type FunctionConfigReconciler struct {
 	Client              client.Client
 	FunctionConfigStore *FunctionConfigStore
-	// For indicated which component the reconciler is collecting the configs for
+	// For indicates which component the reconciler is collecting the configs for
 	// TODO: remove after merging of function-runner into server
 	For ReconcilerFor
 }
