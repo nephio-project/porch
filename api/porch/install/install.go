@@ -17,7 +17,6 @@ package install
 import (
 	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	prr "github.com/nephio-project/porch/api/porchresources/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
@@ -28,5 +27,4 @@ import (
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(porch.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(prr.AddToScheme(scheme))
 }
