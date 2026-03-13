@@ -132,6 +132,207 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 }
 
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftInExternalKept() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "push-drafts-repo"
+	namespace := "push-drafts-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.pushDraftsToGit = true
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 1 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
+	t.Require().Equal(porchapi.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
+
+	// Simulate the draft having been pushed to external git: add it to the fake repo.
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+	newPRDefDraft := newPRDef.DeepCopy()
+	newPRDefDraft.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            dbPR.Key(),
+		PackageRevision:  newPRDefDraft,
+		PackageLifecycle: porchapi.PackageRevisionLifecycleDraft,
+		Resources:        &porchapi.PackageRevisionResources{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, fakeExtPR)
+	fakeRepo.CurrentVersion = "draft-v1"
+
+	time.Sleep(2 * time.Second)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(1, len(prList), "with pushDraftsToGit enabled, draft in both cache and external should be kept by sync")
+
+	testRepo.repositorySync.Stop()
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftOnlyInCacheRemoved() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "push-drafts-removed-repo"
+	namespace := "push-drafts-removed-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.pushDraftsToGit = true
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 1 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	_, err = testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+
+	// Do not add the draft to the external repo. Sync should treat it as "cached only" and remove it.
+	time.Sleep(2 * time.Second)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(0, len(prList), "with pushDraftsToGit enabled, draft only in cache should be removed by sync")
+
+	testRepo.repositorySync.Stop()
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGitDisabled_DraftNotConsideredBySync() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "no-push-drafts-repo"
+	namespace := "no-push-drafts-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	t.Require().False(testRepo.pushDraftsToGit)
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 1 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	_, err = testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+
+	// Sync only considers Published/DeletionProposed when pushDraftsToGit is false, so the draft is not "cached only".
+	time.Sleep(2 * time.Second)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(1, len(prList), "with pushDraftsToGit disabled, draft in cache should not be removed by sync")
+
+	testRepo.repositorySync.Stop()
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
 func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache

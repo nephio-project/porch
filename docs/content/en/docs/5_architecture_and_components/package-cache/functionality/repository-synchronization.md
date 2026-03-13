@@ -200,11 +200,17 @@ Version: abc123      Version: def456
 - Aligns with pass-through approach (all states exist in Git)
 - Ensures cache reflects complete Git repository state
 
-**DB Cache:**
+**DB Cache (default mode):**
 - Syncs ONLY Published and DeletionProposed revisions
 - Excludes Draft and Proposed (they're database-only)
 - Aligns with database-first approach (drafts don't exist in Git)
 - Reduces sync overhead by ignoring work-in-progress packages
+
+**DB Cache (with `--db-push-drafts-to-git=true`):**
+- Syncs ALL package revisions from Git (like CR Cache)
+- Includes Draft, Proposed, Published, and DeletionProposed
+- Draft and proposed revisions exist in both database and Git
+- Mimics CR Cache behavior while maintaining database persistence
 
 ## Latest Revision Tracking
 
