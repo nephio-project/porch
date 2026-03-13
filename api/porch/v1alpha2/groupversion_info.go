@@ -15,8 +15,9 @@
 // Package v1alpha2 contains API Schema definitions for the porch v1alpha2 API group.
 // This version introduces PackageRevision as a CRD.
 //
-// Note: PackageRevisionResources is in a separate API group (resources.porch.kpt.dev/v1alpha1)
-// due to Kubernetes routing constraints. See api/porchresources/v1alpha1 for PRR types.
+// PackageRevisionResources remains at porch.kpt.dev/v1alpha1 (APIService).
+// Kubernetes routes per group+version path, so v1alpha1 APIService and v1alpha2 CRD
+// coexist in the same API group without conflict.
 //
 // Note: v1alpha2 types do not have code-gen clients (clientset/listers/informers).
 // Use controller-runtime client to access these resources.
@@ -49,7 +50,6 @@ var (
 	AddToScheme        = localSchemeBuilder.AddToScheme
 
 	PackageRevisionGVR = SchemeGroupVersion.WithResource("packagerevisions")
-	// PackageRevisionResourcesGVR moved to api/porchresources/v1alpha1 (resources.porch.kpt.dev)
 )
 
 func init() {
@@ -61,7 +61,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&PackageRevision{},
 		&PackageRevisionList{},
-		// PackageRevisionResources moved to resources.porch.kpt.dev/v1alpha1
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
