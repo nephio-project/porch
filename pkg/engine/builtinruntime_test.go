@@ -42,7 +42,7 @@ func TestBuiltinRuntime(t *testing.T) {
 			Name: setNamespaceFunction,
 		},
 		Spec: configapi.FunctionConfigSpec{
-			GoExecutorConfig: &configapi.GoExecutorConfig{
+			GoExecutor: &configapi.GoExecutorConfig{
 				Tags: []string{"v0.4.1"},
 			},
 		},
@@ -97,7 +97,7 @@ func TestBuiltinRuntimeNotFound(t *testing.T) {
 			Name: setNamespaceFunction,
 		},
 		Spec: configapi.FunctionConfigSpec{
-			GoExecutorConfig: &configapi.GoExecutorConfig{
+			GoExecutor: &configapi.GoExecutorConfig{
 				Tags: []string{"v0.4.1"},
 			},
 		},

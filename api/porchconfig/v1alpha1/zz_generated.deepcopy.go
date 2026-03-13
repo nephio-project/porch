@@ -145,18 +145,18 @@ func (in *FunctionConfigSpec) DeepCopyInto(out *FunctionConfigSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.PodExecutorConfig != nil {
-		in, out := &in.PodExecutorConfig, &out.PodExecutorConfig
+	if in.PodExecutor != nil {
+		in, out := &in.PodExecutor, &out.PodExecutor
 		*out = new(PodExecutorConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.BinaryExecutorConfig != nil {
-		in, out := &in.BinaryExecutorConfig, &out.BinaryExecutorConfig
+	if in.BinaryExecutor != nil {
+		in, out := &in.BinaryExecutor, &out.BinaryExecutor
 		*out = new(BinaryExecutorConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.GoExecutorConfig != nil {
-		in, out := &in.GoExecutorConfig, &out.GoExecutorConfig
+	if in.GoExecutor != nil {
+		in, out := &in.GoExecutor, &out.GoExecutor
 		*out = new(GoExecutorConfig)
 		(*in).DeepCopyInto(*out)
 	}

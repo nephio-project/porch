@@ -58,15 +58,11 @@ spec:
             type: object
           spec:
             properties:
-              binaryExecutorConfig:
+              binaryExecutor:
                 properties:
-                  absPath:
-                    description: AbsPath defines the absolute file path of the binary
-                      within the function runner container
-                    type: string
-                  relPath:
-                    description: RelPath defines the file path of the binary relative
-                      to the default `functions` directory
+                  path:
+                    description: Path defines the absolute file path of the binary
+                      or the relative file path to the default `functions` directory
                     type: string
                   tags:
                     description: Image tags which can be substituted with the specified
@@ -81,7 +77,7 @@ spec:
                 x-kubernetes-validations:
                 - message: Exactly one of relPath or absPath must be specified
                   rule: has(self.relPath) != has(self.absPath)
-              goExecutorConfig:
+              goExecutor:
                 properties:
                   id:
                     description: |-
@@ -101,7 +97,7 @@ spec:
               image:
                 minLength: 1
                 type: string
-              podExecutorConfig:
+              podExecutor:
                 properties:
                   maxParallelExecutions:
                     type: integer

@@ -44,11 +44,11 @@ type FunctionConfigList struct {
 // +kubebuilder:validation:XValidation:message="At least one configuration must be specified",rule="has(self.podExecutorConfig) || has(self.binaryExecutorConfig) || has(self.goExecutorConfig)"
 type FunctionConfigSpec struct {
 	// +kubebuilder:validation:MinLength=1
-	Image                string                `json:"image"`
-	Prefixes             []string              `json:"prefixes,omitempty"`
-	PodExecutorConfig    *PodExecutorConfig    `json:"podExecutorConfig,omitempty"`
-	BinaryExecutorConfig *BinaryExecutorConfig `json:"binaryExecutorConfig,omitempty"`
-	GoExecutorConfig     *GoExecutorConfig     `json:"goExecutorConfig,omitempty"`
+	Image          string                `json:"image"`
+	Prefixes       []string              `json:"prefixes,omitempty"`
+	PodExecutor    *PodExecutorConfig    `json:"podExecutor,omitempty"`
+	BinaryExecutor *BinaryExecutorConfig `json:"binaryExecutor,omitempty"`
+	GoExecutor     *GoExecutorConfig     `json:"goExecutor,omitempty"`
 }
 
 type FunctionConfigStatus struct {
@@ -95,10 +95,8 @@ type BinaryExecutorConfig struct {
 	// Image tags which can be substituted with the specified KRM function binary.
 	// +kubebuilder:validation:MinItems=1
 	Tags []string `json:"tags"`
-	// RelPath defines the file path of the binary relative to the default `functions` directory
-	RelPath string `json:"relPath,omitempty"`
-	// AbsPath defines the absolute file path of the binary within the function runner container
-	AbsPath string `json:"absPath,omitempty"`
+	// Path defines the absolute file path of the binary or the relative file path to the default `functions` directory
+	Path string `json:"path,omitempty"`
 }
 
 type GoExecutorConfig struct {

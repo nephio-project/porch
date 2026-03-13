@@ -53,7 +53,7 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			Prefixes: []string{
 				"",
 			},
-			PodExecutorConfig: &configapi.PodExecutorConfig{
+			PodExecutor: &configapi.PodExecutorConfig{
 				Tags: []string{
 					"v0.1.1",
 				},
@@ -61,11 +61,11 @@ func TestFunctionConfigReconciler(t *testing.T) {
 				MaxParallelExecutions:   2,
 				PreferredMaxQueueLength: 2,
 			},
-			BinaryExecutorConfig: &configapi.BinaryExecutorConfig{
+			BinaryExecutor: &configapi.BinaryExecutorConfig{
 				Tags: []string{
 					"v0.1.4",
 				},
-				RelPath: "set-image",
+				Path: "set-image",
 			},
 		},
 	}
@@ -80,7 +80,7 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			Prefixes: []string{
 				"",
 			},
-			GoExecutorConfig: &configapi.GoExecutorConfig{
+			GoExecutor: &configapi.GoExecutorConfig{
 				Tags: []string{
 					"v0.4.1",
 					"v0.4",
@@ -99,7 +99,7 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			Prefixes: []string{
 				"",
 			},
-			GoExecutorConfig: &configapi.GoExecutorConfig{
+			GoExecutor: &configapi.GoExecutorConfig{
 				Tags: []string{
 					"v0.1.1",
 					"v0.1",
@@ -118,7 +118,7 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			Prefixes: []string{
 				"",
 			},
-			GoExecutorConfig: &configapi.GoExecutorConfig{
+			GoExecutor: &configapi.GoExecutorConfig{
 				ID: &starlarkExecutorID,
 				Tags: []string{
 					"v0.4.3",
