@@ -23,6 +23,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -141,36 +144,48 @@ func TestFindBestPod(t *testing.T) {
 	}
 }
 
+func makeFunctionConfig(name string, ttl time.Duration, maxWaitlistLength, maxParallelPodsPerFunction int) *configapi.FunctionConfig {
+	return &configapi.FunctionConfig{
+		Spec: configapi.FunctionConfigSpec{
+			Image: name,
+			Prefixes: []string{
+				"",
+				runneroptions.GHCRImagePrefix,
+			},
+			PodExecutor: &configapi.PodExecutorConfig{
+				TimeToLive:              metav1.Duration{Duration: ttl},
+				MaxParallelExecutions:   maxParallelPodsPerFunction,
+				PreferredMaxQueueLength: maxWaitlistLength,
+			},
+		},
+	}
+}
+
 func TestGetParamsForImage(t *testing.T) {
+	functionConfigStore := fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/functions")
+	functionConfigStore.UpsertFunctionConfig("full-override", makeFunctionConfig(
+		"full-override",
+		5*time.Minute,
+		10,
+		5,
+	))
+	functionConfigStore.UpsertFunctionConfig("partial-override", makeFunctionConfig(
+		"partial-override",
+		3*time.Minute,
+		0,
+		0,
+	))
+	functionConfigStore.UpsertFunctionConfig("zero-ttl", makeFunctionConfig(
+		"zero-ttl",
+		0,
+		1,
+		1,
+	))
 	pcm := &podCacheManager{
 		podTTL:                     10 * time.Minute,
 		maxWaitlistLength:          2,
 		maxParallelPodsPerFunction: 3,
-		configMap: map[string]podCacheConfigEntry{
-			"full-override": {
-				Name:                       "full-override",
-				TimeToLive:                 "5m",
-				MaxWaitlistLength:          10,
-				MaxParallelPodsPerFunction: 5,
-			},
-			"partial-override": {
-				Name:              "partial-override",
-				TimeToLive:        "3m",
-				MaxWaitlistLength: 0, // zero -> falls back to default
-			},
-			"invalid-ttl": {
-				Name:                       "invalid-ttl",
-				TimeToLive:                 "not-a-duration",
-				MaxWaitlistLength:          4,
-				MaxParallelPodsPerFunction: 2,
-			},
-			"zero-ttl": {
-				Name:                       "zero-ttl",
-				TimeToLive:                 "0s",
-				MaxWaitlistLength:          1,
-				MaxParallelPodsPerFunction: 1,
-			},
-		},
+		functionConfigMap:          functionConfigStore,
 	}
 
 	tests := []struct {
@@ -193,13 +208,6 @@ func TestGetParamsForImage(t *testing.T) {
 			expectedTTL:      3 * time.Minute,
 			expectedWaitlist: 2, // default
 			expectedMaxPods:  3, // default
-		},
-		{
-			name:             "invalid TTL falls back to default TTL",
-			image:            "invalid-ttl",
-			expectedTTL:      10 * time.Minute, // default
-			expectedWaitlist: 4,
-			expectedMaxPods:  2,
 		},
 		{
 			name:             "zero TTL falls back to default TTL",
@@ -225,74 +233,6 @@ func TestGetParamsForImage(t *testing.T) {
 			assert.Equal(t, tt.expectedMaxPods, maxPods)
 		})
 	}
-}
-
-func TestLoadPodCacheConfig(t *testing.T) {
-	t.Run("valid config file", func(t *testing.T) {
-		content := `
-- name: "gcr.io/kpt-fn/apply-replacements"
-  timeToLive: "30m"
-  maxWaitlistLength: 5
-  maxParallelPodsPerFunction: 3
-- name: "gcr.io/kpt-fn/set-namespace"
-  timeToLive: "10m"
-  maxWaitlistLength: 2
-  maxParallelPodsPerFunction: 1
-`
-		tmpFile, err := os.CreateTemp("", "pod-cache-config-*.yaml")
-		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
-
-		_, err = tmpFile.WriteString(content)
-		require.NoError(t, err)
-		require.NoError(t, tmpFile.Close())
-
-		configMap, err := loadPodCacheConfig(tmpFile.Name())
-		require.NoError(t, err)
-		assert.Len(t, configMap, 2)
-
-		entry, ok := configMap["gcr.io/kpt-fn/apply-replacements"]
-		assert.True(t, ok)
-		assert.Equal(t, "30m", entry.TimeToLive)
-		assert.Equal(t, 5, entry.MaxWaitlistLength)
-		assert.Equal(t, 3, entry.MaxParallelPodsPerFunction)
-
-		entry2, ok := configMap["gcr.io/kpt-fn/set-namespace"]
-		assert.True(t, ok)
-		assert.Equal(t, "10m", entry2.TimeToLive)
-	})
-
-	t.Run("empty config file", func(t *testing.T) {
-		tmpFile, err := os.CreateTemp("", "pod-cache-config-empty-*.yaml")
-		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
-
-		_, err = tmpFile.WriteString("[]")
-		require.NoError(t, err)
-		require.NoError(t, tmpFile.Close())
-
-		configMap, err := loadPodCacheConfig(tmpFile.Name())
-		require.NoError(t, err)
-		assert.Empty(t, configMap)
-	})
-
-	t.Run("invalid YAML", func(t *testing.T) {
-		tmpFile, err := os.CreateTemp("", "pod-cache-config-invalid-*.yaml")
-		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
-
-		_, err = tmpFile.WriteString("{{invalid yaml")
-		require.NoError(t, err)
-		require.NoError(t, tmpFile.Close())
-
-		_, err = loadPodCacheConfig(tmpFile.Name())
-		assert.Error(t, err)
-	})
-
-	t.Run("missing file", func(t *testing.T) {
-		_, err := loadPodCacheConfig("/nonexistent/path/config.yaml")
-		assert.Error(t, err)
-	})
 }
 
 func TestNewPodInfo(t *testing.T) {
@@ -411,35 +351,13 @@ func TestFunctionInfo(t *testing.T) {
 	})
 }
 
-func TestForEachConcurrently(t *testing.T) {
-	entries := []podCacheConfigEntry{
-		{Name: "fn-1"},
-		{Name: "fn-2"},
-		{Name: "fn-3"},
-	}
-
-	var mu sync.Mutex
-	visited := make(map[string]bool)
-
-	forEachConcurrently(entries, func(entry podCacheConfigEntry) {
-		mu.Lock()
-		defer mu.Unlock()
-		visited[entry.Name] = true
-	})
-
-	assert.Len(t, visited, 3)
-	assert.True(t, visited["fn-1"])
-	assert.True(t, visited["fn-2"])
-	assert.True(t, visited["fn-3"])
-}
-
 func TestRemoveUnhealthyPods(t *testing.T) {
 	const testNs = "test-ns"
 
 	t.Run("nil function info is no-op", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(),
 			},
@@ -450,8 +368,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 
 	t.Run("pod under creation (nil podData) is kept", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(),
 			},
@@ -478,8 +396,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		conn, _ := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(), // empty - no pods
 				namespace:  testNs,
@@ -510,8 +428,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -542,8 +460,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -574,8 +492,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -606,8 +524,8 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -642,8 +560,8 @@ func TestGarbageCollectorUnit(t *testing.T) {
 
 	t.Run("removes empty function entries from map", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    1 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            1 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -688,8 +606,8 @@ func TestRedistributeLoad(t *testing.T) {
 		}
 
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().WithObjects(k8sPod, k8sSvc).Build(),
 				namespace:  testNs,
@@ -717,8 +635,8 @@ func TestRedistributeLoad(t *testing.T) {
 
 	t.Run("returns false when no pods available", func(t *testing.T) {
 		pcm := &podCacheManager{
-			podTTL:    10 * time.Minute,
-			configMap: map[string]podCacheConfigEntry{},
+			podTTL:            10 * time.Minute,
+			functionConfigMap: fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function"),
 			podManager: &podManager{
 				kubeClient: fake.NewClientBuilder().Build(),
 				namespace:  testNs,

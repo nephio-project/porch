@@ -21,12 +21,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/pkg/util"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -37,7 +38,6 @@ const (
 	gRPCProbeBin              = "grpc-health-probe"
 	krmFunctionImageLabel     = "fn.kpt.dev/image"
 	templateVersionAnnotation = "fn.kpt.dev/template-version"
-	inlineTemplateVersionv1   = "inline-v1"
 	fieldManagerName          = "krm-function-runner"
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
@@ -57,8 +57,6 @@ type PodEvaluatorOptions struct {
 	WrapperServerImage         string        // Container image name of the wrapper server
 	GcScanInterval             time.Duration // Time interval between Garbage Collector scans
 	PodTTL                     time.Duration // Time-to-live for pods before GC
-	PodCacheConfigFileName     string        // Path to the pod cache config file. The file is map of function name to TTL.
-	FunctionPodTemplateName    string        // Configmap that contains a pod specification
 	WarmUpPodCacheOnStartup    bool          // If true, pod-cache-config image pods will be deployed at startup
 	EnablePrivateRegistries    bool          // If true enables the use of private registries and their authentication
 	RegistryAuthSecretPath     string        // The path of the secret used for authenticating to custom registries
@@ -107,23 +105,7 @@ type podReadyResponse struct {
 	err error
 }
 
-func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, error) {
-
-	restCfg, err := config.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %w", err)
-	}
-	// Give it a slightly higher QPS to prevent unnecessary client-side throttling.
-	if restCfg.QPS < 30 {
-		restCfg.QPS = 30.0
-		restCfg.Burst = 45
-	}
-
-	cl, err := client.New(restCfg, client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
-	}
-
+func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions, cl client.Client, functionConfigStore *fnconf.FunctionConfigStore) (Evaluator, error) {
 	maxWaitlist := o.MaxWaitlistLength
 	if maxWaitlist <= 0 {
 		maxWaitlist = 2
@@ -143,15 +125,6 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 	reqCh := make(chan *connectionRequest, channelBufferSize)
 	readyCh := make(chan *podReadyResponse, channelBufferSize)
 
-	var podCacheConfig map[string]podCacheConfigEntry
-	if o.PodCacheConfigFileName != "" {
-		var err error
-		podCacheConfig, err = loadPodCacheConfig(o.PodCacheConfigFileName)
-		if err != nil {
-			klog.Warningf("unable to load pod cache config file: %v", err)
-		}
-	}
-
 	pe := &podEvaluator{
 		requestCh: reqCh,
 		podCacheManager: &podCacheManager{
@@ -162,23 +135,23 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 			functions:                  map[string]*functionInfo{},
 			maxWaitlistLength:          maxWaitlist,
 			maxParallelPodsPerFunction: maxPods,
-			configMap:                  podCacheConfig,
+			functionConfigMap:          functionConfigStore,
 
 			podManager: &podManager{
-				kubeClient:              cl,
-				namespace:               o.PodNamespace,
-				wrapperServerImage:      o.WrapperServerImage,
-				podReadyCh:              readyCh,
-				functionPodTemplateName: o.FunctionPodTemplateName,
-				podReadyTimeout:         60 * time.Second,
-				managerNamespace:        managerNs,
-				maxGrpcMessageSize:      o.MaxGrpcMessageSize,
+				kubeClient:         cl,
+				namespace:          o.PodNamespace,
+				wrapperServerImage: o.WrapperServerImage,
+				podReadyCh:         readyCh,
+				podReadyTimeout:    60 * time.Second,
+				managerNamespace:   managerNs,
+				maxGrpcMessageSize: o.MaxGrpcMessageSize,
 
 				enablePrivateRegistries:    o.EnablePrivateRegistries,
 				registryAuthSecretPath:     o.RegistryAuthSecretPath,
 				registryAuthSecretName:     o.RegistryAuthSecretName,
 				enablePrivateRegistriesTls: o.EnablePrivateRegistriesTls,
 				tlsSecretPath:              o.TlsSecretPath,
+				imageResolver:              (&runneroptions.RunnerOptions{}).ResolveToImageForCLIFunc(o.DefaultImagePrefix), // TODO: fix in kpt
 			},
 		},
 	}
@@ -191,7 +164,7 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 
 	if o.WarmUpPodCacheOnStartup {
 		// TODO(mengqiy): add watcher that support reloading the cache when the config file was changed.
-		err = pe.podCacheManager.warmupCache(o.PodCacheConfigFileName)
+		err = pe.podCacheManager.warmupCache(o.DefaultImagePrefix)
 		// If we can't warm up the cache, we can still proceed without it.
 		if err != nil {
 			klog.Warningf("unable to warm up the pod cache: %v", err)

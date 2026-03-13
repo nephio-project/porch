@@ -33,6 +33,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,9 +44,120 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	basePodTemplateName     = "base-pod-template"
+	baseServiceTemplateName = "base-service-template"
+)
+
+var (
+	defaultWrapperServerPortI32 = func() int32 {
+		asInt64, _ := strconv.ParseInt(defaultWrapperServerPort, 10, 32)
+		return int32(asInt64)
+	}()
+	inlineBasePodTemplate = &corev1.PodTemplate{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "PodTemplate",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: basePodTemplateName,
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+				},
+			},
+			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name: "copy-wrapper-server",
+						Command: []string{
+							"cp",
+							"-a",
+							"/home/nonroot/wrapper-server/.",
+							volumeMountPath,
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
+							},
+						},
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:    functionContainerName,
+						Image:   "to-be-replaced",
+						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
+								// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
+								Exec: &corev1.ExecAction{
+									Command: []string{
+										filepath.Join(volumeMountPath, gRPCProbeBin),
+										"-addr", net.JoinHostPort("localhost", fmt.Sprint(defaultWrapperServerPort)),
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					},
+				},
+			},
+		},
+	}
+	inlineBaseServiceTemplate = &configapi.ServiceTemplate{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: configapi.GroupVersion.String(),
+			Kind:       "ServiceTemplate",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseServiceTemplateName,
+		},
+		Template: configapi.ServiceTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"internal.kpt.dev/upstream-identifier": "|Service|porch-system|function-runner",
+				},
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "to-be-replaced",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					krmFunctionImageLabel: "to-be-replaced",
+				},
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       defaultWrapperServerPortI32,
+						TargetPort: intstr.FromInt32(defaultWrapperServerPortI32),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
+		},
+	}
 )
 
 // podManager is responsible for:
@@ -74,13 +187,6 @@ type podManager struct {
 	// podReadyTimeout is the timeout podManager will wait for the pod to be ready before reporting an error
 	podReadyTimeout time.Duration
 
-	// The name of the configmap in the same namespace as the function-runner is running.
-	// It should contain a pod manifest yaml in .data.template
-	// The pod manifest is expected to set up wrapper-server as the entrypoint
-	// of the main container, which must be called "function".
-	// Pod manager will replace the image
-	functionPodTemplateName string
-
 	// The maximum size of grpc messages sent to KRM function evaluator pods
 	maxGrpcMessageSize int
 
@@ -94,6 +200,8 @@ type podManager struct {
 	enablePrivateRegistriesTls bool
 	// The path of the secret used in tls configuration
 	tlsSecretPath string
+	// Image resolver that prepends a prefix if necessary
+	imageResolver runneroptions.ImageResolveFunc
 }
 
 type digestAndEntrypoint struct {
@@ -138,22 +246,22 @@ func (pm *podManager) createPodData(ctx context.Context, serviceKey client.Objec
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, postFix int, podConfig *configapi.PodExecutorConfig, useGenerateName bool) {
 	c, err := func() (*podData, error) {
 		podData := &podData{
 			image: image,
 		}
-		podTemplate, err := pm.CreatePod(ctx, image, postFix, podConfig, useGenerateName)
+		pod, err := pm.CreatePod(ctx, image, postFix, podConfig, useGenerateName)
 		if err != nil {
 
 			return podData, err
 		}
 
-		podKey := client.ObjectKeyFromObject(podTemplate)
+		podKey := client.ObjectKeyFromObject(pod)
 		podData.podKey = &podKey
 
 		// Service name is Image Label set on Pod manifest
-		serviceName := podTemplate.Labels[krmFunctionImageLabel]
+		serviceName := pod.Labels[krmFunctionImageLabel]
 
 		serviceTemplate, err := pm.retrieveOrCreateService(ctx, serviceName)
 		if err != nil {
@@ -389,9 +497,12 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // CreatePod creates a pod for an image.
-func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) (*corev1.Pod, error) {
+func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, config *configapi.PodExecutorConfig, useGenerateName bool) (*corev1.Pod, error) {
 	var de *digestAndEntrypoint
 	var err error
+	if pm.imageResolver != nil {
+		image, _ = pm.imageResolver(nil, image)
+	}
 	de, err = pm.imageDigestAndEntrypoint(ctx, image)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
@@ -403,12 +514,14 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, 
 	}
 
 	podList := &corev1.PodList{}
-	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
+	podTemplate, err := pm.getBasePodTemplate(ctx)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return nil, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
-	pm.appendImagePullSecret(image, podTemplate)
+	podTemplateSpec := &podTemplate.Template
+	podTemplateSpec.Spec.InitContainers[0].Image = pm.wrapperServerImage
+	pm.appendImagePullSecret(image, podTemplateSpec)
 
 	// Check if there is an existing pod for the image and remove it
 	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionImageLabel: podId}))
@@ -426,156 +539,110 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, 
 		}
 	}
 
-	err = pm.patchNewPodContainer(podTemplate, *de, image)
+	err = pm.patchNewPodContainer(podTemplateSpec, *de, image)
 	if err != nil {
 		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
-	pm.patchNewPodMetadata(podTemplate, podId, templateVersion)
+	pm.patchNewPodMetadata(podTemplateSpec, podId, podTemplate.ResourceVersion) // TODO: should this pass metadata.generation instead?
 
-	// Set custom resources
-	if podConfig.Resources.Requests != nil {
-		podTemplate.Spec.Containers[0].Resources.Requests = podConfig.Resources.Requests
-	}
-
-	if podConfig.Resources.Limits != nil {
-		podTemplate.Spec.Containers[0].Resources.Limits = podConfig.Resources.Limits
+	if config != nil {
+		mergeTemplateOverrides(podTemplateSpec, config.TemplateOverrides)
 	}
 
 	if useGenerateName {
-		podTemplate.GenerateName = podId + "-"
+		podTemplateSpec.GenerateName = podId + "-"
 	} else {
-		podTemplate.Name = podId
+		podTemplateSpec.Name = podId
 	}
 
-	err = pm.kubeClient.Create(ctx, podTemplate)
+	pod := &corev1.Pod{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"},
+		ObjectMeta: podTemplateSpec.ObjectMeta,
+		Spec:       podTemplateSpec.Spec,
+	}
+
+	err = pm.kubeClient.Create(ctx, pod)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return podTemplate, nil
+			return pod, nil
 		}
 		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
 
-	klog.Infof("created KRM function evaluator pod %v/%v for %q", podTemplate.Namespace, podTemplate.Name, image)
-	return podTemplate, nil
+	klog.Infof("created KRM function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
+	return pod, nil
+}
+
+func mergeTemplateOverrides(template *corev1.PodTemplateSpec, overrides *configapi.TemplateOverrides) {
+	if overrides == nil {
+		return
+	}
+
+	if overrides.ServiceAccountName != "" {
+		template.Spec.ServiceAccountName = overrides.ServiceAccountName
+	}
+
+	if overrides.SecurityContext != nil {
+		template.Spec.SecurityContext = overrides.SecurityContext
+	}
+
+	mergeContainerOverrides(&template.Spec.InitContainers[0], overrides.InitContainer)
+	mergeContainerOverrides(&template.Spec.Containers[0], overrides.Container)
+}
+
+func mergeContainerOverrides(container *corev1.Container, overrides *configapi.ContainerOverrides) {
+	if overrides == nil {
+		return
+	}
+
+	if overrides.Resources != nil {
+		if overrides.Resources.Requests != nil {
+			container.Resources.Requests = overrides.Resources.Requests
+		}
+		if overrides.Resources.Limits != nil {
+			container.Resources.Limits = overrides.Resources.Limits
+		}
+	}
+
+	if overrides.EnvFrom != nil {
+		container.EnvFrom = overrides.EnvFrom
+	}
+
+	if overrides.Env != nil {
+		container.Env = overrides.Env
+	}
 }
 
 // Either gets the pod template from configmap, or from an inlined pod template. Also provides the version of the template
-func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, string, error) {
-	if pm.functionPodTemplateName != "" {
-		podTemplateCm := &corev1.ConfigMap{}
-
-		err := pm.kubeClient.Get(ctx, client.ObjectKey{
-			Name:      pm.functionPodTemplateName,
-			Namespace: pm.managerNamespace,
-		}, podTemplateCm)
-		if err != nil {
-			klog.Errorf("Could not get Configmap containing function pod template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
-			return nil, "", err
-		}
-
-		podTemplate, ok := podTemplateCm.Data["template"]
-		if !ok {
-			return nil, "", fmt.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
-		}
-
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplate), 100)
-		var basePodTemplate corev1.Pod
-		err = decoder.Decode(&basePodTemplate)
-
-		if err != nil {
-			klog.Errorf("Could not decode function pod template: %s", pm.functionPodTemplateName)
-			return nil, "", fmt.Errorf("unable to decode function pod template: %w", err)
-		}
-
-		return &basePodTemplate, podTemplateCm.ResourceVersion, nil
-	} else {
-
-		inlineBasePodTemplate := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Pod",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
-				},
-			},
-			Spec: corev1.PodSpec{
-				InitContainers: []corev1.Container{
-					{
-						Name:  "copy-wrapper-server",
-						Image: pm.wrapperServerImage,
-						Command: []string{
-							"cp",
-							"-a",
-							"/home/nonroot/wrapper-server/.",
-							volumeMountPath,
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeName,
-								MountPath: volumeMountPath,
-							},
-						},
-					},
-				},
-				Containers: []corev1.Container{
-					{
-						Name:    functionContainerName,
-						Image:   "to-be-replaced",
-						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
-						Env: []corev1.EnvVar{
-							{
-								Name:  "OTEL_METRICS_EXPORTER",
-								Value: "prometheus",
-							},
-							{
-								Name:  "OTEL_TRACES_EXPORTER",
-								Value: "none",
-							},
-							{
-								Name:  "OTEL_EXPORTER_PROMETHEUS_HOST",
-								Value: "0.0.0.0",
-							},
-						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
-								// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
-								Exec: &corev1.ExecAction{
-									Command: []string{
-										filepath.Join(volumeMountPath, gRPCProbeBin),
-										"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeName,
-								MountPath: volumeMountPath,
-							},
-						},
-					},
-				},
-				Volumes: []corev1.Volume{
-					{
-						Name: volumeName,
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{},
-						},
-					},
-				},
-			},
-		}
-
-		return inlineBasePodTemplate, inlineTemplateVersionv1, nil
+func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.PodTemplate, error) {
+	baseTemplate := &corev1.PodTemplate{}
+	err := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: basePodTemplateName}, baseTemplate)
+	if err == nil {
+		return baseTemplate, nil
 	}
+
+	if apierrors.IsNotFound(err) {
+		klog.Infof("PodTemplate %q not found, creating...", basePodTemplateName)
+		return pm.ensureBasePodTemplate(ctx)
+	}
+
+	return nil, err
+}
+
+func (pm *podManager) ensureBasePodTemplate(ctx context.Context) (*corev1.PodTemplate, error) {
+	template := inlineBasePodTemplate.DeepCopy()
+	template.Namespace = pm.namespace
+	template.Template.Spec.InitContainers[0].Image = pm.wrapperServerImage
+
+	if err := pm.kubeClient.Create(ctx, template); err != nil {
+		return nil, err
+	}
+
+	return template, nil
 }
 
 // retrieveOrCreateService retrieves or creates a Service pointing to the Function PoD
 func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName string) (*corev1.Service, error) {
-
 	// Try to retrieve the existing Service, if present
 	existingService := &corev1.Service{}
 	err := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
@@ -592,19 +659,27 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 			return nil, err
 		}
 
-		serviceTemplate.Namespace = pm.namespace
-		serviceTemplate.Name = serviceName
-		if serviceTemplate.Labels == nil {
-			serviceTemplate.Labels = map[string]string{}
+		serviceTemplateSpec := &serviceTemplate.Template
+
+		serviceTemplateSpec.Namespace = pm.namespace
+		serviceTemplateSpec.Name = serviceName
+		if serviceTemplateSpec.Labels == nil {
+			serviceTemplateSpec.Labels = map[string]string{}
 		}
-		serviceTemplate.Labels["app.kubernetes.io/name"] = serviceName
-		if serviceTemplate.Spec.Selector == nil {
-			serviceTemplate.Spec.Selector = map[string]string{}
+		serviceTemplateSpec.Labels["app.kubernetes.io/name"] = serviceName
+		if serviceTemplateSpec.Spec.Selector == nil {
+			serviceTemplateSpec.Spec.Selector = map[string]string{}
 		}
 		// Pod has same Label as Service Name (PodId) for correct mapping
-		serviceTemplate.Spec.Selector[krmFunctionImageLabel] = serviceName
+		serviceTemplateSpec.Spec.Selector[krmFunctionImageLabel] = serviceName
 
-		err = pm.kubeClient.Create(ctx, serviceTemplate, client.FieldOwner(fieldManagerName))
+		service := &corev1.Service{
+			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: pm.namespace},
+			Spec:       serviceTemplateSpec.Spec,
+		}
+
+		err = pm.kubeClient.Create(ctx, service, client.FieldOwner(fieldManagerName))
 		if err != nil {
 			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
 			// Try to retrieve again
@@ -620,7 +695,7 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 		}
 
 		klog.Infof("created frontend service %v for function evaluator pod", serviceName)
-		return serviceTemplate, nil
+		return service, nil
 	}
 
 	// Return other errors
@@ -628,68 +703,33 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 	return nil, err
 }
 
-func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Service, error) {
-	if pm.functionPodTemplateName != "" {
-		serviceTemplateCm := &corev1.ConfigMap{}
-
-		err := pm.kubeClient.Get(ctx, client.ObjectKey{
-			Name:      pm.functionPodTemplateName,
-			Namespace: pm.managerNamespace,
-		}, serviceTemplateCm)
-		if err != nil {
-			klog.Errorf("Could not get ConfigMap containing function service template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
-			return nil, err
-		}
-
-		serviceTemplate, ok := serviceTemplateCm.Data["serviceTemplate"]
-		if !ok {
-			return nil, fmt.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
-		}
-
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplate), 100)
-		var baseServiceTemplate corev1.Service
-		err = decoder.Decode(&baseServiceTemplate)
-
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode function service template: %w", err)
-		}
-
-		return &baseServiceTemplate, nil
-	} else {
-		servicePort, _ := strconv.Atoi(defaultWrapperServerPort)
-		inlineBaseServiceTemplate := &corev1.Service{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Service",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					"internal.kpt.dev/upstream-identifier": "|Service|porch-system|function-runner",
-				},
-				Labels: map[string]string{
-					"app.kubernetes.io/name": "to-be-replaced",
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Selector: map[string]string{
-					krmFunctionImageLabel: "to-be-replaced",
-				},
-				Ports: []corev1.ServicePort{
-					{
-						Protocol:   corev1.ProtocolTCP,
-						Port:       int32(servicePort), // #nosec G115 G109 -- servicePort always in 1–65535
-						TargetPort: intstr.FromInt(servicePort),
-					},
-				},
-				Type: corev1.ServiceTypeClusterIP,
-			},
-		}
-
-		return inlineBaseServiceTemplate, nil
+func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*configapi.ServiceTemplate, error) {
+	baseTemplate := &configapi.ServiceTemplate{}
+	err := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: baseServiceTemplateName}, baseTemplate)
+	if err == nil {
+		return baseTemplate, nil
 	}
+
+	if apierrors.IsNotFound(err) {
+		klog.Infof("PodTemplate %q not found, creating...", basePodTemplateName)
+		return pm.ensureBaseServiceTemplate(ctx)
+	}
+
+	return nil, err
 }
 
-func hasImagePullSecret(podTemplate *corev1.Pod, secretName string) bool {
+func (pm *podManager) ensureBaseServiceTemplate(ctx context.Context) (*configapi.ServiceTemplate, error) {
+	template := inlineBaseServiceTemplate.DeepCopy()
+	template.Namespace = pm.namespace
+
+	if err := pm.kubeClient.Create(ctx, template); err != nil {
+		return nil, err
+	}
+
+	return template, nil
+}
+
+func hasImagePullSecret(podTemplate *corev1.PodTemplateSpec, secretName string) bool {
 	for _, secret := range podTemplate.Spec.ImagePullSecrets {
 		if secret.Name == secretName {
 			return true
@@ -699,7 +739,7 @@ func hasImagePullSecret(podTemplate *corev1.Pod, secretName string) bool {
 }
 
 // if a custom image is requested, append the secret provided to authenticate to the imagePullSecret of the kpt function pod if it does not already exist
-func (pm *podManager) appendImagePullSecret(image string, podTemplate *corev1.Pod) {
+func (pm *podManager) appendImagePullSecret(image string, podTemplate *corev1.PodTemplateSpec) {
 	if pm.enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) {
 		if !hasImagePullSecret(podTemplate, pm.registryAuthSecretName) {
 			podTemplate.Spec.ImagePullSecrets = append(podTemplate.Spec.ImagePullSecrets, corev1.LocalObjectReference{
@@ -710,7 +750,7 @@ func (pm *podManager) appendImagePullSecret(image string, podTemplate *corev1.Po
 }
 
 // Patches the expected port, and the original entrypoint and image of the kpt function into the function container
-func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoint, image string) error {
+func (pm *podManager) patchNewPodContainer(pod *corev1.PodTemplateSpec, de digestAndEntrypoint, image string) error {
 	var patchedContainer bool
 	for i := range pod.Spec.Containers {
 		container := &pod.Spec.Containers[i]
@@ -732,7 +772,7 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 }
 
 // Patch labels and annotations so the cache manager can keep track of the pod
-func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, podId string, templateVersion string) {
+func (pm *podManager) patchNewPodMetadata(pod *corev1.PodTemplateSpec, podId string, templateVersion string) {
 	pod.Namespace = pm.namespace
 	annotations := pod.Annotations
 	if annotations == nil {
@@ -844,10 +884,7 @@ func podID(image, hash, postFix string) (string, error) {
 
 func isPodTemplateSameVersion(pod *corev1.Pod, templateVersion string) bool {
 	currVersion, found := pod.Annotations[templateVersionAnnotation]
-	if !found || currVersion != templateVersion {
-		return false
-	}
-	return true
+	return found && currVersion == templateVersion
 }
 
 func (pm *podManager) findPodsForService(ctx context.Context, svc *corev1.Service) ([]corev1.Pod, error) {

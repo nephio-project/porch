@@ -25,14 +25,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/ktesting"
 	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -40,10 +44,11 @@ import (
 )
 
 func TestPodCacheManager(t *testing.T) {
-
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	_ = flagSet.Parse([]string{"--v", "5"})
+
+	const mockTemplateRV = "12345"
 
 	defaultImageMetadataCache := map[string]*digestAndEntrypoint{
 		defaultImageName: {
@@ -59,7 +64,7 @@ func TestPodCacheManager(t *testing.T) {
 			krmFunctionImageLabel: defaultFunctionImageLabel,
 		},
 		Annotations: map[string]string{
-			templateVersionAnnotation: inlineTemplateVersionv1,
+			templateVersionAnnotation: mockTemplateRV,
 		},
 	}
 
@@ -132,6 +137,15 @@ func TestPodCacheManager(t *testing.T) {
 		},
 	}
 
+	basePodTemplate := inlineBasePodTemplate.DeepCopy()
+	basePodTemplate.ObjectMeta.ResourceVersion = mockTemplateRV
+	basePodTemplate.Namespace = defaultNamespace
+	basePodTemplate.Template.Spec.InitContainers[0].Image = defaultWrapperServerImage
+
+	baseServiceTemplate := inlineBaseServiceTemplate.DeepCopy()
+	baseServiceTemplate.ObjectMeta.ResourceVersion = mockTemplateRV
+	baseServiceTemplate.Namespace = defaultNamespace
+
 	// Fake client. When Pod creation is invoked, it creates the Pod if not present and patches it to Running status
 	// When Service creation is invoked, it creates endpoint object in additon to service
 	fakeClientCreateFixInterceptor := func(ctx context.Context, kubeClient client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
@@ -139,7 +153,7 @@ func TestPodCacheManager(t *testing.T) {
 			var canary corev1.Pod
 			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if apierrors.IsNotFound(err) {
 					obj.SetName(defaultPodName)
 					obj.SetGenerateName("")
 					err = kubeClient.Create(ctx, obj)
@@ -166,7 +180,7 @@ func TestPodCacheManager(t *testing.T) {
 			var canary corev1.Service
 			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if apierrors.IsNotFound(err) {
 					defaultServiceObject.ResourceVersion = ""
 					err = kubeClient.Create(ctx, defaultServiceObject)
 					if err != nil {
@@ -197,8 +211,13 @@ func TestPodCacheManager(t *testing.T) {
 		return client.List(ctx, list, nil)
 	}
 
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = configapi.AddToScheme(scheme)
+
 	buildKubeClient := func(objects ...client.Object) client.WithWatch {
 		return fake.NewClientBuilder().
+			WithScheme(scheme).
 			WithObjects(objects...).
 			WithInterceptorFuncs(interceptor.Funcs{Create: fakeClientCreateFixInterceptor}).
 			Build()
@@ -249,8 +268,16 @@ func TestPodCacheManager(t *testing.T) {
 			skip:       false,
 			expectFail: false,
 			functions:  blankCache,
-			kubeClient: fake.NewClientBuilder().WithObjects(defaultPodObject, defaultServiceObject, defaultEndpointObject).
-				WithInterceptorFuncs(interceptor.Funcs{List: fakeClientListPodsInterceptor}).Build(),
+			kubeClient: fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(
+					basePodTemplate,
+					defaultPodObject,
+					defaultServiceObject,
+					defaultEndpointObject,
+				).
+				WithInterceptorFuncs(interceptor.Funcs{List: fakeClientListPodsInterceptor}).
+				Build(),
 			expectedLog: "retrieved function evaluator pod porch-fn-system/apply-replacements-latest-1-5245a527 for apply-replacements",
 		},
 		{
@@ -258,7 +285,7 @@ func TestPodCacheManager(t *testing.T) {
 			skip:         false,
 			expectFail:   false,
 			functions:    functionWithDefaultPod,
-			kubeClient:   buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
+			kubeClient:   buildKubeClient(basePodTemplate, defaultPodObject, defaultServiceObject, defaultEndpointObject),
 			expectedLog:  "Queuing request for apply-replacements on pod",
 			skipRetrieve: true,
 		},
@@ -276,7 +303,9 @@ func TestPodCacheManager(t *testing.T) {
 			expectFail: false,
 			functions:  functionWithDefaultPod,
 			kubeClient: fake.NewClientBuilder().
-				WithInterceptorFuncs(interceptor.Funcs{Create: fakeClientCreateFixInterceptor}).Build(),
+				WithScheme(scheme).
+				WithInterceptorFuncs(interceptor.Funcs{Create: fakeClientCreateFixInterceptor}).
+				Build(),
 			expectedLog: "Removing deleted pod from cache for image apply-replacements",
 		},
 		{
@@ -291,7 +320,7 @@ func TestPodCacheManager(t *testing.T) {
 			skip:       false,
 			expectFail: false,
 			functions:  blankCache,
-			kubeClient: buildKubeClient(defaultPodObject),
+			kubeClient: buildKubeClient(basePodTemplate, defaultPodObject),
 		},
 	}
 
@@ -313,6 +342,8 @@ func TestPodCacheManager(t *testing.T) {
 		pm.imageMetadataCache.Store(k, v)
 	}
 
+	functionConfigStore := fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/function")
+
 	pcm := &podCacheManager{
 		// Setting to 5 minutes to avoid GC invocation
 		gcScanInterval:             5 * time.Minute,
@@ -322,6 +353,7 @@ func TestPodCacheManager(t *testing.T) {
 		connectionRequestCh:        requestCh,
 		maxWaitlistLength:          1,
 		maxParallelPodsPerFunction: 1,
+		functionConfigMap:          functionConfigStore,
 	}
 
 	go pcm.podCacheManager(t.Context())
@@ -473,7 +505,7 @@ func TestPodCacheManager(t *testing.T) {
 			err := pcm.podManager.kubeClient.Get(context.Background(), client.ObjectKeyFromObject(defaultPodObject), &pod)
 			if tt.podShouldBeDeleted && err == nil {
 				t.Errorf("Expected pod to be deleted, but it still exists")
-			} else if !tt.podShouldBeDeleted && err != nil && !errors.IsNotFound(err) {
+			} else if !tt.podShouldBeDeleted && err != nil && !apierrors.IsNotFound(err) {
 				t.Errorf("Expected pod to exist, but got error: %v", err)
 			}
 
@@ -481,7 +513,7 @@ func TestPodCacheManager(t *testing.T) {
 			err = pcm.podManager.kubeClient.Get(context.Background(), client.ObjectKeyFromObject(defaultServiceObject), &service)
 			if tt.serviceShouldBeDeleted && err == nil {
 				t.Errorf("Expected service to be deleted, but it still exists")
-			} else if !tt.serviceShouldBeDeleted && err != nil && !errors.IsNotFound(err) {
+			} else if !tt.serviceShouldBeDeleted && err != nil && !apierrors.IsNotFound(err) {
 				t.Errorf("Expected service to exist, but got error: %v", err)
 			}
 
