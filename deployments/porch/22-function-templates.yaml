@@ -39,6 +39,13 @@ template:
         image: image-replaced-by-kpt-func-image
         command:
           - /wrapper-server-tools/wrapper-server
+        env:
+          - name: OTEL_METRICS_EXPORTER
+            value: prometheus
+          - name: OTEL_TRACES_EXPORTER
+            value: none
+          - name: OTEL_EXPORTER_PROMETHEUS_HOST
+            value: 0.0.0.0
         readinessProbe:
           exec:
             command: [ "/wrapper-server-tools/grpc-health-probe", "-addr", "localhost:9446" ]
