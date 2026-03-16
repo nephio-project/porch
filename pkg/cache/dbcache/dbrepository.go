@@ -449,7 +449,7 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 		klog.V(3).InfoS("[DB Cache] PackageRevision saved to database for PackageRevision",
 			context1.LogMetadataFrom(ctx)...)
 	}()
-  
+
 	dbPrd := prd.(*dbPackageRevision)
 
 	if r.pushDraftsToGit && dbPrd.gitPRDraft != nil {
@@ -459,7 +459,7 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 			klog.V(3).InfoS("[DB Cache] Git draft closed and pushed for PackageRevision",
 				context1.LogMetadataFromWithExtras(ctx, "packageRevision", repository.ComposePkgRevObjName(dbPrd.Key()))...)
 		}()
-		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, dbPrd.gitPRDraft, 0)
+		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, dbPrd.gitPRDraft, version)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to close git draft for %+v, not saving to DB", dbPrd.Key())
 		}

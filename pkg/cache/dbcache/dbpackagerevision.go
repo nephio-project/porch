@@ -137,7 +137,6 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	}
 
 	// Only Approve (Proposed → Published) pushes to external repo
-	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		klog.InfoS("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision",
 			context1.LogMetadataFrom(ctx)...)
