@@ -16,9 +16,11 @@ package task
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kptdev/kpt/pkg/lib/kptops"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -58,11 +60,37 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision for target upstream %q", targetUpstreamRef.Name)
 	}
+	targetUpstreamKey := targetUpstreamRevision.Key()
+	targetUpstreamRepoName := targetUpstreamKey.RKey().Name
+	var targetUpstreamRepo configapi.Repository
+	// reasonable to assume no error: we would not have reached this point
+	// if the previous ResolveReference call in packageFetcher.FetchRevision had
+	// encountered an error
+	m.referenceResolver.ResolveReference(ctx, m.namespace, targetUpstreamRepoName, &targetUpstreamRepo)
+	// We only allow upgrade to upgrade to non-placeholder package revisions
+	if targetUpstreamKey.Revision == -1 && targetUpstreamKey.WorkspaceName == targetUpstreamRepo.Spec.Git.Branch {
+		return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision may not be the placeholder package revision %s/%s", targetUpstreamRepoName, targetUpstreamRevision.KubeObjectName())
+	}
 	targetUpstreamResources, err := targetUpstreamRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for target upstream %q", targetUpstreamRef.Name)
 	}
 
+	localRevision, err := packageFetcher.FetchRevision(ctx, &localRef, m.namespace)
+	if err != nil {
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision %q to be upgraded", targetUpstreamRef.Name)
+	}
+	localRevisionKey := localRevision.Key()
+	localRevisionRepoName := localRevisionKey.RKey().Name
+	var localRevisionRepo configapi.Repository
+	// reasonable to assume no error: we would not have reached this point
+	// if the previous ResolveReference call in packageFetcher.FetchRevision had
+	// encountered an error
+	m.referenceResolver.ResolveReference(ctx, m.namespace, localRevisionRepoName, &localRevisionRepo)
+	// We only allow upgrade to upgrade to non-placeholder package revisions
+	if localRevisionKey.Revision == -1 && localRevisionKey.WorkspaceName == localRevisionRepo.Spec.Git.Branch {
+		return repository.PackageResources{}, nil, fmt.Errorf("the placeholder package revision %s/%s may not be upgraded", localRevisionRepoName, localRevision.KubeObjectName())
+	}
 	localResources, err := packageFetcher.FetchResources(ctx, &localRef, m.namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for local revision %q", localRef.Name)

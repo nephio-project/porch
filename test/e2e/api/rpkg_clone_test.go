@@ -20,6 +20,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,7 +41,17 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	upstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
+	placeholderUpstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repository.RepositoryKey{
+				Name: suiteutils.TestBlueprintsRepoName,
+			},
+			Package: basensPackage,
+		},
+		WorkspaceName: "main",
+		Revision:      -1})
+
+	realUpstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
@@ -51,20 +62,26 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register the repository as 'downstream'
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), suiteutils.PorchTestRepoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
-	// Create PackageRevision from upstream repo
-	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, "clone-upstream-workspace")
+	// Attempt to create PackageRevision from placeholder package revision in upstream repo
+	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
 	clonedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
 			Clone: &porchapi.PackageCloneTaskSpec{
 				Upstream: porchapi.UpstreamPackage{
 					UpstreamRef: &porchapi.PackageRevisionRef{
-						Name: upstreamPr.Name,
+						Name: placeholderUpstreamPr.Name,
 					},
 				},
 			},
 		},
 	}
+
+	err := t.Client.Create(t.GetContext(), clonedPr)
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
+
+	// Create PackageRevision properly from upstream repo
+	clonedPr.Spec.Tasks[0].Clone.Upstream.UpstreamRef.Name = realUpstreamPr.Name
 
 	t.CreateF(clonedPr)
 
@@ -237,6 +254,54 @@ data:
 	if _, found := revisionResources.Spec.Resources["resourcequota.yaml"]; !found {
 		t.Errorf("Updated package should contain 'resourcequota.yaml` file")
 	}
+
+	// publish upgraded PackageRevision
+	t.GetF(client.ObjectKeyFromObject(upgradePr), upgradePr)
+	upgradePr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(upgradePr)
+	upgradePr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	upgradePr = t.UpdateApprovalF(upgradePr)
+
+	basensMain := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: -1})
+	upgradePr.ObjectMeta.Labels = nil
+	upgradePr.Spec.Lifecycle = ""
+	upgradePr.Spec.WorkspaceName = testWorkspace + "-main-upgrade"
+
+	upgradePr.Spec.Tasks = []porchapi.Task{{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
+				Name: basensV2.Name,
+			},
+			NewUpstream: porchapi.PackageRevisionRef{
+				Name: basensMain.Name,
+			},
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+				Name: upgradePr.Name,
+			},
+		},
+	}}
+
+	err := t.Client.Create(t.GetContext(), upgradePr)
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision")
+
+	upgradePr.Spec.Tasks = []porchapi.Task{{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
+				Name: basensV1.Name,
+			},
+			NewUpstream: porchapi.PackageRevisionRef{
+				Name: basensV2.Name,
+			},
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+				Name: basensMain.Name,
+			},
+		},
+	}}
+
+	err = t.Client.Create(t.GetContext(), upgradePr)
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision")
 }
 
 func (t *PorchSuite) validateKptfileBasics(kptfile *kptfilev1.KptFile, expectedName string) {

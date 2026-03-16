@@ -118,6 +118,19 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 		return repository.PackageResources{}, fmt.Errorf("failed to fetch package revision %q: %w", ref.Name, err)
 	}
 
+	upstreamKey := upstreamRevision.Key()
+	repoName := upstreamKey.RKey().Name
+
+	var upstreamRepo configapi.Repository
+	// reasonable to assume no error: we would not have reached this point
+	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
+	// encountered an error
+	m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &upstreamRepo)
+	// We only allow clone to create new revisions from non-placeholder package revisions
+	if upstreamKey.Revision == -1 && upstreamKey.WorkspaceName == upstreamRepo.Spec.Git.Branch {
+		return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", repoName, upstreamRevision.KubeObjectName())
+	}
+
 	resources, err := upstreamRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("cannot read contents of package %q: %w", ref.Name, err)

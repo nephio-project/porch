@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -40,7 +41,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	sourceRef := m.task.Edit.Source
 
-	revision, err := (&repository.PackageFetcher{
+	sourceRevision, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
 	}).FetchRevision(ctx, sourceRef, m.namespace)
@@ -48,18 +49,31 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)
 	}
 
+	sourceRevisionKey := sourceRevision.Key()
+	repoName := sourceRevisionKey.RKey().Name
+
 	// We only allow edit to create new revision from the same package.
-	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
-		revision.Key().PkgKey.RKey().Name != m.repositoryName {
+	if sourceRevisionKey.PkgKey.ToPkgPathname() != m.packageName ||
+		repoName != m.repositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
 	}
 
-	// We only allow edit to create new revisions from published packages.
-	if !porchapi.LifecycleIsPublished(revision.Lifecycle(ctx)) {
+	var sourceRepo configapi.Repository
+	// reasonable to assume no error: we would not have reached this point
+	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
+	// encountered an error
+	m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
+	// We only allow edit to create new revisions from non-placeholder package revisions
+	if sourceRevisionKey.Revision == -1 && sourceRevisionKey.WorkspaceName == sourceRepo.Spec.Git.Branch {
+		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", repoName, sourceRevision.KubeObjectName())
+	}
+
+	// We only allow edit to create new revisions from published package revisions.
+	if !porchapi.LifecycleIsPublished(sourceRevision.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
-	sourceResources, err := revision.GetResources(ctx)
+	sourceResources, err := sourceRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
 	}
