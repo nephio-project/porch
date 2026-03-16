@@ -66,7 +66,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	// reasonable to assume no error: we would not have reached this point
 	// if the previous ResolveReference call in packageFetcher.FetchRevision had
 	// encountered an error
-	m.referenceResolver.ResolveReference(ctx, m.namespace, targetUpstreamRepoName, &targetUpstreamRepo)
+	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, targetUpstreamRepoName, &targetUpstreamRepo)
 	// We only allow upgrade to upgrade to non-placeholder package revisions
 	if targetUpstreamKey.Revision == -1 && targetUpstreamKey.WorkspaceName == targetUpstreamRepo.Spec.Git.Branch {
 		return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision may not be the placeholder package revision %s/%s", targetUpstreamRepoName, targetUpstreamRevision.KubeObjectName())
@@ -86,7 +86,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	// reasonable to assume no error: we would not have reached this point
 	// if the previous ResolveReference call in packageFetcher.FetchRevision had
 	// encountered an error
-	m.referenceResolver.ResolveReference(ctx, m.namespace, localRevisionRepoName, &localRevisionRepo)
+	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, localRevisionRepoName, &localRevisionRepo)
 	// We only allow upgrade to upgrade to non-placeholder package revisions
 	if localRevisionKey.Revision == -1 && localRevisionKey.WorkspaceName == localRevisionRepo.Spec.Git.Branch {
 		return repository.PackageResources{}, nil, fmt.Errorf("the placeholder package revision %s/%s may not be upgraded", localRevisionRepoName, localRevision.KubeObjectName())

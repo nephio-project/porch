@@ -62,7 +62,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	// reasonable to assume no error: we would not have reached this point
 	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
 	// encountered an error
-	m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
+	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
 	// We only allow edit to create new revisions from non-placeholder package revisions
 	if sourceRevisionKey.Revision == -1 && sourceRevisionKey.WorkspaceName == sourceRepo.Spec.Git.Branch {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", repoName, sourceRevision.KubeObjectName())

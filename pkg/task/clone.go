@@ -125,7 +125,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	// reasonable to assume no error: we would not have reached this point
 	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
 	// encountered an error
-	m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &upstreamRepo)
+	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &upstreamRepo)
 	// We only allow clone to create new revisions from non-placeholder package revisions
 	if upstreamKey.Revision == -1 && upstreamKey.WorkspaceName == upstreamRepo.Spec.Git.Branch {
 		return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", repoName, upstreamRevision.KubeObjectName())
