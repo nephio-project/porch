@@ -359,9 +359,13 @@ UpdatePackageResources Request
         ↓
   Execute Render
         ↓
-  Error? ──Yes──> Return Error + RenderStatus
-        │
-        No
+  Error? ──Yes──> Check `porch.kpt.dev/push-on-render-failure` annotation
+        │                           ↓
+        No                    "true"? ──Yes──> Close Draft + Return Error
+        ↓                           │
+        │                           No
+        │                           ↓
+        │                      Return Error (no push)
         ↓
   Close Draft (no lifecycle change)
         ↓
@@ -376,7 +380,11 @@ UpdatePackageResources Request
 5. **Update to draft** (opens existing revision)
 6. **Apply resource mutations** through task handler
 7. **Execute render** (run function pipeline)
-8. **Close draft** without lifecycle change
+8. **Check render result**:
+   - Success: Close draft and return
+   - Failure: Check `porch.kpt.dev/push-on-render-failure` annotation
+     - If `"true"`: Close draft (persist resources) and return error
+     - Otherwise: Return error without persisting
 9. **Return** updated package revision and render status
 
 ### Resource Mutation
@@ -403,7 +411,40 @@ TaskHandler.DoPRResourceMutations
 - Runs configured KRM function pipeline
 - Functions can validate, transform, generate resources
 - Results returned in RenderStatus
-- Errors don't prevent draft closure (render status indicates failure)
+- **Render failure handling**:
+  - Default behavior: Render errors prevent draft closure (no resources persisted)
+  - With `porch.kpt.dev/push-on-render-failure: "true"` annotation: Draft is closed even on render failure
+  - The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures))
+  - Error is always returned to caller regardless of persistence behavior
+
+### Persisting Resources on Render Failure
+
+The `porch.kpt.dev/push-on-render-failure` annotation enables saving work-in-progress packages even when the kpt function render pipeline fails:
+
+**Annotation behavior:**
+
+| PackageRevision Annotation | Kptfile Annotation | Render Result | Behavior |
+|----------------------------|-------------------|---------------|----------|
+| Not set | Not set | Success | Push rendered resources |
+| Not set | Not set | Failure | No push, error returned |
+| `"true"` | Not set | Success | Push rendered resources |
+| `"true"` | Not set | Failure | Push unrendered resources, error returned |
+| `"true"` | `"true"` | Failure | Push partially-rendered resources, error returned |
+| `"false"` | Not set | Failure | No push, error returned |
+| Not set | `"true"` | Failure | No push, error returned (kpt may have produced partial output internally) |
+
+**How to use:**
+```bash
+# Add annotation to PackageRevision
+kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=true
+```
+
+**Important notes:**
+- Only applies to Draft PackageRevisions during resource updates (via `UpdatePackageResources`)
+- Does not apply to package creation operations (init, clone, edit, copy)
+- Error is always returned even when resources are persisted
+- The behavior of partially-rendered resources can be further controlled via Kptfile annotations (see [kpt documentation](https://kpt.dev/book/04-using-functions/#debugging-render-failures))
+- In rare cases (e.g., internal errors during resource persistence), push may be prevented regardless of the annotation
 
 ## Rollback Mechanism
 

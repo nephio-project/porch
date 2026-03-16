@@ -79,7 +79,13 @@ The `renderStatus` field contains:
 - Per-function results including exit codes and validation messages
 - Error details if function execution failed
 
-Validation failures prevent Draft package revisions from being created and PackageRevisionResources from being updated.
+{{< alert title="Note" color="primary" >}}
+By default, render failures (including validation failures) prevent Draft package revisions from being created and PackageRevisionResources from
+being updated. However, when **updating resources on an existing Draft** (e.g. via `porchctl rpkg push`),
+adding the `porch.kpt.dev/push-on-render-failure: "true"` annotation **to the PackageRevision** allows persisting resources even when rendering fails,
+enabling iterative development on incomplete packages.
+{{< /alert >}}
+
 
 ## Key Points
 
@@ -88,4 +94,5 @@ Validation failures prevent Draft package revisions from being created and Packa
 - Functions automatically execute during package rendering on Draft package revisions
 - Function results are stored in `status.renderStatus` of the PackageRevisionResources view of a package revision
 - Published packages are immutable - functions don't re-execute after publication
-- Validation failures block Draft package creation and package revision resource updates
+- By default, render failures (including validation failures) block Draft package creation and package revision resource updates
+- When updating resources on an existing Draft (e.g., `porchctl rpkg push`), the `porch.kpt.dev/push-on-render-failure: "true"` annotation allows persisting resources despite render failures
