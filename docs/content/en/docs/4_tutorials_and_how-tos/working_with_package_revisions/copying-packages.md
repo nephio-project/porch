@@ -272,6 +272,12 @@ Common issues when copying PackageRevisions and how to resolve them.
 - Ensure you have permission to read the source PackageRevision
 - Ensure the source is in the same repository (copy only works within the same repository)
 
+**Copy fails with "source revision may not be the placeholder package revision":**
+
+- Using the package's placeholder PackageRevision as the source PackageRevision is not supported
+- See [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder PackageRevision
+- Choose a different PackageRevision from the same package to use as the source PackageRevision
+
 **Copied PackageRevision has unexpected content:**
 
 - The copy includes all resources from the source at the time of copying
