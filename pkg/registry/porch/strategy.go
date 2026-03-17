@@ -35,10 +35,12 @@ var _ SimpleRESTUpdateStrategy = packageRevisionStrategy{}
 
 func (s packageRevisionStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
 	newRevision := obj.(*porchapi.PackageRevision)
+	oldRevision := old.(*porchapi.PackageRevision)
 
-	//Default in to ensure forward compatiblity
+	//Default in to ensure forward compatiblity.
+	//Need to default in a non-empty value, because this field is discovered from Kptfile, not actually set on the API.
 	if newRevision.Spec.PackageMetadata == nil {
-		newRevision.Spec.PackageMetadata = &porchapi.PackageMetadata{}
+		newRevision.Spec.PackageMetadata = oldRevision.Spec.PackageMetadata
 	}
 }
 
