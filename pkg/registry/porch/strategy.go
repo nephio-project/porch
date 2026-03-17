@@ -34,6 +34,12 @@ type packageRevisionStrategy struct{}
 var _ SimpleRESTUpdateStrategy = packageRevisionStrategy{}
 
 func (s packageRevisionStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newRevision := obj.(*porchapi.PackageRevision)
+
+	//Default in to ensure forward compatiblity
+	if newRevision.Spec.PackageMetadata == nil {
+		newRevision.Spec.PackageMetadata = &porchapi.PackageMetadata{}
+	}
 }
 
 func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
