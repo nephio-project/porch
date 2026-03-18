@@ -40,6 +40,10 @@ These features can be configured **after** deployment:
 
 - [Git Authentication]({{% relref "../configurations/components/porch-server-config/git-authentication" %}}) - Configure Porch Server authentication for private Git repositories
 
+{{% alert title="Note" color="primary" %}}
+[Repository Sync]({{% relref "../configurations/repository-sync" %}}) configuration is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings.
+{{% /alert %}}
+
 ## Prerequisites
 
 - Kubernetes cluster (v1.25+)

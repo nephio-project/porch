@@ -5,6 +5,10 @@ weight: 1
 description: "Configure repository synchronization for Porch Repositories"
 ---
 
+{{% alert title="Documentation Location" color="primary" %}}
+This documentation is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings. This may be relocated in future documentation updates.
+{{% /alert %}}
+
 ## Sync Configuration Fields
 
 The `spec.sync` field in a Repository CR controls synchronization behavior with the external repository. Repositories without sync configuration use the system default for periodic synchronization (default 1 hour, configurable via `--repositories.full-sync-frequency` flag - see [Repository Controller Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-controllers-config.md#repository-controller-configuration" %}}).
