@@ -180,7 +180,7 @@ use of their time, they will review your PR when:
 4. SonarCloud quality checks such as code coverage levels are passing
 5. The comments from the first run of AI on the commit of the PR are addressed (Further re-runs of AI are optional)
 
-{{% alert title="Note" color="info" %}}
+{{% alert title="Note" color="primary" %}}
 If you are having difficulty in getting tests to pass, need guidance in how to address an AI-generated comment, or
 want to request an exception on a quality metric such as code coverage, please add a comment on your PR and the
 community members and maintainers will consider your request.
