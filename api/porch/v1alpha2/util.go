@@ -22,17 +22,6 @@ func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
 }
 
-func (l *PackageRevisionLifecycle) IsValid() bool {
-	switch *l {
-	case PackageRevisionLifecycleDraft,
-		PackageRevisionLifecycleProposed,
-		PackageRevisionLifecyclePublished,
-		PackageRevisionLifecycleDeletionProposed:
-		return true
-	default:
-		return false
-	}
-}
 
 // PackageRevisionIsReady checks if the package has met all readiness gates
 func PackageRevisionIsReady(readinessGates []ReadinessGate, packageConditions []PackageCondition) bool {

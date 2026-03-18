@@ -23,7 +23,6 @@ import (
 // Use controller-runtime client to access this resource (no code-gen clients).
 // Note: Approval subresource is not yet implemented for v1alpha2 CRDs.
 //
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
@@ -32,7 +31,7 @@ import (
 // +kubebuilder:printcolumn:name="Package",type=string,JSONPath=`.spec.packageName`
 // +kubebuilder:printcolumn:name="WorkspaceName",type=string,JSONPath=`.spec.workspaceName`
 // +kubebuilder:printcolumn:name="Revision",type=string,JSONPath=`.status.revision`
-// +kubebuilder:printcolumn:name="Latest",type=string,JSONPath=".metadata.labels['kpt.dev/latest-revision']"
+// +kubebuilder:printcolumn:name="Latest",type=string,JSONPath=".metadata.labels['porch.kpt.dev/latest-revision']"
 // +kubebuilder:printcolumn:name="Lifecycle",type=string,JSONPath=`.spec.lifecycle`
 // +kubebuilder:printcolumn:name="Repository",type=string,JSONPath=`.spec.repository`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -46,7 +45,6 @@ type PackageRevision struct {
 
 // PackageRevisionList contains a list of PackageRevision
 //
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 type PackageRevisionList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -57,7 +55,7 @@ type PackageRevisionList struct {
 
 // Key and value of the latest package revision label
 const (
-	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
+	LatestPackageRevisionKey   = "porch.kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
 )
 
@@ -87,6 +85,7 @@ var PackageRevisionSelectableFields = []PkgRevFieldSelector{
 }
 
 // PackageRevisionLifecycle represents the lifecycle state of a package revision
+// +kubebuilder:validation:Enum=Draft;Proposed;Published;DeletionProposed
 type PackageRevisionLifecycle string
 
 const (

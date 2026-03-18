@@ -39,7 +39,7 @@ spec:
     - jsonPath: .status.revision
       name: Revision
       type: string
-    - jsonPath: .metadata.labels['kpt.dev/latest-revision']
+    - jsonPath: .metadata.labels['porch.kpt.dev/latest-revision']
       name: Latest
       type: string
     - jsonPath: .spec.lifecycle
@@ -83,6 +83,11 @@ spec:
               lifecycle:
                 description: Lifecycle specifies the lifecycle state of the package
                   revision.
+                enum:
+                - Draft
+                - Proposed
+                - Published
+                - DeletionProposed
                 type: string
               packageMetadata:
                 description: PackageMetadata contains labels and annotations for the
@@ -147,8 +152,6 @@ spec:
                               authentication credentials.
                             properties:
                               name:
-                                description: Name of the secret. The secret is expected
-                                  to be located in the same namespace.
                                 type: string
                             required:
                             - name
@@ -161,14 +164,14 @@ spec:
                       type:
                         description: Type of the repository (i.e. git). If empty,
                           upstreamRef will be used.
+                        enum:
+                        - git
                         type: string
                       upstreamRef:
                         description: UpstreamRef is the reference to the package from
                           a registered repository.
                         properties:
                           name:
-                            description: Name is the name of the referenced PackageRevision
-                              resource.
                             type: string
                         required:
                         - name
@@ -179,8 +182,6 @@ spec:
                       package in the same repository.
                     properties:
                       name:
-                        description: Name is the name of the referenced PackageRevision
-                          resource.
                         type: string
                     required:
                     - name
@@ -211,14 +212,12 @@ spec:
                     description: Upgrade merges changes from a new upstream version
                       into a local package.
                     properties:
-                      localPackageRevisionRef:
+                      currentPackage:
                         description: |-
-                          LocalPackageRevisionRef is the reference to the local package revision that
+                          CurrentPackage is the reference to the current local package revision that
                           contains all the local changes on top of the OldUpstream package revision.
                         properties:
                           name:
-                            description: Name is the name of the referenced PackageRevision
-                              resource.
                             type: string
                         required:
                         - name
@@ -229,8 +228,6 @@ spec:
                           local package will be upgraded to.
                         properties:
                           name:
-                            description: Name is the name of the referenced PackageRevision
-                              resource.
                             type: string
                         required:
                         - name
@@ -241,8 +238,6 @@ spec:
                           the common ancestor of the local package and the new upstream package revision.
                         properties:
                           name:
-                            description: Name is the name of the referenced PackageRevision
-                              resource.
                             type: string
                         required:
                         - name
@@ -257,6 +252,11 @@ spec:
                            * force-delete-replace: Wipe all the local changes to the package and replace
                              it with the remote version.
                            * copy-merge: Copy all the remote changes to the local package.
+                        enum:
+                        - resource-merge
+                        - fast-forward
+                        - force-delete-replace
+                        - copy-merge
                         type: string
                     type: object
                 type: object

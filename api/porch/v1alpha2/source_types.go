@@ -44,9 +44,9 @@ type PackageUpgradeSpec struct {
 	// local package will be upgraded to.
 	NewUpstream PackageRevisionRef `json:"newUpstream,omitempty"`
 
-	// LocalPackageRevisionRef is the reference to the local package revision that
+	// CurrentPackage is the reference to the current local package revision that
 	// contains all the local changes on top of the OldUpstream package revision.
-	LocalPackageRevisionRef PackageRevisionRef `json:"localPackageRevisionRef,omitempty"`
+	CurrentPackage PackageRevisionRef `json:"currentPackage,omitempty"`
 
 	// Strategy defines which strategy should be used to update the package. It defaults to 'resource-merge'.
 	//  * resource-merge: Perform a structural comparison of the original /
@@ -60,6 +60,7 @@ type PackageUpgradeSpec struct {
 }
 
 // PackageMergeStrategy defines the strategy for merging package changes
+// +kubebuilder:validation:Enum=resource-merge;fast-forward;force-delete-replace;copy-merge
 type PackageMergeStrategy string
 
 const (

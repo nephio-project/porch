@@ -15,6 +15,7 @@
 package v1alpha2
 
 // RepositoryType specifies the type of repository
+// +kubebuilder:validation:Enum=git
 type RepositoryType string
 
 const (
@@ -50,20 +51,12 @@ type GitPackage struct {
 	SecretRef SecretRef `json:"secretRef,omitempty"`
 }
 
-// SecretRef is a reference to a Secret
-type SecretRef struct {
-	// Name of the secret. The secret is expected to be located in the same namespace.
+// NameRef is a reference to a named resource in the same namespace.
+type NameRef struct {
 	Name string `json:"name"`
 }
 
-// PackageRevisionRef is a reference to a PackageRevision resource
-type PackageRevisionRef struct {
-	// Name is the name of the referenced PackageRevision resource.
-	Name string `json:"name"`
-}
-
-// RepositoryRef identifies a reference to a Repository resource
-type RepositoryRef struct {
-	// Name of the Repository resource referenced.
-	Name string `json:"name"`
-}
+// Typed references for clarity at point of use.
+type SecretRef = NameRef
+type PackageRevisionRef = NameRef
+type RepositoryRef = NameRef

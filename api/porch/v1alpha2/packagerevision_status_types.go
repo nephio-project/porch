@@ -17,9 +17,6 @@ package v1alpha2
 // This file contains types used in PackageRevision status fields.
 // These types are intentionally duplicated from the kpt library to maintain API independence.
 
-// The following types (Locator, OriginType, and GitLock) are intentionally duplicated from the kpt library
-// to maintain API independence and avoid external dependencies in the API package.
-
 // OriginType defines the type of origin for a package
 type OriginType string
 
