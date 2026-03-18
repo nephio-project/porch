@@ -62,6 +62,19 @@ env:
   value: "<wrapper-server-image>"  # Required for pod runtime
 ```
 
+## Advanced Configuration
+
+### Pod Templates
+
+Customize function evaluator pod specifications using ConfigMap templates:
+
+```bash
+args:
+- --function-pod-template=kpt-function-eval-pod-template  # ConfigMap name
+```
+
+For detailed pod template configuration, see [Pod Templates]({{% relref "pod-templates" %}}) documentation.
+
 ## Runtime Configuration
 
 ### Exec Runtime
@@ -182,5 +195,7 @@ spec:
 ```
 
 {{% alert title="Note" color="primary" %}}
-For detailed private registry configuration, see [Private Registries]({{% relref "private-registries-config" %}}) documentation.
+For advanced configuration options:
+- [Pod Templates]({{% relref "pod-templates" %}}) - Customize function pod specifications
+- [Private Registries]({{% relref "private-registries-config" %}}) - Configure private registry access
 {{% /alert %}}
