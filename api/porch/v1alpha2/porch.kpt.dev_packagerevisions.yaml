@@ -36,7 +36,7 @@ spec:
     - jsonPath: .spec.workspaceName
       name: WorkspaceName
       type: string
-    - jsonPath: .spec.revision
+    - jsonPath: .status.revision
       name: Revision
       type: string
     - jsonPath: .metadata.labels['kpt.dev/latest-revision']
@@ -114,9 +114,6 @@ spec:
                 description: RepositoryName is the name of the Repository object containing
                   this package.
                 type: string
-              revision:
-                description: Revision identifies the version of the package.
-                type: integer
               source:
                 description: |-
                   Source specifies how this package was created.
@@ -387,6 +384,11 @@ spec:
                   RenderingPrrResourceVersion tracks the PRR resourceVersion currently being rendered.
                   Prevents concurrent renders.
                 type: string
+              revision:
+                description: |-
+                  Revision identifies the version of the package.
+                  This is assigned by the system when the package is published.
+                type: integer
               selfLock:
                 description: SelfLock identifies the location of the current package's
                   data

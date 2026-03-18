@@ -31,7 +31,7 @@ import (
 // +kubebuilder:resource:path=packagerevisions,singular=packagerevision,shortName=rpkg
 // +kubebuilder:printcolumn:name="Package",type=string,JSONPath=`.spec.packageName`
 // +kubebuilder:printcolumn:name="WorkspaceName",type=string,JSONPath=`.spec.workspaceName`
-// +kubebuilder:printcolumn:name="Revision",type=string,JSONPath=`.spec.revision`
+// +kubebuilder:printcolumn:name="Revision",type=string,JSONPath=`.status.revision`
 // +kubebuilder:printcolumn:name="Latest",type=string,JSONPath=".metadata.labels['kpt.dev/latest-revision']"
 // +kubebuilder:printcolumn:name="Lifecycle",type=string,JSONPath=`.spec.lifecycle`
 // +kubebuilder:printcolumn:name="Repository",type=string,JSONPath=`.spec.repository`
@@ -68,7 +68,7 @@ type PkgRevFieldSelector string
 const (
 	PkgRevSelectorName          PkgRevFieldSelector = "metadata.name"
 	PkgRevSelectorNamespace     PkgRevFieldSelector = "metadata.namespace"
-	PkgRevSelectorRevision      PkgRevFieldSelector = "spec.revision"
+	PkgRevSelectorRevision      PkgRevFieldSelector = "status.revision"
 	PkgRevSelectorPackageName   PkgRevFieldSelector = "spec.packageName"
 	PkgRevSelectorRepository    PkgRevFieldSelector = "spec.repository"
 	PkgRevSelectorWorkspaceName PkgRevFieldSelector = "spec.workspaceName"
@@ -107,9 +107,6 @@ type PackageRevisionSpec struct {
 	// WorkspaceName is a short, unique description of the changes contained in this package revision.
 	WorkspaceName string `json:"workspaceName,omitempty"`
 
-	// Revision identifies the version of the package.
-	Revision int `json:"revision,omitempty"`
-
 	// Lifecycle specifies the lifecycle state of the package revision.
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
 
@@ -141,6 +138,10 @@ type ReadinessGate struct {
 
 // PackageRevisionStatus defines the observed state of PackageRevision
 type PackageRevisionStatus struct {
+	// Revision identifies the version of the package.
+	// This is assigned by the system when the package is published.
+	Revision int `json:"revision,omitempty"`
+
 	// UpstreamLock identifies the upstream data for this package.
 	UpstreamLock *Locator `json:"upstreamLock,omitempty"`
 
