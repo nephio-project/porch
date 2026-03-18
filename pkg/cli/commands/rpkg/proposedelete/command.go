@@ -117,6 +117,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			}
 
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
 		if err == nil && lastErr != nil {
 			err = lastErr
 		}

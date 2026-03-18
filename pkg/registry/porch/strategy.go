@@ -37,7 +37,7 @@ func (s packageRevisionStrategy) PrepareForUpdate(ctx context.Context, obj, old 
 	newRevision := obj.(*porchapi.PackageRevision)
 	oldRevision := old.(*porchapi.PackageRevision)
 
-	//Defaults hould be added here for newly added values in v1alpha1 to ensure forward compatiblity for server-side validations
+	//Defaults should be added here for newly added values in v1alpha1 to ensure forward compatiblity for server-side validations
 	//Need to default in a non-empty value, because this field is discovered from Kptfile, not actually set on the API.
 	if newRevision.Spec.PackageMetadata == nil {
 		newRevision.Spec.PackageMetadata = oldRevision.Spec.PackageMetadata
