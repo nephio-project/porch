@@ -35,8 +35,21 @@ WORKDIR /go/src
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 RUN cp $GOPATH/bin/grpc-health-probe /grpc-health-probe
 
-COPY . .
-RUN cd func ; go build -v -o /server ./server
+COPY go.mod go.sum ./
+COPY ./third_party ./third_party
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY ./api ./api
+COPY ./cmd ./cmd
+COPY ./pkg ./pkg
+COPY ./internal ./internal
+COPY ./controllers ./controllers
+COPY ./func ./func
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd func ; go build -trimpath -ldflags="-s -w" -v -o /server ./server
 COPY func/config.yaml /config.yaml
 
 FROM alpine:${ALPINE_VERSION}
