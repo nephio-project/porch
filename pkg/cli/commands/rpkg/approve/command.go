@@ -88,16 +88,30 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
-			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+			err := r.client.Get(r.ctx, key, &pr)
+			if err != nil {
+				lastErr = err
 				return err
 			}
 			if !porchapi.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
-				return fmt.Errorf("readiness conditions not met")
+				lastErr = fmt.Errorf("readiness conditions not met")
+				return lastErr
 			}
-			return cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecyclePublished)
+			err = cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecyclePublished)
+			if err != nil {
+				lastErr = err
+			} else {
+				lastErr = nil
+			}
+			return err
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
