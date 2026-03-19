@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,11 +31,15 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-// Key and value of the latest package revision label:
+// PackageRevision labels and annotations:
 
 const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
+
+	// PushOnFnRenderFailureKey annotation controls whether to push package changes even when function rendering fails.
+	PushOnFnRenderFailureKey   = "porch.kpt.dev/push-on-render-failure"
+	PushOnFnRenderFailureValue = "true"
 )
 
 type PkgRevFieldSelector string

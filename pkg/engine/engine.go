@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
+
+	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -513,15 +515,55 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
-	}
-	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, renderErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+
+	if renderErr != nil {
+		if result, status, err := handleMutationError(renderErr, renderStatus, rev); err != nil {
+			return result, status, err
+		}
 	}
 
+	// No render error, or annotation allows push on render failure
+	repoPkgRev, closeErr := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if closeErr != nil {
+		if renderErr != nil {
+			return nil, renderStatus, fmt.Errorf("failed to push package to remote: %w; render error: %v", closeErr, renderErr)
+		}
+		return nil, renderStatus, closeErr
+	}
+	if renderErr != nil {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package pushed to remote despite render failure. Details: %w", renderErr)
+	}
 	return repoPkgRev, renderStatus, nil
+}
+
+func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
+	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
+}
+
+// handleMutationError decides whether to bail out or allow push-on-render-failure.
+// Returns a non-nil error to signal the caller should return immediately.
+// Returns a nil error to signal the caller should proceed to close the draft.
+func handleMutationError(renderErr error, renderStatus *porchapi.RenderStatus, rev *porchapi.PackageRevision) (repository.PackageRevision, *porchapi.RenderStatus, error) {
+	// If persistence failed after render, never push — draft contents are stale.
+	var persistErr *task.RenderPersistError
+	if errors.As(renderErr, &persistErr) {
+		return nil, renderStatus, renderErr
+	}
+
+	// Only apply push-on-render-failure for actual render errors.
+	// For any other error (e.g. draft.UpdateResources failure when render succeeded),
+	// never push — the draft contents may be stale.
+	var renderError *task.RenderError
+	if !errors.As(renderErr, &renderError) {
+		return nil, renderStatus, renderErr
+	}
+
+	if !rev.IsPushOnRenderFailure() {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
+	}
+
+	return nil, renderStatus, nil
 }

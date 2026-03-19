@@ -319,10 +319,11 @@ graph TD
 - Published deletions remove Git tags and references
 - Deletion is permanent and cannot be undone
 
-**Dependency Considerations:**
+**Upstream Reference Considerations:**
 
-- Check if other PackageRevisions depend on the one being deleted
-- Deleting upstream packages may affect downstream clones
+- Upstream PackageRevisions cannot be deleted while downstream PackageRevisions reference them
+- Delete downstream PackageRevisions first, then you can delete the upstream PackageRevisions
+- The error message identifies which downstream PackageRevision is blocking deletion
 - Consider the impact on deployed workloads
 
 ---
@@ -347,6 +348,15 @@ Error: cannot delete published package revision directly, use propose-delete fir
 
 - Check RBAC permissions with the `kubectl auth can-i delete packagerevisions -n default` command
 - Verify your service account has proper deletion roles
+
+**Cannot delete upstream PackageRevision:**
+
+```bash
+Error from server (Forbidden): cannot delete package revision, it is referenced as upstream by: <downstream-packagerevision-name>
+```
+
+- See "Upstream Reference Considerations" in Safety Considerations above
+- Delete the downstream PackageRevision first, then retry
 
 **Deletion proposal stuck:**
 

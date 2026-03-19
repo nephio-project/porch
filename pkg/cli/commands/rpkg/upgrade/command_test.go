@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -977,6 +978,37 @@ func TestFindUpstreamInUpgradeTask(t *testing.T) {
 	result := r.findUpstreamName(&upgradePr)
 
 	assert.Equal(t, "new-upstream-v2", result)
+}
+
+// TestLastErrWorkaround verifies the lastErr workaround catches errors
+// when retry.RetryOnConflict returns err=nil despite the inner function
+// returning an error, due to a bug. This can be triggered when infrastructure
+// issues happen. The easiest way to trigger this in tests is to use an
+// unreachable cluster.
+func TestLastErrWorkaround(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("error creating scheme: %v", err)
+	}
+	c, err := client.New(&rest.Config{Host: "https://127.0.0.1:1", Timeout: 1, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}, client.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("error creating client: %v", err)
+	}
+	pr := porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pkg", Namespace: "ns"},
+	}
+	ns := "ns"
+	r := &runner{
+		ctx:     context.Background(),
+		cfg:     &genericclioptions.ConfigFlags{Namespace: &ns},
+		client:  c,
+		Command: NewCommand(context.Background(), &genericclioptions.ConfigFlags{Namespace: &ns}),
+		prs:     []porchapi.PackageRevision{pr},
+	}
+	err = r.runE(r.Command, []string{"test-pkg"})
+	if err == nil {
+		t.Fatal("expected error but got nil")
+	}
 }
 
 func TestAvailableUpdatesWithDirectory(t *testing.T) {

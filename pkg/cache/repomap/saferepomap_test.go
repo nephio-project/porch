@@ -209,10 +209,12 @@ func TestRange(t *testing.T) {
 		})
 	}
 
-	// Range over all entries
+	// Range over all entries and verify values are repositories, not loaders
 	var count int
 	m.Range(func(key, value any) bool {
 		count++
+		_, ok := value.(repository.Repository)
+		assert.True(t, ok, "value should be a repository.Repository, not a repoLoader")
 		return true
 	})
 
