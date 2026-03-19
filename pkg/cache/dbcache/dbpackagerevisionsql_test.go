@@ -25,6 +25,8 @@ import (
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
@@ -753,4 +755,227 @@ func (t *DbTestSuite) TestFindUpstreamReference() {
 	t.NoError(err)
 	err = repoDeleteFromDB(t.Context(), downstreamRepo.Key())
 	t.NoError(err)
+}
+
+func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func()) {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := t.createTestRepo("label-ns", "label-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "label-pkg")
+
+	// PR with labels app=web, env=prod
+	pr1 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-1",
+			Revision:      1,
+		},
+		meta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "web", "env": "prod"},
+		},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr1))
+
+	// PR with labels app=api, env=staging
+	pr2 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-2",
+			Revision:      2,
+		},
+		meta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "api", "env": "staging"},
+		},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr2))
+
+	// PR with no labels
+	pr3 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-3",
+			Revision:      3,
+		},
+		meta:      metav1.ObjectMeta{},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr3))
+
+	return dbRepo.Key(), func() {
+		t.deleteTestRepo(dbRepo.Key())
+	}
+}
+
+func (t *DbTestSuite) TestPrLabelFilterEquals() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 1)
+	t.Equal("ws-1", results[0].Key().WorkspaceName)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterDoubleEquals() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("env", selection.DoubleEquals, []string{"staging"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 1)
+	t.Equal("ws-2", results[0].Key().WorkspaceName)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterNotEquals() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.NotEquals, []string{"web"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 2)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterIn() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.In, []string{"web", "api"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 2)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterNotIn() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.NotIn, []string{"web"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	// pr2 (app=api) and pr3 (no app label, IS NULL matches)
+	t.Len(results, 2)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterExists() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.Exists, []string{})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	// pr1 and pr2 have the "app" label
+	t.Len(results, 2)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterDoesNotExist() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("env", selection.DoesNotExist, []string{})
+	t.Require().NoError(err)
+
+	reqExists, err := labels.NewRequirement("app", selection.Exists, []string{})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req, *reqExists),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	// No PRs have "app" label but lack "env" label — both pr1 and pr2 have both
+	t.Empty(results)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterMultipleRequirements() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	reqApp, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+	t.Require().NoError(err)
+	reqEnv, err := labels.NewRequirement("env", selection.Equals, []string{"prod"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*reqApp, *reqEnv),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 1)
+	t.Equal("ws-1", results[0].Key().WorkspaceName)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterNilSelector() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	filter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 3)
+}
+
+func (t *DbTestSuite) TestPrLabelFilterNoMatch() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	req, err := labels.NewRequirement("app", selection.Equals, []string{"nonexistent"})
+	t.Require().NoError(err)
+
+	filter := repository.ListPackageRevisionFilter{
+		Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		Label: labels.NewSelector().Add(*req),
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Empty(results)
 }
