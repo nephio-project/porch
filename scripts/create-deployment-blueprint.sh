@@ -38,6 +38,7 @@ Supported Flags:
   --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
   --fn-runner-warm-up-pod-cache BOOL  ... disable warm-up-pod-cache in function runner
   --porch-cache-type TYPE             ... porch cache type (CR or DB)
+  --db-push-drafts-to-git BOOL        ... enable db-push-drafts-to-git flag for porch-server
 EOF
   exit 1
 }
@@ -52,6 +53,7 @@ ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
 FN_RUNNER_WARM_UP_POD_CACHE="true"
 PORCH_CACHE_TYPE="CR"
+DB_PUSH_DRAFTS_TO_GIT="false"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -95,6 +97,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --porch-cache-type)
       PORCH_CACHE_TYPE="${2}"
+      shift 2
+      ;;
+    --db-push-drafts-to-git)
+      DB_PUSH_DRAFTS_TO_GIT="${2}"
       shift 2
       ;;
     *)
@@ -199,6 +205,15 @@ function disable_fn_runner_warm_up_pod_cache() {
       -- by-value="--warm-up-pod-cache=true" put-value="--warm-up-pod-cache=false"
 }
 
+function enable_db_push_drafts_to_git() {
+    kpt fn eval ${DESTINATION} \
+      --image ${SEARCH_REPLACE_IMG} \
+      --match-kind Deployment \
+      --match-name porch-server \
+      --match-namespace porch-system \
+      -- by-value="--db-push-drafts-to-git=false" put-value="--db-push-drafts-to-git=true"
+}
+
 function configure_porch_cache() {
     kpt fn eval ${DESTINATION} \
       --image ${SEARCH_REPLACE_IMG} \
@@ -281,6 +296,10 @@ function main() {
   fi
 
   configure_porch_cache
+
+  if [[ "${DB_PUSH_DRAFTS_TO_GIT}" == "true" ]]; then
+    enable_db_push_drafts_to_git
+  fi
 
   customize_controller_reconcilers
   
