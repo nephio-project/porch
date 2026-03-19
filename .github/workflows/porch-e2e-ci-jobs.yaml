@@ -14,10 +14,7 @@
 
 name: End-to-End Tests
 on:
-  push:
-    branches: [main, feature-*]  # Validates cherry-picks
   pull_request:
-    branches: [main, feature-*]
   workflow_dispatch:
 
 concurrency:
