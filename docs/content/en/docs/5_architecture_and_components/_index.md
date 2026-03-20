@@ -49,7 +49,8 @@ A standalone gRPC service for executing KRM functions:
 
 ### [Porch Controllers]({{% relref "controllers" %}})
 
-Kubernetes controllers that automate package variant management:
+Kubernetes controllers that automate repository synchronization and package variant management:
+- **Repository Controller**: Manages Repository custom resources, handles repository synchronization, cache updates, status management, and reconciliation based on sync schedules
 - **PackageVariant Controller**: Creates and syncs downstream package variants
 - **PackageVariantSet Controller**: Generates multiple PackageVariants from templates
 - Detects upstream changes and creates upgrade/edit drafts

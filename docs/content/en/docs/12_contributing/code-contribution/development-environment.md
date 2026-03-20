@@ -148,7 +148,7 @@ DB_PASSWORD=porch
 
 ### Debug Controllers (Controllers in VS Code, Server in Kind)
 
-Two configurations available depending on cache backend:
+The porch-controllers binary includes three controllers: PackageVariant, PackageVariantSet, and Repository controllers. Two configurations are available depending on cache backend:
 
 #### Option 1: CR Cache (Default)
 
@@ -288,6 +288,22 @@ make test-e2e
 make test-e2e-cli
 # With clean deployment
 make test-e2e-clean
+```
+
+### Repository Controller Tests
+
+The Repository Controller has its own test infrastructure in `controllers/repositories/`:
+
+```bash
+# Run all repository controller tests
+cd controllers/repositories
+make test-all
+
+# Run only unit tests
+make test-unit
+
+# Run only integration tests
+make test-integration
 ```
 
 ### Single Test Case

@@ -30,7 +30,6 @@ The Porch API Server provides the Kubernetes API interface for Porch resources. 
 │          │   Background     │                           │
 │          │   Operations     │                           │
 │          │                  │                           │
-│          │  • Repo Sync     │                           │
 │          │  • Cleanup       │                           │
 │          └──────────────────┘                           │
 └─────────────────────────────────────────────────────────┘
@@ -281,28 +280,20 @@ The API Server provides real-time watch streams:
 
 ## Background Operations
 
-The API Server runs background tasks for maintenance:
+The API Server delegates certain background operations to separate controller components for better separation of concerns and scalability.
 
 ### Repository Synchronization
 
-**Sync process:**
-- Background goroutine discovers repositories
-- Creates SyncManager for each repository
-- SyncManager triggers periodic sync
-- Cache updates from Git repository
-- Watch notifications sent to clients
+Repository synchronization is handled by the dedicated [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), which runs as a separate component using the controller-runtime framework.
 
-**Sync configuration:**
-- Default frequency set at server startup
-- Per-repository frequency via Repository CR
-- Manual sync via Repository CR update
-- Cron schedule support
+The Repository Controller manages:
+- Repository resource lifecycle and reconciliation
+- Periodic and on-demand repository synchronization
+- Repository health checks and status updates
+- Cache updates and invalidation
+- Repository deletion and cleanup
 
-**Sync coordination:**
-- One SyncManager per repository
-- Syncs run independently
-- Errors logged and reported in Repository status
-- Automatic retry on next cycle
+See the [Repository Controller documentation]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}) for details on sync configuration, scheduling, and implementation.
 
 ### Resource Cleanup
 
@@ -364,7 +355,7 @@ The API Server employs several optimization strategies:
 - Consistent performance
 
 **Cache coordination:**
-- Background sync keeps cache fresh
+- Repository Controller keeps cache fresh via periodic sync
 - Watch notifications on cache updates
 - Automatic cache invalidation
 - Transparent to API clients
@@ -434,7 +425,7 @@ The API Server handles concurrent operations:
 - Read operations fully concurrent
 - Write operations serialized per package (Engine mutex)
 - Watch streams independent
-- Background jobs concurrent
+- Resource cleanup operations concurrent
 
 ### Optimistic Locking
 
