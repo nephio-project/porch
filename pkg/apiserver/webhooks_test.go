@@ -613,12 +613,12 @@ func TestValidateRepository(t *testing.T) {
 			expectOK: true,
 		},
 		{
-			name:      "conflict: empty branch defaults to main",
+			name:      "conflict: branch defaults to main (CRD handles defaulting)",
 			repoName:  "repo9",
 			namespace: "ns1",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir1",
-			branch:    "",
+			branch:    "main",
 			setupRepos: []configapi.Repository{
 				{
 					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},

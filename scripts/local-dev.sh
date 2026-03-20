@@ -89,7 +89,7 @@ start_function_runner() {
 run_porch() {
     echo "Running porch locally..."
     KUBECONFIG=$(pwd)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
-    KUBECONFIG=$(pwd)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
+    KUBECONFIG=$(pwd)/deployments/local/kubeconfig kubectl apply -f controllers/repositories/api/v1alpha1/
     KUBECONFIG=$(pwd)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
     ${PORCH} --secure-port 9443 --standalone-debug-mode \
       --kubeconfig="$(pwd)/deployments/local/kubeconfig" \

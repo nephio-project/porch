@@ -16,6 +16,8 @@ register a repository with Porch, you're creating a Repository resource that tel
 - Whether it's a deployment repository (packages ready for deployment)
 - How often to sync/refresh the package revision cache
 
+Repositories can be accessed using the short name `repo` for convenience (e.g., `kubectl get repo`).
+
 ## Repository Types
 
 Porch supports two storage backends:
@@ -70,6 +72,62 @@ When a Repository resource is registered with Porch, Porch automatically conduct
 
 This means the Repository resource acts as the bridge between Porch's Kubernetes API and the actual Git repository where
 kpt package files are stored.
+
+## Immutability
+
+{{% alert title="Important" color="warning" %}}
+The following fields are **immutable** after repository creation and cannot be modified:
+- `spec.type`
+- `spec.git.repo`
+- `spec.git.branch`
+- `spec.git.directory`
+- `spec.oci.registry`
+
+To change these fields, you must delete and recreate the Repository resource.
+{{% /alert %}}
+
+This immutability ensures consistency and prevents accidental changes to the fundamental location and type of the repository.
+
+## Repository Status
+
+The Repository resource maintains status information that reflects the current state of synchronization and the repository's health:
+
+**Condition Fields:**
+- `conditions`: Standard Kubernetes conditions indicating repository health and readiness
+
+**Sync Tracking:**
+- `lastFullSyncTime`: Timestamp of the last successful full sync
+- `nextFullSyncTime`: Scheduled time for the next full sync
+- `observedGeneration`: Generation of the spec that was last observed (used to detect spec changes)
+- `observedRunOnceAt`: The `runOnceAt` value that was last processed (prevents duplicate one-time syncs)
+
+**Repository Information:**
+- `packageCount`: Number of packages discovered in the repository
+- `gitCommitHash`: Current Git commit hash for Git repositories (empty for OCI repositories)
+
+These status fields are updated by the Repository Controller and provide observability into sync operations. See the [Repository Controller documentation]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller" %}}) for details on how the controller manages repository synchronization.
+
+### kubectl Output
+
+When viewing repositories with `kubectl get repo`, you'll see several useful columns including Branch and Age:
+
+```bash
+$ kubectl get repo
+NAME        TYPE   CONTENT      SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS                           BRANCH   AGE
+my-repo     git    Package      0 */1 * * *     true         True    https://github.com/org/repo.git   main     5d
+```
+
+## Sync Configuration
+
+The `spec.sync` field controls how and when Porch synchronizes with the repository:
+
+**Periodic Synchronization:**
+- `schedule`: A cron expression for scheduled syncs (e.g., `*/10 * * * *` to sync every 10 minutes)
+
+**One-Time Synchronization:**
+- `runOnceAt`: A timestamp to trigger a one-time cache sync outside the periodic schedule. This is tracked via `observedRunOnceAt` in the status to prevent redundant syncs.
+
+See [Repository Sync Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/repository-sync" %}}) for detailed sync configuration options.
 
 ## Key Points
 

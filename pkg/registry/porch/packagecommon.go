@@ -267,6 +267,11 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, err
 	}
 
+	// Check if repository is being deleted
+	if repositoryObj.DeletionTimestamp != nil {
+		return nil, apierrors.NewNotFound(r.gr, name)
+	}
+
 	var cancel context.CancelFunc
 	if r.ListTimeoutPerRepository != 0 {
 		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
@@ -306,6 +311,11 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (repository
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: pkgKey.RKey().Name, Namespace: pkgKey.RKey().Namespace})
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if repository is being deleted
+	if repositoryObj.DeletionTimestamp != nil {
+		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
 	revisions, err := r.cad.ListPackages(ctx, repositoryObj, repository.ListPackageFilter{Key: pkgKey})

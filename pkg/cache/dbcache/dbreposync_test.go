@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func (t *DbTestSuite) TestDBRepoSync() {
@@ -61,8 +60,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
@@ -95,7 +93,9 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -113,20 +113,24 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
+
+	// Sync should not add PR because version hasn't changed
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
-	time.Sleep(2 * time.Second)
+
+	// Explicitly trigger sync after version change
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(1, len(prList)) // Sync should have added a cached PR that is in the external repo
-
-	testRepo.repositorySync.Stop()
 
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
@@ -170,8 +174,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 30 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	sync := newRepositorySync(testRepo, cacheOptions)
@@ -206,8 +209,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
-
 	// Add the PR to the external repo
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
@@ -220,7 +221,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
 	testRepo.externalRepo.(*fake.Repository).CurrentVersion = "bar"
 
 	// Wait until externalRepo.Version(ctx) returns "bar"
@@ -241,9 +241,9 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		}
 	}
 
-	t.T().Log("Starting 5 second sleep...")
-	time.Sleep(5 * time.Second)
-	t.T().Log("Finished 5 second sleep")
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -252,16 +252,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 
 	// Check that sync stats were updated
 	t.Require().NotNil(sync.lastSyncStats)
-	t.Require().Nil(sync.getLastSyncError())
 
-	// Check statusStore for condition update
-	status, ok := fakeClient.GetStatusStore()[types.NamespacedName{Name: repoName, Namespace: namespace}]
-	t.Require().True(ok)
-	t.Require().Equal(configapi.RepositoryReady, status.Conditions[0].Type)
-	t.Require().Equal(metav1.ConditionTrue, status.Conditions[0].Status)
-	t.Require().Equal(configapi.ReasonReady, status.Conditions[0].Reason)
-
-	sync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
@@ -287,42 +278,6 @@ func (t *DbTestSuite) TestRepositorySync_SyncOnce() {
 	t.Require().NoError(err)
 }
 
-func (t *DbTestSuite) TestRepositorySync_Key() {
-	testRepo := t.createTestRepo("test-ns", "key-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	key := sync.Key()
-	t.Equal(testRepo.Key(), key)
-}
-
-func (t *DbTestSuite) TestRepositorySync_GetSpec() {
-	testRepo := t.createTestRepo("test-ns", "spec-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	spec := sync.GetSpec()
-	t.Equal(testRepo.spec, spec)
-}
-
-func (t *DbTestSuite) TestRepositorySync_getLastSyncError() {
-	testRepo := t.createTestRepo("test-ns", "error-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	// Test with nil syncManager
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	err := sync.getLastSyncError()
-	t.Nil(err)
-}
 func (t *DbTestSuite) TestNewRepositorySync() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -342,36 +297,15 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 	fakeClient := testutil.NewFakeClientWithStatus(scheme)
 
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	sync := newRepositorySync(testRepo, options)
-	defer func() {
-		if sync != nil {
-			sync.Stop()
-		}
-	}()
 
 	t.NotNil(sync)
 	t.Equal(testRepo, sync.repo)
-	t.NotNil(sync.syncManager)
 }
 
-func (t *DbTestSuite) TestRepositorySync_Stop() {
-	testRepo := t.createTestRepo("test-ns", "stop-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	// Test Stop with nil syncManager
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-	sync.Stop() // Should not panic
-
-	// Test Stop with nil repositorySync
-	var nilSync *repositorySync
-	nilSync.Stop() // Should not panic
-}
 
 // TestCacheExternalPRs_SkipsBinaryFiles verifies that sync skips binary files
 // to prevent invalid UTF-8 content from causing PostgreSQL errors
