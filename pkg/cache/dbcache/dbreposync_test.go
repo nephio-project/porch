@@ -165,8 +165,7 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftInExternalKept() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
@@ -204,13 +203,14 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftInExternalKept() {
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, fakeExtPR)
 	fakeRepo.CurrentVersion = "draft-v1"
 
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(1, len(prList), "with pushDraftsToGit enabled, draft in both cache and external should be kept by sync")
 
-	testRepo.repositorySync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
@@ -244,8 +244,7 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftOnlyInCacheRemoved(
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
@@ -265,13 +264,14 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftOnlyInCacheRemoved(
 	t.Require().NoError(err)
 
 	// Do not add the draft to the external repo. Sync should treat it as "cached only" and remove it.
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(prList), "with pushDraftsToGit enabled, draft only in cache should be removed by sync")
 
-	testRepo.repositorySync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
@@ -305,8 +305,7 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGitDisabled_DraftNotConsider
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
@@ -326,13 +325,14 @@ func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGitDisabled_DraftNotConsider
 	t.Require().NoError(err)
 
 	// Sync only considers Published/DeletionProposed when pushDraftsToGit is false, so the draft is not "cached only".
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(1, len(prList), "with pushDraftsToGit disabled, draft in cache should not be removed by sync")
 
-	testRepo.repositorySync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
@@ -506,7 +506,6 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 	t.NotNil(sync)
 	t.Equal(testRepo, sync.repo)
 }
-
 
 // TestCacheExternalPRs_SkipsBinaryFiles verifies that sync skips binary files
 // to prevent invalid UTF-8 content from causing PostgreSQL errors
