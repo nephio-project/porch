@@ -99,7 +99,9 @@ The Porch API Server registers two API groups with Kubernetes:
 
 ## Background Operations
 
-See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#background-operations" %}}) for detailed implementation of background operations including repository synchronization and resource cleanup.
+The Porch API Server delegates background operations to separate controller components for better separation of concerns and scalability. Repository synchronization and lifecycle management are handled by the [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), which runs as a separate component using the controller-runtime framework.
+
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#background-operations" %}}) for detailed implementation of other background operations including resource cleanup.
 
 ## Design Decisions
 
@@ -160,24 +162,34 @@ See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiser
 - Provides efficient real-time updates
 - Scales to many concurrent watchers
 
-### Background Job Pattern
+### Repository Management Pattern
 
-**Decision**: Run repository synchronization and cleanup as background goroutines.
+**Decision**: Extract repository synchronization into a dedicated Repository Controller using controller-runtime framework.
 
 **Rationale:**
-- Sync operations are long-running and periodic
-- Should not block API requests
-- Enables concurrent sync of multiple repositories
-- Provides automatic cache refresh
+- Separates concerns: API server handles requests, controller manages repository lifecycle
+- Controller-runtime provides proven patterns (watch management, work queues, leader election)
+- Better scalability with concurrent reconciliation and rate limiting
+- Independent deployment and scaling of repository management
+- Cleaner shutdown and error handling
 
 **Alternatives considered:**
+- **Background goroutines in API server**: Mixes request handling with background sync logic
 - **Sync on demand**: Would add latency to API requests
-- **External controller**: Adds deployment complexity
+- **Custom controller implementation**: Reinvents controller-runtime features
 
 **Trade-offs:**
-- Background jobs add complexity to server lifecycle
-- Provides better user experience (no sync delays)
-- Enables automatic cache consistency
+- Additional deployment component (Repository Controller)
+- Better separation of concerns and operational flexibility
+- Improved observability with controller metrics and status
+
+**Implementation:**
+The Repository Controller manages Repository CRs through standard Kubernetes reconciliation:
+- Watches Repository resources for spec changes
+- Performs health checks and full syncs on configurable schedules
+- Updates repository status with sync results and package metadata
+- Handles repository deletion and cache cleanup
+- See [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}) for details
 
 ### Dependency Injection
 
