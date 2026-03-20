@@ -132,7 +132,7 @@ Repository synchronization is handled by the [Repository Controller]({{% relref 
 
 **Integration pattern:**
 - Repository Controller watches Repository CRs and triggers sync operations
-- Sync operations update the Cache directly
+- Sync operations update the Cache through the Engine
 - Cache propagates change notifications to the API Server
 - API Server delivers watch events to connected clients
 
@@ -247,9 +247,9 @@ Repository Controller
         ↓
   Reconcile Loop
         ↓
-  Trigger Sync via Cache
+  Trigger Sync via Engine
         ↓
-  Cache Updates
+  Engine Updates Cache
         ↓
   Cache Sends Notifications
         ↓
@@ -261,7 +261,7 @@ Repository Controller
 **Integration flow:**
 - Repository Controller manages the sync lifecycle independently
 - Controller watches Repository resources and reconciles based on sync schedules
-- Sync operations update the Cache directly
+- Sync operations update the Cache through the Engine
 - Cache notifications propagate through the API Server to clients
 - API Server observes and delivers events but does not initiate sync
 
@@ -326,4 +326,5 @@ The API Server coordinates concurrent operations across components:
 - Optimistic locking enforced at API Server and Engine boundary
 - Watch streams isolated per client
 - Repository sync operations coordinated by Repository Controller
+
 

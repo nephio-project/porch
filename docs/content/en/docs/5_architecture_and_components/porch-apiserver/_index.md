@@ -78,8 +78,6 @@ The Porch API Server sits at the top of the Porch architecture, serving as the i
 6. **Background Processing**: Runs periodic tasks for resource cleanup
 7. **Multi-Tenancy**: Enforces namespace isolation and RBAC policies for secure multi-tenant operation
 
-{{% alert title="Note" color="primary" %}}
-Repository synchronization and lifecycle management are handled by the separate [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), not by the API Server. This separation improves scalability and allows the API Server to focus on serving API requests.
-{{% /alert %}}
+> **Note**: Repository synchronization and lifecycle management are handled by the separate [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), not by the API Server. This separation improves scalability and allows the API Server to focus on serving API requests.
 
 The API Server is instantiated once during Porch startup and configured with Engine, Cache, and client connections through dependency injection.
