@@ -41,6 +41,7 @@ type CacheOptions struct {
 	CoreClient                 client.WithWatch
 	CacheType                  CacheType
 	DBCacheOptions             DBCacheOptions
+	DbPushDraftsToGit          bool
 }
 
 const DefaultDBCacheDriver string = "pgx"
