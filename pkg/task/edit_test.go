@@ -25,6 +25,8 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestEdit(t *testing.T) {
@@ -78,7 +80,7 @@ info:
 
 	epm := editPackageMutation{
 		task: &porchapi.Task{
-			Type: "edit",
+			Type: porchapi.TaskTypeEdit,
 			Edit: &porchapi.PackageEditTaskSpec{
 				Source: &porchapi.PackageRevisionRef{
 					Name: packageName,
@@ -114,10 +116,104 @@ info:
 	}
 }
 
+func TestEditPlaceholder(t *testing.T) {
+	repositoryNamespace := "test-namespace"
+	repositoryName := "repo"
+	pkg := "1234567890"
+	revision := -1
+	workspace := "main"
+	placeholderPackageName := "repo.1234567890.main"
+	packageRevision := &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: repositoryNamespace,
+					Name:      repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				PackageName:    pkg,
+				Revision:       revision,
+				RepositoryName: repositoryName,
+				Resources: map[string]string{
+					kptfilev1.KptFileName: strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+					`),
+				},
+			},
+		},
+	}
+	repo := &fake.Repository{
+		PackageRevisions: []repository.PackageRevision{
+			packageRevision,
+		},
+	}
+	repoOpener := &fakeRepositoryOpener{
+		repository: repo,
+	}
+
+	epm := editPackageMutation{
+		task: &porchapi.Task{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: placeholderPackageName,
+				},
+			},
+		},
+
+		namespace:         "test-namespace",
+		packageName:       pkg,
+		repositoryName:    repositoryName,
+		referenceResolver: &fakeReferenceResolver{},
+		repoOpener:        repoOpener,
+	}
+	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
+}
+
 // Implementation of the ReferenceResolver interface for testing.
-type fakeReferenceResolver struct{}
+type fakeReferenceResolver struct {
+	address string
+}
 
 func (f *fakeReferenceResolver) ResolveReference(ctx context.Context, namespace, name string, result repository.Object) error {
+	repo, ok := result.(*configapi.Repository)
+	if ok {
+		*repo = configapi.Repository{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       configapi.TypeRepository.Kind,
+				APIVersion: configapi.TypeRepository.APIVersion(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+			Spec: configapi.RepositorySpec{
+				Deployment: false,
+				Type:       configapi.RepositoryTypeGit,
+				Git: &configapi.GitRepository{
+					Repo:      f.address,
+					Branch:    "main",
+					Directory: "configmap",
+				},
+			},
+		}
+		result = repo
+	}
 	return nil
 }
 
