@@ -330,6 +330,26 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func (r *gitRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	_, span := tracer.Start(ctx, "gitRepository::BranchCommitHash", trace.WithAttributes())
+	defer span.End()
+
+	var hash string
+	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
+		ref, err := repo.Reference(r.branch.RefInLocal(), true)
+		if err != nil {
+			// Branch doesn't exist yet - return empty string, not an error
+			if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
+				return nil
+			}
+			return err
+		}
+		hash = ref.Hash().String()
+		return nil
+	})
+	return hash, err
+}
+
 func (r *gitRepository) ListPackages(_ context.Context, _ repository.ListPackageFilter) ([]repository.Package, error) {
 
 	// TODO
@@ -1382,7 +1402,7 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 }
 
 func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder, commitOps *CommitOperationBuilder) error {
-	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup")
 	defer span.End()
 
 	klog.InfoS("[Git] Pushing changes to remote Git repository started",
@@ -1655,7 +1675,7 @@ func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key 
 type commitCallback func(*object.Commit) error
 
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
-	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle")
 	defer span.End()
 
 	r.mutex.Lock()

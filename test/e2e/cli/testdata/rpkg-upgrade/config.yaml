@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
     - porchctl
@@ -8,7 +9,8 @@ commands:
     - --repo-basic-password=secret
     - --repo-basic-username=nephio
     - --deployment=true
-    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade
+    - --directory=upstream
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
     - porchctl
     - rpkg
@@ -196,7 +198,7 @@ commands:
     - --repo-basic-username=nephio
     - --deployment=true
     - --directory=downstream1
-    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade-downstream
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
     - porchctl
     - rpkg
@@ -261,7 +263,7 @@ commands:
     - --repo-basic-username=nephio
     - --deployment=true
     - --directory=downstream2
-    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade-downstream
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
     - porchctl
     - rpkg

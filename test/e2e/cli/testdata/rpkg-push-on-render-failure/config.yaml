@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   # Register a repository
   - args:
@@ -8,7 +9,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-push-on-render-failure
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
 
   # Render failure WITH annotation=true → pushed despite failure
   - args:

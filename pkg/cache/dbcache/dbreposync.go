@@ -23,8 +23,6 @@ import (
 	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -35,10 +33,10 @@ import (
 type repositorySync struct {
 	repo                    *dbRepository
 	mutex                   stdSync.Mutex
+	syncWg                  stdSync.WaitGroup
 	lastExternalRepoVersion string
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncStats           repositorySyncStats
-	syncManager             *sync.SyncManager
 }
 
 type repositorySyncStats struct {
@@ -48,44 +46,19 @@ type repositorySyncStats struct {
 }
 
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
-	ctx := context.Background()
 	s := repositorySync{
 		repo: repo,
 	}
-
-	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
-	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
 
-func (s *repositorySync) Stop() {
-	if s != nil && s.syncManager != nil {
-		s.syncManager.Stop()
-	}
-}
-
-// SyncOnce implements the SyncHandler interface
+// SyncOnce synchronizes the DB cache with the external repository
 func (s *repositorySync) SyncOnce(ctx context.Context) error {
+	s.syncWg.Add(1)
+	defer s.syncWg.Done()
 	var err error
 	s.lastSyncStats, err = s.sync(ctx)
 	return err
-}
-
-// Key implements the SyncHandler interface
-func (s *repositorySync) Key() repository.RepositoryKey {
-	return s.repo.Key()
-}
-
-// GetSpec implements the SyncHandler interface
-func (s *repositorySync) GetSpec() *configapi.Repository {
-	return s.repo.spec
-}
-
-func (s *repositorySync) getLastSyncError() error {
-	if s.syncManager != nil {
-		return s.syncManager.GetLastSyncError()
-	}
-	return nil
 }
 
 func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
@@ -99,13 +72,6 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
-
-	// Set condition to sync-in-progress
-	if s.syncManager != nil {
-		if err := s.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", s.repo.Key(), err)
-		}
-	}
 
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())

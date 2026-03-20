@@ -77,7 +77,7 @@ for resource in ctx.resource_list["items"]:
 func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 	t.skipIfLocalPodEvaluator()
 
-	resources := t.setupFunctionTestPackage("git-fn-distroless", "test-fn-redis-bucket", "test-description", TestPackageSetupOptions{
+	resources := t.setupFunctionTestPackage("git-fn-distroless", "test-fn-distroless-bucket", "workspace-distroless", TestPackageSetupOptions{
 		UpstreamRef: "redis-bucket/v1",
 		UpstreamDir: "redis-bucket",
 	})
@@ -244,6 +244,10 @@ func (t *PorchSuite) setupFunctionTestPackage(repoName, packageName, workspace s
 		waitForReady = opts[0].WaitForReady
 	}
 
+	// Wait for Repository Controller to sync
+	t.WaitUntilRepositoryReady(repoName, t.Namespace)
+	
+	// Always create new package with clone
 	pr := t.CreatePackageCloneF(repoName, packageName, workspace, upstreamRef, upstreamDir)
 
 	if waitForReady {
