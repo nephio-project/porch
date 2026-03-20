@@ -209,9 +209,7 @@ CreatePackageRevision
 
 ## Clone Task Validation
 
-The Engine validates clone tasks to prevent creating duplicate packages:
-
-### Clone Constraint Check
+The Engine validates clone tasks to prevent creating invalid packages:
 
 ```
 Clone Task Validation
@@ -226,8 +224,18 @@ Clone Task Validation
         ↓
   Continue
         ↓
+  Resolve Repository Containing Proposed Upstream
+        ↓
+  Upstream is Placeholder? ──Yes──> Reject
+        │
+        No
+        ↓
   Allow Clone
 ```
+
+### Clone Constraint Check: Package Uniqueness In Repository
+
+The package name must be unique in the repository to avoid creating duplicate packages.
 
 **Validation process:**
 1. **List all revisions** in the repository
@@ -243,6 +251,24 @@ Clone Task Validation
 - Existing packages should use `edit` or `copy` for new revisions
 - Prevents accidental overwriting of existing packages
 
+### Clone Constraint Check: Exclude Placeholder Package Revision
+
+The upstream package revision cannot be a placeholder package revision (identified by `Revision == -1` and `WorkspaceName` matching the Git repository's branch)
+
+**Validation process:**
+1. **Resolve repository details** for the upstream package revision
+2. **Check if placeholder** (revision == -1 and WorkspaceName matches repo Git branch)
+3. **Reject if placeholder** package revision
+4. **Allow if not placeholder**
+
+**Error message:**
+- "upstream revision may not be the placeholder package revision {repo}/{name}"
+
+**Rationale:**
+- Placeholder package revisions represent the main/branch-HEAD state
+      - they are not fixed revisions, making them unsuitable for cloning
+- Operations would fail in later lifecycle stages
+
 ### Clone vs Edit/Copy
 
 **When to use clone:**
@@ -255,9 +281,72 @@ Clone Task Validation
 - Package already exists in repository
 - Iterating on existing package
 
+## Edit Task Validation
+
+The Engine validates edit tasks to ensure source revisions meet requirements:
+
+```
+Edit Task Validation
+        ↓
+  Fetch Source Revision
+        ↓
+  Check Same Package? ──No──> Reject
+        │
+       Yes
+        ↓
+  Check if Placeholder? ──Yes──> Reject
+        │
+        No
+        ↓
+  Check Published? ──No──> Reject
+        │
+       Yes
+        ↓
+  Allow Edit
+```
+
+### Edit Constraint Check: Source Package Revision Validation
+
+The new package revision must be from the same package as the source package revision since we are iterating on the existing package.
+
+**Validation process:**
+1. **Fetch source revision** from specified reference
+2. **Verify same package** (same repository and package name)
+5. **Check if published** (only published revisions can be edited)
+6. **Allow if all checks pass**
+
+**Error messages:**
+- "source revision must be from same package {repo}/{package}"
+- "source revision must be published"
+
+**Rationale:**
+- Edit creates new revisions from existing packages in the same repository
+- Placeholder package revisions represent unstable main branch state
+- Only published revisions provide stable source for editing
+
+### Edit Constraint Check: Exclude Placeholder Package Revision
+
+The source package revision cannot be a placeholder package revision (identified by `Revision == -1` and `WorkspaceName` matching the Git repository's branch)
+
+
+**Validation process:**
+1. **Fetch source revision** from specified reference
+2. **Resolve repository details** for the source package revision
+3. **Check if placeholder** (Revision == -1 and WorkspaceName matches repo Git branch)
+4. **Reject if placeholder** package revision
+5. **Allow if not placeholder**
+
+**Error message:**
+- "source revision may not be the placeholder package revision {repo}/{name}"
+
+**Rationale:**
+- Placeholder package revisions are not fixed revisions
+- Editing from unstable main/branch-HEAD state is not supported
+- Prevents creating revisions from non-deterministic sources
+
 ## Upgrade Task Validation
 
-The Engine validates upgrade tasks to ensure source revisions are published:
+The Engine validates upgrade tasks to ensure the three source revisions meet requirements:
 
 ### Upgrade Source Validation
 
@@ -279,6 +368,18 @@ Upgrade Task Validation
        Yes
         ↓
   Continue
+        ↓
+  Resolve Repository Containing Proposed New Upstream
+        ↓
+  Upstream is Placeholder? ──Yes──> Reject
+        │
+        No
+        ↓
+  Resolve Repository Containing Local Revision
+        ↓
+  Local Revision is Placeholder? ──Yes──> Reject
+        │
+        No
         ↓
   Allow Upgrade
 ```
@@ -304,14 +405,41 @@ Upgrade Task Validation
 ### Upgrade Source Requirements
 
 **Required sources:**
-- **OldUpstream**: The upstream version currently used
-- **NewUpstream**: The upstream version to upgrade to
+- **OldUpstream**: The package's current upstream version
+- **NewUpstream**: The upstream version to which to upgrade
 - **LocalPackageRevision**: The local package revision to upgrade
 
 **All sources must be:**
 - Published lifecycle state
 - Accessible in repository
 - Valid package revisions
+
+### Placeholder Package Revision Check
+
+Neither the target upstream package revision (the new revision being upgraded to) nor the package revision specified for upgrade can be a placeholder package revision (identified by `Revision == -1` and `WorkspaceName` matching the repository's Git branch)
+
+**Validation process:**
+1. **Fetch target upstream revision** (NewUpstream)
+2. **Resolve repository details** for the target upstream package revision
+3. **Check if placeholder** (revision == -1 and workspaceName matches repo Git branch)
+4. **Reject if target upstream is placeholder**
+5. **Fetch local package revision** to be upgraded
+6. **Resolve repository details** for the local package revision
+7. **Check if placeholder** (revision == -1 and workspaceName matches repo Git branch)
+8. **Reject if local revision is placeholder**
+9. **Allow if neither is placeholder**
+
+**Error messages:**
+- "target upstream revision may not be the placeholder package revision {repo}/{name}"
+- "the placeholder package revision {repo}/{name} may not be upgraded"
+
+**Rationale:**
+- Upgrade performs three-way merge requiring stable source revisions
+- Placeholder package revisions represent unstable main branch state
+- Using placeholder revisions would produce non-deterministic upgrade results
+- Prevents upgrading to non-fixed revision states
+      - Validation on clone and edit operations precludes possibilty of old upstream being a placeholder
+
 
 ## Package Path Overlap Validation
 
