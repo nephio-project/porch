@@ -33,10 +33,12 @@ Each data store serves as the source of truth for different elements of Porch's 
       or "DeletionProposed"
 - Git repositories:
     - package revisions (Kpt package file contents and directory structures)
+    - **if the DB cache is configured with `--db-push-drafts-to-git` enabled:** "work-in-progress" package revisions whose
+      lifecycle stage is "Draft", "Proposed", or "DeletionProposed"
 - Package revision cache:
     - Kubernetes-related metadata for package revisions (e.g. labels and annotations)
     - **if the DB cache is configured:** "work-in-progress" package revisions whose lifecycle stage is "Draft", "Proposed",
-      or "DeletionProposed"
+      or "DeletionProposed" (when `--db-push-drafts-to-git` is disabled, or only metadata when enabled)
 
 ## Backup strategy
 
@@ -91,9 +93,20 @@ cache, this is not enough for Porch to restore a package revision that is not al
 
 ### Back up DB cache database
 
-If the DB cache option is selected at install time, the package revision cache is stored in an SQL database. Porch recommends
-backing up the entire contents of this database on a regular basis, as it contains all data for unpublished package revisions
-(in lifecycle stages "Draft", "Proposed", or "DeletionProposed")
+If the DB cache option is selected at install time, the package revision cache is stored in an SQL database. The backup
+strategy for the DB cache depends on whether the `--db-push-drafts-to-git` flag is enabled:
+
+**When `--db-push-drafts-to-git` is disabled (default):**
+
+Porch recommends backing up the entire contents of this database on a regular basis, as it contains all data for unpublished
+package revisions (in lifecycle stages "Draft", "Proposed", or "DeletionProposed").
+
+**When `--db-push-drafts-to-git` is enabled:**
+
+Draft and proposed package revisions are also pushed to Git repositories, providing an additional layer of protection. In
+this configuration, the database primarily stores metadata and acts as a cache, while Git serves as a backup for draft and
+proposed revisions. Regular database backups remain recommended but the risk of data loss is reduced since Git repositories
+contain the package revision content for all lifecycle stages.
 
 {{% alert title="N.B." color="primary" %}}
 
@@ -183,11 +196,14 @@ data stores.
 - If the CR cache is configured and becomes corrupted, it can be recreated from the Git repositories. Porch recommends
   restarting the `porch-server` microservice to trigger this process (which will entail a decrease in quality of service
   until all repositories are deemed Ready).
-- If the DB cache is configured and becomes corrupted, it **must be restored from a valid database backup**. If a valid
-  backup is not available, data loss will ensue: "Draft" and "Proposed" package revisions will be lost completely, and "DeletionProposed" package revisions will be reverted to "Published".
-
-  Porch recommends backing up the entire contents of the DB cache database
-  on a regular basis.
+- If the DB cache is configured and becomes corrupted, recovery depends on the `--db-push-drafts-to-git` configuration:
+  - **When `--db-push-drafts-to-git` is disabled (default):** The database **must be restored from a valid database backup**.
+    If a valid backup is not available, data loss will ensue: "Draft" and "Proposed" package revisions will be lost completely,
+    and "DeletionProposed" package revisions will be reverted to "Published". Porch recommends backing up the entire contents
+    of the DB cache database on a regular basis.
+  - **When `--db-push-drafts-to-git` is enabled:** Draft and proposed package revisions can be recovered from Git repositories
+    by restarting the `porch-server` microservice to trigger repository synchronization. However, database-specific metadata
+    may still require restoration from backup.
 
 {{% /alert %}}
 
@@ -369,8 +385,15 @@ All "work in progress" on package revisions lost:
 - package revisions in "DeletionProposed" lifecycle stage are reverted to "Published" lifecycle stage
     - a similar effect to the use of `porchctl rpkg reject`
 
+**Note:** If the `--db-push-drafts-to-git` flag was enabled in the Porch configuration prior to the DB cache loss, draft
+and proposed package revisions can be recovered from Git repositories instead of being completely lost. In this case, data
+loss is limited to database-specific metadata rather than the package revision content itself.
+
 {{% alert title="Warning" color="warning" %}}
 
 Having a valid backup of the DB cache database avoids this situation. Porch highly recommends making regular backups.
+
+Additionally, enabling the `--db-push-drafts-to-git` flag provides an extra layer of protection by ensuring draft and
+proposed revisions are stored in Git repositories alongside the database.
 
 {{% /alert %}}

@@ -19,7 +19,9 @@ A package revision in **Draft** stage is work in progress. It is being actively 
 it is being cached by the [CR cache]({{% relref "../5_architecture_and_components/package-cache/cr-cache.md" %}}),
 its contents are stored in a temporary branch in the Git repository (e.g., `drafts/package-name/workspace`). If it is
 being cached by the [DB cache]({{% relref "../5_architecture_and_components/package-cache/db-cache.md" %}}),
-its contents are only stored in the database and do not appear in Git at all.
+its contents are stored in the database by default. With the `--db-push-drafts-to-git` flag disabled (default), draft
+revisions are only stored in the database and do not appear in Git. With the flag enabled, draft revisions are also
+pushed to Git in temporary branches, similar to CR cache behavior.
 
 Users have complete freedom in the orchestration operations they can perform on a Draft package revision. They can modify
 the package contents, update the `Kptfile`, and add or remove KRM functions in the `Kptfile`'s pipeline. They can modify
@@ -33,7 +35,9 @@ in Proposed stage can be pulled for review, but cannot be pushed - to edit its p
 rejected back to Draft stage. However, as with Draft stage, a package revision in Proposed stage can be deleted.
 
 If the package revision is being cached by the CR cache, it is still stored in a temporary branch in Git  (e.g.,
-`proposed/package-name/workspace`). If it is being cached by the DB cache, it is only persisted to the database.
+`proposed/package-name/workspace`). If it is being cached by the DB cache, it is persisted to the database by default.
+With the `--db-push-drafts-to-git` flag disabled (default), proposed revisions are only stored in the database. With
+the flag enabled, proposed revisions are also pushed to Git in temporary branches.
 
 ### Published
 
@@ -59,6 +63,11 @@ approved. This restriction makes sense because, for example, if a package revisi
 we do not want the package revision to disappear without being absolutely sure it should be deleted. Similarly, if a package
 revision is an upstream package revision of other package revisions, we do not want to delete the parent of those package
 revisions, as that would mean the child package revisions could never be upgraded.
+
+> **Note:** When using the DB cache, the storage location of draft and proposed package revisions depends on the
+> `--db-push-drafts-to-git` flag configuration. By default, these revisions are stored only in the database. When the
+> flag is enabled, they are also pushed to Git. See the [DB cache documentation]({{% relref "../5_architecture_and_components/package-cache/db-cache.md" %}})
+> for details on when to use each mode.
 
 ## Lifecycle Workflow
 
