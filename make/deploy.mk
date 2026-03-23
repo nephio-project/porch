@@ -74,6 +74,19 @@ run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-db-cache-no-controller: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
+.PHONY: run-in-kind-db-cache-push-drafts
+run-in-kind-db-cache-push-drafts: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend and db-push-drafts-to-git=true (for E2E tests)
+run-in-kind-db-cache-push-drafts: PORCH_CACHE_TYPE=DB
+run-in-kind-db-cache-push-drafts: DB_PUSH_DRAFTS_TO_GIT=true
+run-in-kind-db-cache-push-drafts: load-images-to-kind deployment-config deploy-current-config
+
+.PHONY: run-in-kind-db-cache-no-git-push-drafts
+run-in-kind-db-cache-no-git-push-drafts: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend without mock git server and db-push-drafts-to-git=true (for E2E tests)
+run-in-kind-db-cache-no-git-push-drafts: SKIP_LOCAL_GIT=true
+run-in-kind-db-cache-no-git-push-drafts: PORCH_CACHE_TYPE=DB
+run-in-kind-db-cache-no-git-push-drafts: DB_PUSH_DRAFTS_TO_GIT=true
+run-in-kind-db-cache-no-git-push-drafts: load-images-to-kind deployment-config deploy-current-config
+
 .PHONY: destroy
 destroy:## Deletes all porch resources installed by the last run-in-kind-* command
 	kpt live destroy $(DEPLOYPORCHCONFIGDIR)

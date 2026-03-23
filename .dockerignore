@@ -3,3 +3,9 @@
 default.etcd/
 apiserver.local.config/
 __debug_bin*
+.git/
+.github/
+.local/
+docs/
+examples/
+deployments/

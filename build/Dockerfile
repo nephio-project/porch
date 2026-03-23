@@ -25,20 +25,11 @@ WORKDIR /go/src
 COPY go.mod go.sum ./
 COPY ./third_party ./third_party
 
-RUN echo "Downloading porch modules ..." \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    echo "Downloading porch modules ..." \
  && go mod download
 
 ENV CGO_ENABLED=0
-# Prebuild some library dependencies to warm the cache
-RUN go build -v \
-  google.golang.org/grpc \
-  k8s.io/apiserver/pkg/server \
-  k8s.io/component-base/cli \
-  k8s.io/klog/v2 \
-  github.com/google/go-containerregistry/pkg/gcrane \
-  k8s.io/client-go/kubernetes/scheme \
-  github.com/go-git/go-git/v5 \
-  sigs.k8s.io/kustomize/kyaml/...
 
 COPY ./api ./api
 COPY ./cmd ./cmd
@@ -47,7 +38,10 @@ COPY ./internal ./internal
 COPY ./controllers ./controllers
 COPY ./func ./func
 
-RUN go build -v -o /porch ./cmd/porch
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -ldflags="-s -w" -v -o /porch ./cmd/porch
+
 
 FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 10001 nonroot && \

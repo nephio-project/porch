@@ -151,13 +151,15 @@ Switching between cache implementations requires:
 
 The two cache implementations differ fundamentally in how they interact with Git and store data:
 
-| Aspect | CR Cache | DB Cache |
-|--------|----------|----------|
-| **Draft Storage** | Git branches (immediate) | Database (deferred until publish) |
-| **Git Interaction** | Every lifecycle stage | Only on publish and sync |
-| **Sync Scope** | All lifecycles | Published + DeletionProposed only |
-| **Persistence** | In-memory (re-fetch on restart) | Database (survives restart) |
-| **Git Availability** | Required for all operations | Required only for publish/sync |
-| **Memory Footprint** | Grows with package count | Minimal (database-backed) |
+| Aspect | CR Cache | DB Cache (Default) | DB Cache (--db-push-drafts-to-git) |
+|--------|----------|----------|----------|
+| **Draft Storage** | Git branches (immediate) | Database (deferred until publish) | Database + Git (immediate) |
+| **Git Interaction** | Every lifecycle stage | Only on publish and sync | Every lifecycle stage |
+| **Sync Scope** | All lifecycles | Published + DeletionProposed only | All lifecycles |
+| **Persistence** | In-memory (re-fetch on restart) | Database (survives restart) | Database (survives restart) |
+| **Git Availability** | Required for all operations | Required only for publish/sync | Required for all operations |
+| **Memory Footprint** | Grows with package count | Minimal (database-backed) | Minimal (database-backed) |
+
+**Note:** The DB Cache behavior can be configured with the `--db-push-drafts-to-git` flag. When set to `true`, the DB Cache mimics the CR Cache Git interaction timing while maintaining database persistence.
 
 For detailed explanations of how these differences affect operations, see the individual implementation sections (CR Cache and DB Cache).

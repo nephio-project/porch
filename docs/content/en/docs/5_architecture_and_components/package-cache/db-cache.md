@@ -17,7 +17,7 @@ The **Database (DB) Cache** is an alternative cache implementation in Porch desi
 - **External dependency**: Requires PostgreSQL database instance
 - **Suitable for**: Large deployments with thousands of packages and package revisions
 - **Better persistence**: Survives Porch server restarts without re-fetching from Git
-- **Git interaction**: Interacts with Git only during approval/publish and sync operations
+- **Git interaction**: By default, interacts with Git only during approval/publish and sync operations. Configurable with `--db-push-drafts-to-git` flag to push drafts
 
 ## Implementation Details
 
@@ -117,7 +117,7 @@ The DB Cache includes a **sync manager** for each repository:
 
 **Sync process:**
 1. Periodically triggers repository sync (configurable frequency)
-2. Fetches cached package revisions from database (Published and DeletionProposed only)
+2. Fetches cached package revisions from database (lifecycle states depend on configuration)
 3. Fetches external package revisions from Git
 4. Compares cached vs external package revisions
 5. Deletes package revisions only in cache (removed from Git)
@@ -125,10 +125,14 @@ The DB Cache includes a **sync manager** for each repository:
 7. Updates Repository CR condition with sync status
 
 **Sync scope:**
-- Only syncs Published and DeletionProposed package revisions
-- Draft and Proposed revisions excluded from sync
-- Aligns with database-first approach (drafts don't exist in Git)
-- Reduces sync overhead by ignoring work-in-progress packages
+- **Default mode**: Only syncs Published and DeletionProposed package revisions
+  - Draft and Proposed revisions excluded from sync
+  - Aligns with database-first approach (drafts don't exist in Git)
+  - Reduces sync overhead by ignoring work-in-progress packages
+- **With `--db-push-drafts-to-git=true`**: Syncs all package revisions including Draft and Proposed
+  - All lifecycle states synchronized with Git
+  - Similar behavior to CR Cache
+  - Higher sync overhead but complete Git synchronization
 
 **Version tracking:**
 - Caches external repository version (Git commit SHA)
@@ -231,35 +235,96 @@ The DB Cache tracks the latest package revision:
 
 ### Draft Package Handling
 
-The DB Cache has a **database-first approach** to draft packages:
+The DB Cache has a **database-first approach** to draft packages by default, but this behavior is configurable:
 
-**Draft lifecycle:**
+**Default behavior (database-first):**
 - CreatePackageRevisionDraft creates package revision in database only
 - Draft packages stored entirely in PostgreSQL
 - All draft modifications update database, not Git
 - UpdatePackageRevision operations modify database records
 - ClosePackageRevisionDraft saves to database without Git interaction
 
-**Git interaction pattern:**
+**Default Git interaction pattern:**
 - **Draft creation**: No Git interaction (database only)
 - **Draft updates**: No Git interaction (database only)
 - **Proposed → Published transition**: Pushes to Git repository
 - **Background sync**: Pulls published packages from Git
 
-**Implications:**
+**Default implications:**
 - Draft work isolated in database until approval
 - Git repository only contains approved/published packages
 - Lower network latency for draft operations
 - Git repository can be temporarily unavailable during draft work
 - Drafts survive Porch server restarts (persisted in database)
 
-**Publish workflow:**
+**Default publish workflow:**
 1. Draft created and modified in database
 2. Lifecycle transitions: Draft → Proposed (database only)
 3. Lifecycle transitions: Proposed → Published (triggers Git push)
 4. Package revision pushed to Git with assigned revision number
 5. External package revision ID stored in database
 6. Placeholder package revision created for latest tracking
+
+## Configurable Git Push Behavior
+
+The DB Cache supports a **configurable Git push mode** via the `--db-push-drafts-to-git` flag that changes when package revisions are pushed to Git.
+
+### Configuration
+
+**Flag:** `--db-push-drafts-to-git`
+**Type:** Boolean
+**Default:** `false`
+**Location:** Porch server startup flag
+
+**Example deployment configuration:**
+```yaml
+spec:
+  containers:
+  - name: porch-server
+    args:
+    - --db-push-drafts-to-git=true  # Enable draft push mode
+```
+
+### Behavior When Enabled
+
+When `--db-push-drafts-to-git=true`, the DB Cache mimics the CR Cache timing for Git pushes:
+
+**Git interaction pattern:**
+- **Draft creation**: Pushes to Git immediately
+- **Draft updates**: Pushes each update to Git
+- **Proposed updates**: Pushes to Git
+- **Published transition**: Pushes final state to Git
+- **Background sync**: Syncs all lifecycle states (Draft, Proposed, Published)
+
+**Implications:**
+- Draft and proposed revisions exist in both database and Git
+- Git repository contains work-in-progress packages
+- Each modification triggers a Git push operation
+- Git repository must be available during draft operations
+- Behavior similar to CR Cache
+- Higher network overhead due to frequent Git operations
+
+**Modified workflow:**
+1. Draft created in database AND pushed to Git
+2. Each draft update saved to database AND pushed to Git
+3. Lifecycle transitions: Draft → Proposed (database + Git push)
+4. Lifecycle transitions: Proposed → Published (database + Git push)
+5. All states synchronized to Git throughout the lifecycle
+
+### When to Use Each Mode
+
+**Use default mode (`--db-push-drafts-to-git=false`) when:**
+- Want to minimize Git operations during development
+- Git repository should only contain approved packages
+- Network latency to Git is a concern
+- Want to allow draft work when Git is temporarily unavailable
+- Prefer database-first workflow
+
+**Use draft push mode (`--db-push-drafts-to-git=true`) when:**
+- Need Git to reflect all package states for external tooling
+- Want CR Cache-like behavior with database persistence
+- Git repository serves as primary source of truth
+- Need external visibility into draft/proposed packages
 
 ### Cache Invalidation
 
