@@ -380,7 +380,11 @@ func TestCloneReferenceBasicAuth(t *testing.T) {
 	assert.NoErrorf(t, err, "task apply failed: %+v", err)
 
 	cpm.task.Clone.Upstream.UpstreamRef.Name = placeholderPackageName
+	origWorkspaceName := packageRevision.PrKey.WorkspaceName
 	packageRevision.PrKey.WorkspaceName = "main"
+	t.Cleanup(func() {
+		packageRevision.PrKey.WorkspaceName = origWorkspaceName
+	})
 
 	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")

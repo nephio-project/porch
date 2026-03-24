@@ -22,6 +22,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/klog/v2"
 )
 
 type editPackageMutation struct {
@@ -59,13 +60,15 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	var sourceRepo configapi.Repository
-	// reasonable to assume no error: we would not have reached this point
-	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
-	// encountered an error
-	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
-	// We only allow edit to create new revisions from non-placeholder package revisions
-	if sourceRevisionKey.Revision == -1 && sourceRevisionKey.WorkspaceName == sourceRepo.Spec.Git.Branch {
-		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", repoName, sourceRevision.KubeObjectName())
+	err = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
+	if err == nil {
+		if sourceRevisionKey.Revision == -1 &&
+			sourceRepo.Spec.Git != nil && sourceRevisionKey.WorkspaceName == sourceRepo.Spec.Git.Branch {
+			// We only allow edit to create new revisions from non-placeholder package revisions
+			return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", repoName, sourceRevision.KubeObjectName())
+		}
+	} else {
+		klog.Warningf("failed to resolve repository reference for %q when checking placeholder revision: %v", repoName, err)
 	}
 
 	// We only allow edit to create new revisions from published package revisions.

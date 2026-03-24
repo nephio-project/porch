@@ -142,7 +142,7 @@ info:
 		repoOpener:        repoOpener,
 	}
 	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
-	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision as new upstream")
 }
 
 func TestUpgradePlaceholderAsLocal(t *testing.T) {
@@ -227,5 +227,5 @@ info:
 		repoOpener:        repoOpener,
 	}
 	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
-	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading the placeholder package revision")
 }

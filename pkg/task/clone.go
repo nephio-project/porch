@@ -122,13 +122,15 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	repoName := upstreamKey.RKey().Name
 
 	var upstreamRepo configapi.Repository
-	// reasonable to assume no error: we would not have reached this point
-	// if the previous ResolveReference call in PackageFetcher.FetchRevision had
-	// encountered an error
-	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &upstreamRepo)
-	// We only allow clone to create new revisions from non-placeholder package revisions
-	if upstreamKey.Revision == -1 && upstreamKey.WorkspaceName == upstreamRepo.Spec.Git.Branch {
-		return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", repoName, upstreamRevision.KubeObjectName())
+	err = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &upstreamRepo)
+	if err == nil {
+		if upstreamKey.Revision == -1 &&
+			upstreamRepo.Spec.Git != nil && upstreamKey.WorkspaceName == upstreamRepo.Spec.Git.Branch {
+			// We only allow clone to create new revisions from non-placeholder package revisions
+			return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", repoName, upstreamRevision.KubeObjectName())
+		}
+	} else {
+		klog.Warningf("failed to resolve repository reference for %q when checking placeholder revision: %v", repoName, err)
 	}
 
 	resources, err := upstreamRevision.GetResources(ctx)

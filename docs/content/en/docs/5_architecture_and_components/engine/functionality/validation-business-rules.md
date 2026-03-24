@@ -312,8 +312,8 @@ The new package revision must be from the same package as the source package rev
 **Validation process:**
 1. **Fetch source revision** from specified reference
 2. **Verify same package** (same repository and package name)
-5. **Check if published** (only published revisions can be edited)
-6. **Allow if all checks pass**
+3. **Check if published** (only published revisions can be edited)
+4. **Allow if all checks pass**
 
 **Error messages:**
 - "source revision must be from same package {repo}/{package}"
@@ -438,7 +438,7 @@ Neither the target upstream package revision (the new revision being upgraded to
 - Placeholder package revisions represent unstable main branch state
 - Using placeholder revisions would produce non-deterministic upgrade results
 - Prevents upgrading to non-fixed revision states
-      - Validation on clone and edit operations precludes possibilty of old upstream being a placeholder
+      - Validation on clone and edit operations precludes possibility of old upstream being a placeholder
 
 
 ## Package Path Overlap Validation

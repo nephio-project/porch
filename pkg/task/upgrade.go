@@ -63,13 +63,15 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	targetUpstreamKey := targetUpstreamRevision.Key()
 	targetUpstreamRepoName := targetUpstreamKey.RKey().Name
 	var targetUpstreamRepo configapi.Repository
-	// reasonable to assume no error: we would not have reached this point
-	// if the previous ResolveReference call in packageFetcher.FetchRevision had
-	// encountered an error
-	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, targetUpstreamRepoName, &targetUpstreamRepo)
-	// We only allow upgrade to upgrade to non-placeholder package revisions
-	if targetUpstreamKey.Revision == -1 && targetUpstreamKey.WorkspaceName == targetUpstreamRepo.Spec.Git.Branch {
-		return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision may not be the placeholder package revision %s/%s", targetUpstreamRepoName, targetUpstreamRevision.KubeObjectName())
+	err = m.referenceResolver.ResolveReference(ctx, m.namespace, targetUpstreamRepoName, &targetUpstreamRepo)
+	if err == nil {
+		if targetUpstreamKey.Revision == -1 &&
+			targetUpstreamRepo.Spec.Git != nil && targetUpstreamKey.WorkspaceName == targetUpstreamRepo.Spec.Git.Branch {
+			// We only allow clone to create new revisions from non-placeholder package revisions
+			return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision may not be the placeholder package revision %s/%s", targetUpstreamRepoName, targetUpstreamRevision.KubeObjectName())
+		}
+	} else {
+		klog.Warningf("failed to resolve repository reference for %q when checking placeholder revision: %v", targetUpstreamRepoName, err)
 	}
 	targetUpstreamResources, err := targetUpstreamRevision.GetResources(ctx)
 	if err != nil {
@@ -78,20 +80,22 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 
 	localRevision, err := packageFetcher.FetchRevision(ctx, &localRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision %q to be upgraded", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision %q to be upgraded", localRef.Name)
 	}
 	localRevisionKey := localRevision.Key()
 	localRevisionRepoName := localRevisionKey.RKey().Name
 	var localRevisionRepo configapi.Repository
-	// reasonable to assume no error: we would not have reached this point
-	// if the previous ResolveReference call in packageFetcher.FetchRevision had
-	// encountered an error
-	_ = m.referenceResolver.ResolveReference(ctx, m.namespace, localRevisionRepoName, &localRevisionRepo)
-	// We only allow upgrade to upgrade to non-placeholder package revisions
-	if localRevisionKey.Revision == -1 && localRevisionKey.WorkspaceName == localRevisionRepo.Spec.Git.Branch {
-		return repository.PackageResources{}, nil, fmt.Errorf("the placeholder package revision %s/%s may not be upgraded", localRevisionRepoName, localRevision.KubeObjectName())
+	err = m.referenceResolver.ResolveReference(ctx, m.namespace, localRevisionRepoName, &localRevisionRepo)
+	if err == nil {
+		if localRevisionKey.Revision == -1 &&
+			localRevisionRepo.Spec.Git != nil && localRevisionKey.WorkspaceName == localRevisionRepo.Spec.Git.Branch {
+			// We only allow edit to create new revisions from non-placeholder package revisions
+			return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", localRevisionRepoName, localRevision.KubeObjectName())
+		}
+	} else {
+		klog.Warningf("failed to resolve repository reference for %q when checking placeholder revision: %v", localRevisionRepoName, err)
 	}
-	localResources, err := packageFetcher.FetchResources(ctx, &localRef, m.namespace)
+	localResources, err := localRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for local revision %q", localRef.Name)
 	}

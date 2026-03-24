@@ -182,7 +182,7 @@ info:
 		repoOpener:        repoOpener,
 	}
 	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
-	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error editing the placeholder package revision")
 }
 
 // Implementation of the ReferenceResolver interface for testing.

@@ -263,11 +263,9 @@ data:
 	upgradePr = t.UpdateApprovalF(upgradePr)
 
 	basensMain := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: -1})
-	upgradePr.ObjectMeta.Labels = nil
-	upgradePr.Spec.Lifecycle = ""
-	upgradePr.Spec.WorkspaceName = testWorkspace + "-main-upgrade"
+	upgradePrTwo := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace+"-main-upgrade")
 
-	upgradePr.Spec.Tasks = []porchapi.Task{{
+	upgradePrTwo.Spec.Tasks = []porchapi.Task{{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
 			OldUpstream: porchapi.PackageRevisionRef{
@@ -282,10 +280,10 @@ data:
 		},
 	}}
 
-	err := t.Client.Create(t.GetContext(), upgradePr)
+	err := t.Client.Create(t.GetContext(), upgradePrTwo)
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision")
 
-	upgradePr.Spec.Tasks = []porchapi.Task{{
+	upgradePrTwo.Spec.Tasks = []porchapi.Task{{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
 			OldUpstream: porchapi.PackageRevisionRef{
@@ -300,7 +298,7 @@ data:
 		},
 	}}
 
-	err = t.Client.Create(t.GetContext(), upgradePr)
+	err = t.Client.Create(t.GetContext(), upgradePrTwo)
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision")
 }
 
