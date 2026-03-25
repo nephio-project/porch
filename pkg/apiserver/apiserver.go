@@ -47,6 +47,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -346,7 +347,11 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
 	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx, s.coreClient); err != nil {
+		repoCache, err := s.startRepoCache(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start webhook cache: %w", err)
+		}
+		if err := setupWebhooks(ctx, repoCache); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}
@@ -354,4 +359,40 @@ func (s *PorchServer) Run(ctx context.Context) error {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
 	}
 	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
+}
+
+// startRepoCache creates and starts a controller-runtime cache scoped to
+// Repository objects for use by the repository validation webhook.
+func (s *PorchServer) startRepoCache(ctx context.Context) (client.Reader, error) {
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get in-cluster config: %w", err)
+	}
+
+	scheme, err := buildCompleteScheme()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build scheme: %w", err)
+	}
+
+	informerCache, err := ctrlcache.New(restConfig, ctrlcache.Options{
+		Scheme: scheme,
+		ByObject: map[client.Object]ctrlcache.ByObject{
+			&configapi.Repository{}: {},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache: %w", err)
+	}
+
+	go func() {
+		if err := informerCache.Start(ctx); err != nil {
+			klog.Errorf("webhook cache stopped with error: %v", err)
+		}
+	}()
+
+	if !informerCache.WaitForCacheSync(ctx) {
+		return nil, fmt.Errorf("webhook cache failed to sync")
+	}
+
+	return informerCache, nil
 }
