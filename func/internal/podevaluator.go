@@ -17,7 +17,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -93,8 +92,6 @@ type connectionRequest struct {
 
 type connectionResponse struct {
 	podData
-	// mutex used to prevent concurrent fn evaluations in the same pod
-	fnEvaluationMutex *sync.Mutex
 	// the number of currently ongoing and waiting fn evaluations in the pod
 	concurrentEvaluations *atomic.Int32
 	// err indicates the error that prevents us to allocate a pod for the fn evaluator
@@ -206,6 +203,9 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 	defer func() {
 		klog.Infof("evaluating %v in pod took %v", req.Image, time.Since(starttime))
 	}()
+	// Add timeout to prevent goroutine leaks
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting goroutine in batch.
 	responseChannel := make(chan *connectionResponse, 1)
 	// Send a request to request a grpc client.
@@ -215,23 +215,25 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 	}
 
 	// Waiting for the client from the channel. This step is blocking.
-	pod := <-responseChannel
-	if pod == nil || pod.grpcConnection == nil || pod.err != nil {
-		return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, pod.err)
-	}
+	select {
+	case pod := <-responseChannel:
+		if pod == nil || pod.grpcConnection == nil || pod.err != nil {
+			return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, pod.err)
+		}
 
-	defer pod.concurrentEvaluations.Add(-1)
-	pod.fnEvaluationMutex.Lock()
-	defer pod.fnEvaluationMutex.Unlock()
+		defer pod.concurrentEvaluations.Add(-1)
 
-	resp, err := evaluator.NewFunctionEvaluatorClient(pod.grpcConnection).EvaluateFunction(ctx, req)
-	if err != nil {
-		klog.V(4).Infof("Resource List: %s", req.ResourceList)
-		return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
+		resp, err := evaluator.NewFunctionEvaluatorClient(pod.grpcConnection).EvaluateFunction(ctx, req)
+		if err != nil {
+			klog.V(4).Infof("Resource List: %s", req.ResourceList)
+			return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
+		}
+		// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.
+		if len(resp.Log) > 0 {
+			klog.Warningf("evaluating %v succeeded, but stderr is: %v", req.Image, string(resp.Log))
+		}
+		return resp, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("function evaluation timed out for %v: %w", req.Image, ctx.Err())
 	}
-	// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.
-	if len(resp.Log) > 0 {
-		klog.Warningf("evaluating %v succeeded, but stderr is: %v", req.Image, string(resp.Log))
-	}
-	return resp, nil
 }
