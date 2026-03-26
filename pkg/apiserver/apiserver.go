@@ -245,6 +245,11 @@ func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, err
 			//The caching client should not cache resources served by porch-server
 			&porchapi.PackageRevision{},
 			&porchapi.PackageRevisionResources{},
+			// PackageRev uses write-then-read patterns (Create then Get in
+			// ClosePackageRevisionDraft/SetMeta). Since writes bypass the
+			// informer cache, a subsequent Get can miss the just-created object.
+			// This is not ideal, but crcache doesn't support a level of resources where caching makes a difference
+			&internalapi.PackageRev{},
 		},
 	}})
 }
