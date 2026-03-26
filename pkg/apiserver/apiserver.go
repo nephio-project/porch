@@ -189,6 +189,13 @@ func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, err
 		return nil, fmt.Errorf("informer cache failed to sync")
 	}
 
+	// Register field index for metadata.name so that field selector queries on Repository work through the cache
+	if err := informerCache.IndexField(ctx, &configapi.Repository{}, "metadata.name", func(obj client.Object) []string {
+		return []string{obj.GetName()}
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create index for metadata.name: %w", err)
+	}
+
 	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme, Cache: &client.CacheOptions{
 		Reader: informerCache,
 		DisableFor: []client.Object{
