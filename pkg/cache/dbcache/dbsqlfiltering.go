@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -190,6 +191,11 @@ func labelSelectorToJSONBClauses(labelSelector labels.Selector) []string {
 		key := req.Key()
 		values := req.Values().List()
 
+		if key == porchapi.LatestPackageRevisionKey {
+			clauses = append(clauses, latestRevisionClause(req.Operator(), values))
+			continue
+		}
+
 		switch req.Operator() {
 		case selection.Equals, selection.DoubleEquals:
 			clauses = append(clauses, fmt.Sprintf("(%s->>'%s' = '%s')", jsonbPath, key, values[0]))
@@ -206,6 +212,40 @@ func labelSelectorToJSONBClauses(labelSelector labels.Selector) []string {
 		}
 	}
 	return clauses
+}
+
+// latestRevisionClause generates a SQL clause for the latest-revision label.
+// This label is not stored in the meta JSON but as a separate boolean column.
+func latestRevisionClause(op selection.Operator, values []string) string {
+	col := "package_revisions.latest"
+	switch op {
+	case selection.Equals, selection.DoubleEquals:
+		if values[0] == porchapi.LatestPackageRevisionValue {
+			return fmt.Sprintf("(%s = TRUE)", col)
+		}
+		return fmt.Sprintf("(%s = FALSE)", col)
+	case selection.NotEquals:
+		if values[0] == porchapi.LatestPackageRevisionValue {
+			return fmt.Sprintf("(%s = FALSE)", col)
+		}
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.In:
+		if slices.Contains(values, porchapi.LatestPackageRevisionValue) {
+			return fmt.Sprintf("(%s = TRUE)", col)
+		}
+		return fmt.Sprintf("(%s = FALSE)", col)
+	case selection.NotIn:
+		if slices.Contains(values, porchapi.LatestPackageRevisionValue) {
+			return fmt.Sprintf("(%s = FALSE)", col)
+		}
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.Exists:
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.DoesNotExist:
+		return fmt.Sprintf("(%s = FALSE)", col)
+	default:
+		return "TRUE"
+	}
 }
 
 func quotedStringListForJsonB(values []string) string {
