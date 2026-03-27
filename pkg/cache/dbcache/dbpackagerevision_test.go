@@ -405,3 +405,208 @@ func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 	err = repoDeleteFromDB(ctx, dbRepo.Key())
 	t.Require().NoError(err)
 }
+
+func (t *DbTestSuite) TestExtractKptfileMeta() {
+	t.Run("WithConditionsAndReadinessGates", func() {
+		resources := map[string]string{
+			"Kptfile": `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+  labels:
+    app: web
+  annotations:
+    team: platform
+info:
+  readinessGates:
+    - conditionType: Ready
+    - conditionType: Available
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: AllGood
+      message: everything is fine`,
+		}
+		meta := extractKptfileMeta(resources)
+		t.Len(meta.Conditions, 1)
+		t.Equal("Ready", meta.Conditions[0].Type)
+		t.Equal(porchapi.ConditionTrue, meta.Conditions[0].Status)
+		t.Len(meta.ReadinessGates, 2)
+		t.Equal("Ready", meta.ReadinessGates[0].ConditionType)
+		t.Equal("Available", meta.ReadinessGates[1].ConditionType)
+		t.Equal("web", meta.Labels["app"])
+		t.Equal("platform", meta.Annotations["team"])
+	})
+
+	t.Run("NoKptfile", func() {
+		resources := map[string]string{"other.yaml": "data: true"}
+		meta := extractKptfileMeta(resources)
+		t.Empty(meta.Conditions)
+		t.Empty(meta.ReadinessGates)
+		t.Empty(meta.Labels)
+		t.Empty(meta.Annotations)
+	})
+
+	t.Run("InvalidKptfile", func() {
+		resources := map[string]string{"Kptfile": "not: valid: yaml: ["}
+		meta := extractKptfileMeta(resources)
+		t.Empty(meta.Conditions)
+	})
+
+	t.Run("MinimalKptfile", func() {
+		resources := map[string]string{
+			"Kptfile": `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: minimal`,
+		}
+		meta := extractKptfileMeta(resources)
+		t.Empty(meta.Conditions)
+		t.Empty(meta.ReadinessGates)
+		t.Empty(meta.Labels)
+		t.Empty(meta.Annotations)
+	})
+}
+
+func (t *DbTestSuite) TestKptfileMetaRoundTrip() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := t.createTestRepo("kfmeta-ns", "kfmeta-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "kfmeta-pkg")
+
+	pr := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-1",
+			Revision:      1,
+		},
+		lifecycle: "Published",
+		resources: map[string]string{
+			"Kptfile": `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+  labels:
+    app: web
+  annotations:
+    team: platform
+info:
+  readinessGates:
+    - conditionType: Ready
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Deployed
+      message: all good`,
+		},
+		kptfileMeta: extractKptfileMeta(map[string]string{
+			"Kptfile": `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+  labels:
+    app: web
+  annotations:
+    team: platform
+info:
+  readinessGates:
+    - conditionType: Ready
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Deployed
+      message: all good`,
+		}),
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
+
+	filter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: dbRepo.Key()}},
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Require().Len(results, 1)
+
+	readPR := results[0]
+	t.Len(readPR.kptfileMeta.Conditions, 1)
+	t.Equal("Ready", readPR.kptfileMeta.Conditions[0].Type)
+	t.Equal(porchapi.ConditionTrue, readPR.kptfileMeta.Conditions[0].Status)
+	t.Equal("Deployed", readPR.kptfileMeta.Conditions[0].Reason)
+	t.Len(readPR.kptfileMeta.ReadinessGates, 1)
+	t.Equal("Ready", readPR.kptfileMeta.ReadinessGates[0].ConditionType)
+	t.Equal("web", readPR.kptfileMeta.Labels["app"])
+	t.Equal("platform", readPR.kptfileMeta.Annotations["team"])
+
+	t.deleteTestRepo(dbRepo.Key())
+}
+
+func (t *DbTestSuite) TestBackfillKptfileMeta() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := t.createTestRepo("backfill-ns", "backfill-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "backfill-pkg")
+
+	// Write a PR with empty kptfileMeta (simulating pre-migration row)
+	pr := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-1",
+			Revision:      1,
+		},
+		lifecycle: "Published",
+		resources: map[string]string{
+			"Kptfile": `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: backfill-test
+  labels:
+    app: backfilled
+info:
+  readinessGates:
+    - conditionType: Ready
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: OK`,
+		},
+		// kptfileMeta intentionally left empty to simulate pre-migration state
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
+
+	// Verify kptfile_meta is empty in DB
+	filter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: dbRepo.Key()}},
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Require().Len(results, 1)
+	t.Empty(results[0].kptfileMeta.Labels)
+
+	// Run backfill
+	err = backfillKptfileMeta(t.Context())
+	t.Require().NoError(err)
+
+	// Verify kptfile_meta is now populated
+	results, err = pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Require().Len(results, 1)
+	t.Equal("backfilled", results[0].kptfileMeta.Labels["app"])
+	t.Len(results[0].kptfileMeta.ReadinessGates, 1)
+	t.Equal("Ready", results[0].kptfileMeta.ReadinessGates[0].ConditionType)
+	t.Len(results[0].kptfileMeta.Conditions, 1)
+	t.Equal("Ready", results[0].kptfileMeta.Conditions[0].Type)
+
+	// Run backfill again — should be a no-op (kptfile_meta is no longer '{}')
+	err = backfillKptfileMeta(t.Context())
+	t.Require().NoError(err)
+
+	t.deleteTestRepo(dbRepo.Key())
+}

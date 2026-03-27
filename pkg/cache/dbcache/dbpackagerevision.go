@@ -43,18 +43,46 @@ var (
 	_ repository.PackageRevisionDraft = &dbPackageRevision{}
 )
 
+type kptfileMeta struct {
+	Conditions     []porchapi.Condition     `json:"conditions,omitempty"`
+	ReadinessGates []porchapi.ReadinessGate `json:"readinessGates,omitempty"`
+	Labels         map[string]string        `json:"labels,omitempty"`
+	Annotations    map[string]string        `json:"annotations,omitempty"`
+}
+
+func extractKptfileMeta(resources map[string]string) kptfileMeta {
+	kfString, ok := resources[kptfile.KptFileName]
+	if !ok {
+		return kptfileMeta{}
+	}
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
+	if err != nil {
+		klog.Warningf("extractKptfileMeta: failed to decode Kptfile: %v", err)
+		return kptfileMeta{}
+	}
+	var meta kptfileMeta
+	if kf.Status != nil {
+		meta.Conditions = repository.ToAPIConditions(*kf)
+	}
+	meta.ReadinessGates = repository.ToAPIReadinessGates(*kf)
+	meta.Labels = kf.Labels
+	meta.Annotations = kf.Annotations
+	return meta
+}
+
 type dbPackageRevision struct {
-	repo      *dbRepository
-	pkgRevKey repository.PackageRevisionKey
-	meta      metav1.ObjectMeta
-	spec      *porchapi.PackageRevisionSpec
-	updated   time.Time
-	updatedBy string
-	lifecycle porchapi.PackageRevisionLifecycle
-	extPRID   kptfile.UpstreamLock
-	latest    bool
-	tasks     []porchapi.Task
-	resources map[string]string
+	repo        *dbRepository
+	pkgRevKey   repository.PackageRevisionKey
+	meta        metav1.ObjectMeta
+	spec        *porchapi.PackageRevisionSpec
+	updated     time.Time
+	updatedBy   string
+	lifecycle   porchapi.PackageRevisionLifecycle
+	extPRID     kptfile.UpstreamLock
+	latest      bool
+	tasks       []porchapi.Task
+	resources   map[string]string
+	kptfileMeta kptfileMeta
 
 	// gitDraftPR maintains the draft in the external git repository during editing (when pushDraftsToGit is true)
 	gitPRDraft repository.PackageRevisionDraft
@@ -201,13 +229,12 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 
 	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
 	_, selfLock, _ := readPR.GetLock(ctx)
-	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
 		Deployment:   readPR.repo.deployment,
-		Conditions:   repository.ToAPIConditions(kf),
+		Conditions:   readPR.kptfileMeta.Conditions,
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
@@ -252,12 +279,12 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			RepositoryName: readPR.Key().RKey().Name,
 			Lifecycle:      readPR.Lifecycle(ctx),
 			Tasks:          readPR.tasks,
-			ReadinessGates: repository.ToAPIReadinessGates(kf),
+			ReadinessGates: readPR.kptfileMeta.ReadinessGates,
 			WorkspaceName:  readPR.Key().WorkspaceName,
 			Revision:       readPR.Key().Revision,
 			PackageMetadata: &porchapi.PackageMetadata{
-				Labels:      kf.Labels,
-				Annotations: kf.Annotations,
+				Labels:      readPR.kptfileMeta.Labels,
+				Annotations: readPR.kptfileMeta.Annotations,
 			},
 		},
 		Status: status,
@@ -442,6 +469,7 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	}
 
 	pr.resources = new.Spec.Resources
+	pr.kptfileMeta = extractKptfileMeta(pr.resources)
 
 	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
 		if len(pr.tasks) > 0 {
