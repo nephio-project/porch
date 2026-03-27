@@ -214,8 +214,6 @@ func labelSelectorToJSONBClauses(labelSelector labels.Selector) []string {
 	return clauses
 }
 
-// latestRevisionClause generates a SQL clause for the latest-revision label.
-// This label is not stored in the meta JSON but as a separate boolean column.
 func latestRevisionClause(op selection.Operator, values []string) string {
 	col := "package_revisions.latest"
 	switch op {
