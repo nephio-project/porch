@@ -41,7 +41,7 @@ PackageRevisions are Kubernetes resources that represent versioned collections o
 PackageRevisions follow a structured lifecycle with three main states:
 
 - **Draft**: Work in progress, fully editable. Revision number is 0.
-- **Proposed**: Ready for review, still editable. Revision number remains 0.
+- **Proposed**: Ready for review, contents are immutable. To make further changes, reject back to Draft. Revision number remains 0.
 - **Published**: Approved and immutable. Revision number increments to 1+.
 
 **Lifecycle Transitions:**
