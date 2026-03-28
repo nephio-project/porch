@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package gitserver
 
 import (
 	"bufio"
@@ -588,7 +588,7 @@ func parseHash(s string) (GitHash, error) {
 	return h, nil
 }
 
-// NewPackageLineWriter constructs a PacketLineWriter
+// NewPacketLineWriter constructs a PacketLineWriter
 func NewPacketLineWriter(w io.Writer) *PacketLineWriter {
 	bw := bufio.NewWriter(w)
 	return &PacketLineWriter{

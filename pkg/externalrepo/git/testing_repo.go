@@ -29,6 +29,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/nephio-project/porch/pkg/repository"
+	gitserver "github.com/nephio-project/porch/test/git/pkg"
 )
 
 func OpenGitRepositoryFromArchive(t *testing.T, tarfile, tempdir string) *gogit.Repository {
@@ -125,19 +126,19 @@ func ServeGitRepository(t *testing.T, tarfile, tempdir string) (*gogit.Repositor
 func ServeExistingRepository(t *testing.T, git *gogit.Repository) string {
 	t.Helper()
 
-	repo, err := NewRepo(git)
+	repo, err := gitserver.NewRepo(git)
 	if err != nil {
 		t.Fatalf("NewRepo failed: %v", err)
 	}
 
 	key := "default"
 
-	repos := NewStaticRepos()
+	repos := gitserver.NewStaticRepos()
 	if err := repos.Add(key, repo); err != nil {
 		t.Fatalf("repos.Add failed: %v", err)
 	}
 
-	server, err := NewGitServer(repos)
+	server, err := gitserver.NewGitServer(repos)
 	if err != nil {
 		t.Fatalf("NewGitServer() failed: %v", err)
 	}
