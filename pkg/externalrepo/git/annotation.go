@@ -46,10 +46,10 @@ type gitAnnotation struct {
 	Task *porchapi.Task `json:"task,omitempty"`
 }
 
-// ExtractGitAnnotations reads the gitAnnotations from the given commit.
+// extractGitAnnotations reads the gitAnnotations from the given commit.
 // If no annotation are found, it returns [], nil
 // If an invalid annotation is found, it returns an error.
-func ExtractGitAnnotations(commit *object.Commit) ([]gitAnnotation, error) {
+func extractGitAnnotations(commit *object.Commit) ([]gitAnnotation, error) {
 	annotations := []gitAnnotation{}
 	ec := errors.NewErrorCollector().WithSeparator(";").WithFormat("{%s}")
 
@@ -69,8 +69,8 @@ func ExtractGitAnnotations(commit *object.Commit) ([]gitAnnotation, error) {
 	return annotations, ec.Join()
 }
 
-// AnnotateCommitMessage adds the gitAnnotation to the commit message.
-func AnnotateCommitMessage(message string, annotation *gitAnnotation) (string, error) {
+// annotateCommitMessage adds the gitAnnotation to the commit message.
+func annotateCommitMessage(message string, annotation *gitAnnotation) (string, error) {
 	b, err := json.Marshal(annotation)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "error marshaling annotation")

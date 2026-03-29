@@ -120,7 +120,7 @@ func TestSimplePush(t *testing.T) {
 		// Create a first commit in test branch
 		commit = createTestCommit(t, downstream, draftRef.Hash(), "Draft Commit", "readme.txt", "Hello, World!")
 		if err := downstream.Push(&git.PushOptions{
-			RemoteName: OriginName,
+			RemoteName: originName,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("%s:%s", commit, draftReferenceName)),
 			},
@@ -140,7 +140,7 @@ func TestSimplePush(t *testing.T) {
 		// Create a competing concurrent in a test branch
 		concurrent := createTestCommit(t, downstream, draftRef.Hash(), "Competing Commit", "test.txt", "competing commit")
 		switch err := downstream.Push(&git.PushOptions{
-			RemoteName: OriginName,
+			RemoteName: originName,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("%s:%s", concurrent, draftReferenceName)),
 			},
@@ -192,7 +192,7 @@ func TestFinalPush(t *testing.T) {
 		// Create first commit and tag (finalized package)
 		commit = createTestCommit(t, downstream, main.Hash(), "Package One", "one.txt", "initial")
 		if err := downstream.Push(&git.PushOptions{
-			RemoteName: OriginName,
+			RemoteName: originName,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("%s:%s", commit, mainReferenceName)),
 				config.RefSpec(fmt.Sprintf("%s:%s", commit, packageTagReferenceName)),
@@ -217,7 +217,7 @@ func TestFinalPush(t *testing.T) {
 
 		// Simulated concurrent push should fail
 		switch err := downstream.Push(&git.PushOptions{
-			RemoteName: OriginName,
+			RemoteName: originName,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("%s:%s", concurrent, mainReferenceName)),
 			},
@@ -235,7 +235,7 @@ func TestFinalPush(t *testing.T) {
 
 		// Liewise, push to the tag should fail
 		switch err := downstream.Push(&git.PushOptions{
-			RemoteName: OriginName,
+			RemoteName: originName,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("%s:%s", concurrent, packageTagReferenceName)),
 			},
@@ -353,7 +353,7 @@ func TestProposal(t *testing.T) {
 
 	// Simulate changing package to proposed
 	if err := downstream.Push(&git.PushOptions{
-		RemoteName: OriginName,
+		RemoteName: originName,
 		RefSpecs: []config.RefSpec{
 			config.RefSpec(fmt.Sprintf("%s:%s", bucket.Hash(), upstreamProposedRef)),
 			config.RefSpec(fmt.Sprintf(":%s", upstreamDraftRef)),
@@ -391,7 +391,7 @@ func TestDeleteUpstreamBranches(t *testing.T) {
 
 	// Delete upstream tags and branches
 	forEachRef(t, upstream, func(ref *plumbing.Reference) error {
-		if ref.Name() != DefaultMainReferenceName { // keep main
+		if ref.Name() != defaultMainReferenceName { // keep main
 			return upstream.Storer.RemoveReference(ref.Name())
 		}
 		return nil
@@ -401,7 +401,7 @@ func TestDeleteUpstreamBranches(t *testing.T) {
 
 	// Refetch
 	switch err := downstream.Fetch(&git.FetchOptions{
-		RemoteName: OriginName,
+		RemoteName: originName,
 		Tags:       git.NoTags,
 		Prune:      true,
 	}); err {
@@ -429,7 +429,7 @@ func initRepositoryWithRemote(t *testing.T, dir, address string) *git.Repository
 	repo := InitEmptyRepositoryWithWorktree(t, dir)
 
 	if _, err := repo.CreateRemote(&config.RemoteConfig{
-		Name:  OriginName,
+		Name:  originName,
 		URLs:  []string{address},
 		Fetch: defaultFetchSpec,
 	}); err != nil {

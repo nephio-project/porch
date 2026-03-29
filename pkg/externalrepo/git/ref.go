@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	MainBranch BranchName = "main"
+	mainBranch branchName = "main"
 
-	branchPrefixInLocalRepo  = "refs/remotes/" + OriginName + "/"
+	branchPrefixInLocalRepo  = "refs/remotes/" + originName + "/"
 	branchPrefixInRemoteRepo = "refs/heads/"
 	tagsPrefixInLocalRepo    = "refs/tags/"
 	tagsPrefixInRemoteRepo   = "refs/tags/"
@@ -65,45 +65,45 @@ var (
 	}
 )
 
-// BranchName represents a relative branch name (i.e. 'main', 'drafts/bucket/v1')
+// branchName represents a relative branch name (i.e. 'main', 'drafts/bucket/v1')
 // and supports transformation to the ReferenceName in local (cached) repository
 // (those references are in the form 'refs/remotes/origin/...') or in the remote
 // repository (those references are in the form 'refs/heads/...').
-type BranchName string
+type branchName string
 
-func (b BranchName) RefInRemote() plumbing.ReferenceName {
+func (b branchName) refInRemote() plumbing.ReferenceName {
 	return plumbing.ReferenceName(branchPrefixInRemoteRepo + string(b))
 }
 
-func (b BranchName) RefInLocal() plumbing.ReferenceName {
+func (b branchName) refInLocal() plumbing.ReferenceName {
 	return plumbing.ReferenceName(branchPrefixInLocalRepo + string(b))
 }
 
-func (b BranchName) ForceFetchSpec() config.RefSpec {
-	return config.RefSpec(fmt.Sprintf("+%s:%s", b.RefInRemote(), b.RefInLocal()))
+func (b branchName) forceFetchSpec() config.RefSpec {
+	return config.RefSpec(fmt.Sprintf("+%s:%s", b.refInRemote(), b.refInLocal()))
 }
 
 func isProposedBranchNameInLocal(n plumbing.ReferenceName) bool {
 	return strings.HasPrefix(n.String(), proposedPrefixInLocalRepo)
 }
 
-func getProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
+func getProposedBranchNameInLocal(n plumbing.ReferenceName) (branchName, bool) {
 	b, ok := trimOptionalPrefix(n.String(), proposedPrefixInLocalRepo)
-	return BranchName(b), ok
+	return branchName(b), ok
 }
 
 func isDraftBranchNameInLocal(n plumbing.ReferenceName) bool {
 	return strings.HasPrefix(n.String(), draftsPrefixInLocalRepo)
 }
 
-func getDraftBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
+func getDraftBranchNameInLocal(n plumbing.ReferenceName) (branchName, bool) {
 	b, ok := trimOptionalPrefix(n.String(), draftsPrefixInLocalRepo)
-	return BranchName(b), ok
+	return branchName(b), ok
 }
 
-func getdeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
+func getdeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (branchName, bool) {
 	b, ok := trimOptionalPrefix(n.String(), deletionProposedPrefixInLocalRepo)
-	return BranchName(b), ok
+	return branchName(b), ok
 }
 
 func isBranchInLocalRepo(n plumbing.ReferenceName) bool {
@@ -122,19 +122,19 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 	return trimOptionalPrefix(n.String(), tagsPrefixInLocalRepo)
 }
 
-func createDraftName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(draftsPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
+func createDraftName(key repository.PackageRevisionKey) branchName {
+	return branchName(draftsPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createProposedName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
+func createProposedName(key repository.PackageRevisionKey) branchName {
+	return branchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
+func createDeletionProposedName(key repository.PackageRevisionKey) branchName {
 	if key.Revision > 0 {
-		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "v"+repository.Revision2Str(key.Revision)))
+		return branchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "v"+repository.Revision2Str(key.Revision)))
 	} else {
-		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
+		return branchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
 	}
 }
 

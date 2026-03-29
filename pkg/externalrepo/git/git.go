@@ -51,8 +51,8 @@ import (
 var tracer = otel.Tracer("git")
 
 const (
-	DefaultMainReferenceName plumbing.ReferenceName = "refs/heads/main"
-	OriginName               string                 = "origin"
+	defaultMainReferenceName plumbing.ReferenceName = "refs/heads/main"
+	originName               string                 = "origin"
 	fileContent                                     = "Created by porch"
 	fileName                                        = "README.md"
 	commitMessage                                   = "Initial commit: Creating main branch"
@@ -159,27 +159,27 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	}
 
 	// Get or create shared repository - let SharedDirectory handle cleanup
-	sharedDir, err := globalDirectoryPool.GetOrCreateSharedRepository(dir, name)
+	sharedDir, err := globalDirectoryPool.getOrCreateSharedRepository(dir, name)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v", spec.Repo)
 	}
 
 	// Create Remote
 	if err := initializeOrigin(sharedDir.repo, spec.Repo); err != nil {
-		globalDirectoryPool.ReleaseSharedRepository(dir, name)
+		globalDirectoryPool.releaseSharedRepository(dir, name)
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, cannot create remote", spec.Repo)
 	}
 
 	// NOTE: the spec.git.branch field in the Repository CRD (OpenAPI schema) is defined with
 	//		 MinLength=1 validation and its default value is set to "main". This means that
 	// 		 it should never be empty at this point. The following code is left here as a last resort failsafe.
-	branch := MainBranch
+	branch := mainBranch
 	if spec.Branch != "" {
-		branch = BranchName(spec.Branch)
+		branch = branchName(spec.Branch)
 	}
 
 	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
-		globalDirectoryPool.ReleaseSharedRepository(dir, name)
+		globalDirectoryPool.releaseSharedRepository(dir, name)
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, branch name %q invalid", spec.Repo, branch)
 	}
 
@@ -209,12 +209,12 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	}
 
 	if err := repository.fetchRemoteRepositoryWithRetry(ctx); err != nil {
-		globalDirectoryPool.ReleaseSharedRepository(dir, name)
+		globalDirectoryPool.releaseSharedRepository(dir, name)
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, fetch of remote repository failed", spec.Repo)
 	}
 
 	if err := repository.verifyRepository(ctx, &opts); err != nil {
-		globalDirectoryPool.ReleaseSharedRepository(dir, name)
+		globalDirectoryPool.releaseSharedRepository(dir, name)
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, fetch of remote repository failed", spec.Repo)
 	}
 
@@ -243,8 +243,8 @@ func makeUserInfoProvider(spec *configapi.GitRepository, def repository.UserInfo
 type gitRepository struct {
 	key                repository.RepositoryKey
 	secret             string           // Name of the k8s Secret resource containing credentials
-	branch             BranchName       // The main branch from repository registration (defaults to 'main' if unspecified)
-	sharedDir          *SharedDirectory // For thread-safe access to git repository - Holds *git.Repository
+	branch             branchName       // The main branch from repository registration (defaults to 'main' if unspecified)
+	sharedDir          *sharedDirectory // For thread-safe access to git repository - Holds *git.Repository
 	credentialResolver repository.CredentialResolver
 	userInfoProvider   repository.UserInfoProvider
 
@@ -263,7 +263,7 @@ type gitRepository struct {
 	// deletionProposedCache contains the deletionProposed branches that
 	// exist in the repo so that we can easily check them without iterating
 	// through all the refs each time
-	deletionProposedCache map[BranchName]bool
+	deletionProposedCache map[branchName]bool
 
 	mutex sync.Mutex
 
@@ -288,7 +288,7 @@ func (r *gitRepository) Key() repository.RepositoryKey {
 
 func (r *gitRepository) Close(context.Context) error {
 	// Release shared directory reference instead of removing it
-	globalDirectoryPool.ReleaseSharedRepository(r.cacheDir, r.Key().Name)
+	globalDirectoryPool.releaseSharedRepository(r.cacheDir, r.Key().Name)
 	klog.Infof("gitRepository:Close: completed cleanup for repo %+v", r.Key())
 	return nil
 }
@@ -303,7 +303,7 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	}
 
 	var b bytes.Buffer
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		refs, err := repo.References()
 		if err != nil {
 			return err
@@ -335,8 +335,8 @@ func (r *gitRepository) BranchCommitHash(ctx context.Context) (string, error) {
 	defer span.End()
 
 	var hash string
-	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
-		ref, err := repo.Reference(r.branch.RefInLocal(), true)
+	err := r.sharedDir.withRLock(func(repo *git.Repository) error {
+		ref, err := repo.Reference(r.branch.refInLocal(), true)
 		if err != nil {
 			// Branch doesn't exist yet - return empty string, not an error
 			if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -381,7 +381,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	}
 
 	var refs storer.ReferenceIter
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var err error
 		refs, err = repo.References()
 		return err
@@ -395,7 +395,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	var drafts []*gitPackageRevision
 	var result []*gitPackageRevision
 
-	mainBranch := r.branch.RefInLocal() // Looking for the registered branch
+	mainBranch := r.branch.refInLocal() // Looking for the registered branch
 
 	for ref, err := refs.Next(); err == nil; ref, err = refs.Next() {
 		switch name := ref.Name(); {
@@ -466,8 +466,8 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	}()
 
 	var base plumbing.Hash
-	refName := r.branch.RefInLocal()
-	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
+	refName := r.branch.refInLocal()
+	err := r.sharedDir.withRLock(func(repo *git.Repository) error {
 		switch main, err := repo.Reference(refName, true); err {
 		case nil:
 			base = main.Hash()
@@ -526,7 +526,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	var head *plumbing.Reference
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var err error
 		head, err = repo.Reference(ref.Name(), true)
 		return err
@@ -602,7 +602,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			}
 
 			refSpecs := newPushRefSpecBuilder()
-			var commitOps *CommitOperationBuilder
+			var commitOps *commitOperationBuilder
 			deletionProposedBranch := createDeletionProposedName(pr2Delete.Key())
 
 			switch {
@@ -612,7 +612,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 					return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", referenceName)
 				}
 				var ref *plumbing.Reference
-				err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+				err := r.sharedDir.withLock(func(repo *git.Repository) error {
 					var err error
 					ref, err = repo.Reference(referenceName, true)
 					return err
@@ -620,12 +620,12 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 				if err != nil {
 					return err
 				}
-				refSpecs.AddRefToDelete(ref)
-				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
+				refSpecs.addRefToDelete(ref)
+				refSpecs.addRefToDelete(plumbing.NewHashReference(deletionProposedBranch.refInLocal(), plumbing.ZeroHash))
 
 			case isDraftBranchNameInLocal(referenceName), isProposedBranchNameInLocal(referenceName):
 				var ref *plumbing.Reference
-				err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+				err := r.sharedDir.withLock(func(repo *git.Repository) error {
 					var err error
 					ref, err = repo.Reference(referenceName, true)
 					return err
@@ -633,12 +633,12 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 				if err != nil {
 					return err
 				}
-				refSpecs.AddRefToDelete(ref)
+				refSpecs.addRefToDelete(ref)
 
 			case isBranchInLocalRepo(referenceName):
-				commitOps = NewCommitOperationBuilder()
-				commitOps.AddPackageDeletion(referenceName, pr2Delete.Key())
-				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
+				commitOps = newCommitOperationBuilder()
+				commitOps.addPackageDeletion(referenceName, pr2Delete.Key())
+				refSpecs.addRefToDelete(plumbing.NewHashReference(deletionProposedBranch.refInLocal(), plumbing.ZeroHash))
 
 			default:
 				return fmt.Errorf("cannot delete package with the ref name %s", referenceName)
@@ -731,7 +731,7 @@ func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path st
 		klog.Warningf("Failed to fetch latest references: %v", err)
 	}
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		for _, ref := range refNames {
 			if resolved, err := repo.ResolveRevision(plumbing.Revision(ref)); err != nil {
 				if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -769,7 +769,7 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 	var lock kptfilev1.GitLock
 	var commit *object.Commit
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		origin, err := repo.Remote("origin")
 		if err != nil {
 			return pkgerrors.Wrap(err, "cannot determine repository origin")
@@ -834,7 +834,7 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 	defer span.End()
 
 	var commit *object.Commit
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var err error
 		commit, err = repo.CommitObject(ref.Hash())
 		return err
@@ -853,7 +853,7 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 		return nil, pkgerrors.Errorf("cannot determine revision from ref: %q", rev)
 	}
 
-	krmPackages, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: r.Key().Path, Recurse: true})
+	krmPackages, err := r.discoverPackagesInTree(commit, discoverPackagesOptions{filterPrefix: r.Key().Path, recurse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +892,7 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	}
 
 	var commit *object.Commit
-	err = r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err = r.sharedDir.withLock(func(repo *git.Repository) error {
 		var err error
 		commit, err = repo.CommitObject(ref.Hash())
 		return err
@@ -932,9 +932,9 @@ func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
 
 func (r *gitRepository) updateDeletionProposedCache() error {
 	// Collect deletion proposed branches
-	deletionProposed := make(map[BranchName]bool)
+	deletionProposed := make(map[branchName]bool)
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		refs, err := repo.References()
 		if err != nil {
 			return err
@@ -1010,7 +1010,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 
 	var resolvedHash *plumbing.Hash
 	var commit *object.Commit
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var err error
 		resolvedHash, err = repo.ResolveRevision(plumbing.Revision(tag.Hash().String()))
 		if err != nil {
@@ -1054,7 +1054,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 }
 
 func (r *gitRepository) dumpAllRefs() {
-	if err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	if err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		refs, err := repo.References()
 		if err != nil {
 			klog.Warningf("failed to get references: %v", err)
@@ -1137,9 +1137,9 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	}
 
 	err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.sharedDir.WithLock(func(repo *git.Repository) error {
+		return r.sharedDir.withLock(func(repo *git.Repository) error {
 			return repo.FetchContext(ctx, &git.FetchOptions{
-				RemoteName: OriginName,
+				RemoteName: originName,
 				Auth:       auth,
 				Prune:      true,
 				CABundle:   r.caBundle,
@@ -1171,8 +1171,8 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 
 	var needsCreation bool
 	var commitHash plumbing.Hash
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
-		_, err := repo.Reference(r.branch.RefInLocal(), false)
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
+		_, err := repo.Reference(r.branch.refInLocal(), false)
 		if err != nil {
 			switch opts.MainBranchStrategy {
 			case ErrorIfMissing:
@@ -1183,7 +1183,7 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 					return err
 				}
 				// Get the commit hash for pushing
-				ref, err := repo.Reference(r.branch.RefInLocal(), false)
+				ref, err := repo.Reference(r.branch.refInLocal(), false)
 				if err != nil {
 					return err
 				}
@@ -1202,7 +1202,7 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 	// Push the branch outside of the lock to avoid race conditions
 	if needsCreation {
 		refSpecs := newPushRefSpecBuilder()
-		refSpecs.AddRefToPush(commitHash, r.branch.RefInLocal())
+		refSpecs.addRefToPush(commitHash, r.branch.refInLocal())
 		if err := r.pushAndCleanup(ctx, refSpecs, nil); err != nil {
 			return fmt.Errorf("error pushing main branch %q: %v", r.branch, err)
 		}
@@ -1212,7 +1212,7 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 
 // createBranch creates the provided branch by creating a commit containing
 // a README.md file on the root of the repo and then pushing it to the branch.
-func (r *gitRepository) createBranch(repo *git.Repository, branch BranchName) error {
+func (r *gitRepository) createBranch(repo *git.Repository, branch branchName) error {
 	fileHash, err := storeBlob(repo, fileContent)
 	if err != nil {
 		return err
@@ -1256,13 +1256,13 @@ func (r *gitRepository) createBranch(repo *git.Repository, branch BranchName) er
 	}
 
 	// Create local reference
-	ref := plumbing.NewHashReference(branch.RefInLocal(), commitHash)
+	ref := plumbing.NewHashReference(branch.refInLocal(), commitHash)
 	return repo.Storer.SetReference(ref)
 }
 
 func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git.Repository, d *gitPackageRevisionDraft) (commitHash, newPackageTreeHash plumbing.Hash, err error) {
 	branch := r.branch
-	localRef := branch.RefInLocal()
+	localRef := branch.refInLocal()
 
 	// Find localTarget branch - get latest state
 	localTarget, err := repo.Reference(localRef, true)
@@ -1294,7 +1294,7 @@ func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git
 		return plumbing.ZeroHash, plumbing.ZeroHash, fmt.Errorf("failed to initialize commit of package %s to %s: %w", packagePath, localRef, err)
 	}
 
-	message, err := AnnotateCommitMessage(fmt.Sprintf(commitMessageApproveTemplate, d.Key().PkgKey.ToFullPathname(), d.Key().Revision), &gitAnnotation{
+	message, err := annotateCommitMessage(fmt.Sprintf(commitMessageApproveTemplate, d.Key().PkgKey.ToFullPathname(), d.Key().Revision), &gitAnnotation{
 		PackagePath:   d.Key().PkgKey.ToFullPathname(),
 		WorkspaceName: d.Key().WorkspaceName,
 		Revision:      repository.Revision2Str(d.Key().Revision),
@@ -1364,11 +1364,11 @@ func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, rep
 	return hash, nil
 }
 
-func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder, commitOps *CommitOperationBuilder) error {
-	for _, op := range commitOps.GetOperations() {
-		switch op.Type {
+func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder, commitOps *commitOperationBuilder) error {
+	for _, op := range commitOps.getOperations() {
+		switch op.opType {
 		case "approval":
-			data := op.Data.(map[string]interface{})
+			data := op.data.(map[string]interface{})
 			d := data["draft"].(*gitPackageRevisionDraft)
 			tag := data["tag"].(plumbing.ReferenceName)
 
@@ -1377,14 +1377,14 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 				return err
 			}
 
-			ph.AddRefToPush(commitHash, r.branch.RefInLocal())
-			ph.AddRefToPush(commitHash, tag)
+			ph.addRefToPush(commitHash, r.branch.refInLocal())
+			ph.addRefToPush(commitHash, tag)
 
 			d.commit = commitHash
 			d.tree = newTreeHash
 
 		case "deletion":
-			data := op.Data.(map[string]interface{})
+			data := op.data.(map[string]interface{})
 			branch := data["branch"].(plumbing.ReferenceName)
 			prKey := data["prKey"].(repository.PackageRevisionKey)
 
@@ -1394,14 +1394,14 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 			}
 
 			if !commitHash.IsZero() {
-				ph.AddRefToPush(commitHash, branch)
+				ph.addRefToPush(commitHash, branch)
 			}
 		}
 	}
 	return nil
 }
 
-func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder, commitOps *CommitOperationBuilder) error {
+func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder, commitOps *commitOperationBuilder) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup")
 	defer span.End()
 
@@ -1415,9 +1415,9 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	maxRetries := r.repoOperationRetryAttempts
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-			return r.sharedDir.WithLock(func(repo *git.Repository) error {
+			return r.sharedDir.withLock(func(repo *git.Repository) error {
 				if fetchErr := repo.Fetch(&git.FetchOptions{
-					RemoteName: OriginName,
+					RemoteName: originName,
 					Auth:       auth,
 					CABundle:   r.caBundle,
 				}); fetchErr != nil && fetchErr != git.NoErrAlreadyUpToDate {
@@ -1434,20 +1434,20 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 
 				ph.updateRequiredRefs(repo)
 
-				specs, require, err := ph.BuildRefSpecs()
+				specs, require, err := ph.buildRefSpecs()
 				if err != nil {
 					return err
 				}
 
 				pushStart := time.Now()
 				if len(require) > 0 {
-					klog.Infof("git push attempt %d: pushing %v to %s/%s, requiring %v", attempt, specs, OriginName, r.key.Name, require)
+					klog.Infof("git push attempt %d: pushing %v to %s/%s, requiring %v", attempt, specs, originName, r.key.Name, require)
 				} else {
-					klog.Infof("git push attempt %d: pushing %v to %s/%s", attempt, specs, OriginName, r.key.Name)
+					klog.Infof("git push attempt %d: pushing %v to %s/%s", attempt, specs, originName, r.key.Name)
 				}
 
 				pushErr := repo.Push(&git.PushOptions{
-					RemoteName: OriginName,
+					RemoteName: originName,
 					RefSpecs:   specs,
 					Auth:       auth,
 					Force:      false,
@@ -1456,7 +1456,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 				if pushErr != nil {
 					klog.Warningf("git push failed attempt %d: %v", attempt, pushErr)
 				} else {
-					klog.Infof("git push completed: pushed %v to %s/%s in %s", specs, OriginName, r.key.Name, time.Since(pushStart))
+					klog.Infof("git push completed: pushed %v to %s/%s in %s", specs, originName, r.key.Name, time.Since(pushStart))
 				}
 				return pushErr
 			})
@@ -1496,7 +1496,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 
 func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key repository.PackageRevisionKey) ([]porchapi.Task, error) {
 	var tasks []porchapi.Task
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var logOptions = git.LogOptions{
 			From:  startCommit.Hash,
 			Order: git.LogOrderCommitterTime,
@@ -1513,7 +1513,7 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 				return nil
 			}
 
-			gitAnnotations, err := ExtractGitAnnotations(commit)
+			gitAnnotations, err := extractGitAnnotations(commit)
 			if err != nil {
 				klog.Warningf("Error extracting (some) git annotations from commit %q: %s", commit.Hash, err)
 			}
@@ -1579,7 +1579,7 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 
 func (r *gitRepository) GetResource(hash plumbing.Hash, filePath string) (string, error) {
 	var content string
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		tree, err := repo.TreeObject(hash)
 		if err != nil {
 			return err
@@ -1599,7 +1599,7 @@ func (r *gitRepository) GetResource(hash plumbing.Hash, filePath string) (string
 func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
 	resources := map[string]string{}
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		tree, err := repo.TreeObject(hash)
 		if err != nil {
 			return err
@@ -1638,7 +1638,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 // to the package given by the packagePath. If no commit is found, it will return nil and an error.
 func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key repository.PackageKey) (*object.Commit, error) {
 	var result *object.Commit
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var logOptions = git.LogOptions{
 			From:  startCommit.Hash,
 			Order: git.LogOrderCommitterTime,
@@ -1650,7 +1650,7 @@ func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key 
 		}
 
 		for c, err := commits.Next(); err == nil; c, err = commits.Next() {
-			gitAnnotations, err := ExtractGitAnnotations(c)
+			gitAnnotations, err := extractGitAnnotations(c)
 			if err != nil {
 				klog.Warningf("Error extracting (some) annotations from commit %q: %s", c.Hash, err)
 			}
@@ -1745,7 +1745,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		}
 		// Push the package revision into a deletionProposed branch.
 		r.deletionProposedCache[deletionProposedBranch] = true
-		refSpecs.AddRefToPush(pkgRev.commit, deletionProposedBranch.RefInLocal())
+		refSpecs.addRefToPush(pkgRev.commit, deletionProposedBranch.refInLocal())
 	case porchapi.PackageRevisionLifecycleDeletionProposed:
 		if newLifecycle != porchapi.PackageRevisionLifecyclePublished {
 			r.mutex.Unlock()
@@ -1753,8 +1753,8 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		}
 		// Delete the deletionProposed branch
 		delete(r.deletionProposedCache, deletionProposedBranch)
-		ref := plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), pkgRev.commit)
-		refSpecs.AddRefToDelete(ref)
+		ref := plumbing.NewHashReference(deletionProposedBranch.refInLocal(), pkgRev.commit)
+		refSpecs.addRefToDelete(ref)
 	}
 	r.mutex.Unlock() // Release mutex before git operations
 
@@ -1771,7 +1771,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		ch, err := newCommitHelper(repo, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
 		if err != nil {
 			return pkgerrors.Wrap(err, "failed to commit package:")
@@ -1811,7 +1811,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		}
 		message += "\n"
 
-		message, err = AnnotateCommitMessage(message, annotation)
+		message, err = annotateCommitMessage(message, annotation)
 		if err != nil {
 			return err
 		}
@@ -1841,7 +1841,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	}()
 
 	refSpecs := newPushRefSpecBuilder()
-	commitOps := NewCommitOperationBuilder()
+	commitOps := newCommitOperationBuilder()
 	draftBranch := createDraftName(d.Key())
 	proposedBranch := createProposedName(d.Key())
 	targetBranch := string(r.branch)
@@ -1860,13 +1860,13 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 		// Finalize the package revision. Commit will be created in pushAndCleanup
 		tag := createFinalTagNameInLocal(d.Key())
-		commitOps.AddPackageApproval(d, tag)
+		commitOps.addPackageApproval(d, tag)
 
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
 		case base == nil: // no branch to delete
-		case base.Name() == draftBranch.RefInLocal(), base.Name() == proposedBranch.RefInLocal():
-			refSpecs.AddRefToDelete(base)
+		case base.Name() == draftBranch.refInLocal(), base.Name() == proposedBranch.refInLocal():
+			refSpecs.addRefToDelete(base)
 		}
 
 		// Reference will be created after successful commit in pushAndCleanup
@@ -1874,34 +1874,34 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	case porchapi.PackageRevisionLifecycleProposed:
 		// Push the package revision into a proposed branch.
-		refSpecs.AddRefToPush(d.commit, proposedBranch.RefInLocal())
+		refSpecs.addRefToPush(d.commit, proposedBranch.refInLocal())
 		// Set the target to the proposed branch.
 		targetBranch = string(proposedBranch)
 
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
 		case base == nil: // no branch to delete
-		case base.Name() != proposedBranch.RefInLocal():
-			refSpecs.AddRefToDelete(base)
+		case base.Name() != proposedBranch.refInLocal():
+			refSpecs.addRefToDelete(base)
 		}
 
 		// Update package reference (commit and tree hash stay the same)
-		newRef = plumbing.NewHashReference(proposedBranch.RefInLocal(), d.commit)
+		newRef = plumbing.NewHashReference(proposedBranch.refInLocal(), d.commit)
 
 	case porchapi.PackageRevisionLifecycleDraft:
 		// Push the package revision into a draft branch.
-		refSpecs.AddRefToPush(d.commit, draftBranch.RefInLocal())
+		refSpecs.addRefToPush(d.commit, draftBranch.refInLocal())
 		// Set the target to the draft branch.
 		targetBranch = string(draftBranch)
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
 		case base == nil: // no branch to delete
-		case base.Name() != draftBranch.RefInLocal():
-			refSpecs.AddRefToDelete(base)
+		case base.Name() != draftBranch.refInLocal():
+			refSpecs.addRefToDelete(base)
 		}
 
 		// Update package reference (commit and tree hash stay the same)
-		newRef = plumbing.NewHashReference(draftBranch.RefInLocal(), d.commit)
+		newRef = plumbing.NewHashReference(draftBranch.refInLocal(), d.commit)
 
 	default:
 		return nil, fmt.Errorf("package has unrecognized lifecycle: %q", d.lifecycle)
@@ -1970,7 +1970,7 @@ func (r *gitRepository) doGitWithAuth(ctx context.Context, op func(transport.Aut
 // findPackage finds the packages in the git repository, under commit, if it is exists at path.
 // If no package is found at that path, returns nil, nil
 func (r *gitRepository) findPackage(commit *object.Commit, packagePath string) (*packageListEntry, error) {
-	t, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: packagePath, Recurse: false})
+	t, err := r.discoverPackagesInTree(commit, discoverPackagesOptions{filterPrefix: packagePath, recurse: false})
 	if err != nil {
 		return nil, err
 	}
@@ -1981,35 +1981,35 @@ func (r *gitRepository) findPackage(commit *object.Commit, packagePath string) (
 // If filterPrefix is non-empty, only packages with the specified prefix will be returned.
 // It is not an error if filterPrefix matches no packages or even is not a real directory name;
 // we will simply return an empty list of packages.
-func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt DiscoverPackagesOptions) (*packageList, error) {
+func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt discoverPackagesOptions) (*packageList, error) {
 	t := &packageList{
 		parent:   r,
 		commit:   commit,
 		packages: make(map[string]*packageListEntry),
 	}
 
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		rootTree, err := commit.Tree()
 		if err != nil {
 			return pkgerrors.Wrapf(err, "cannot resolve commit %v to tree (corrupted repository?)", commit.Hash)
 		}
 
-		if opt.FilterPrefix != "" {
-			tree, err := rootTree.Tree(opt.FilterPrefix)
+		if opt.filterPrefix != "" {
+			tree, err := rootTree.Tree(opt.filterPrefix)
 			if err != nil {
 				if err == object.ErrDirectoryNotFound {
 					// We treat the filter prefix as a filter, the path doesn't have to exist
-					klog.Warningf("could not find filterPrefix %q in commit %v; returning no packages", opt.FilterPrefix, commit.Hash)
+					klog.Warningf("could not find filterPrefix %q in commit %v; returning no packages", opt.filterPrefix, commit.Hash)
 					return nil
 				} else {
-					return pkgerrors.Wrapf(err, "error getting tree %s", opt.FilterPrefix)
+					return pkgerrors.Wrapf(err, "error getting tree %s", opt.filterPrefix)
 				}
 			}
 			rootTree = tree
 		}
 
 		if rootTree != nil {
-			return t.discoverPackages(r.Key(), rootTree, opt.FilterPrefix, opt.Recurse, repo)
+			return t.discoverPackages(r.Key(), rootTree, opt.filterPrefix, opt.recurse, repo)
 		}
 		return nil
 	})
@@ -2017,7 +2017,7 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 		return nil, err
 	}
 
-	if opt.FilterPrefix == "" {
+	if opt.filterPrefix == "" {
 		klog.Infof("discovered %d packages @%v", len(t.packages), commit.Hash)
 	}
 	return t, nil
@@ -2041,7 +2041,7 @@ func getPkgWorkspace(commit *object.Commit, p *packageListEntry, ref *plumbing.R
 		}
 		commit = c
 	}
-	annotations, err := ExtractGitAnnotations(commit)
+	annotations, err := extractGitAnnotations(commit)
 	if err != nil {
 		klog.Warningf("Error extracting git annotations for package %s: %s", p.pkgKey, err)
 	}
