@@ -170,7 +170,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 
-	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
+	mainBranchRef := plumbing.NewHashReference(p.repo.branch.refInLocal(), p.commit)
 	mainPr := &gitPackageRevision{
 		repo:      p.repo,
 		prKey:     p.prKey,

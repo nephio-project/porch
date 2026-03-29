@@ -82,7 +82,7 @@ func InitializeBranch(t *testing.T, git *gogit.Repository, branch string) {
 	t.Helper()
 
 	// If main branch exists, rename it to the specified ref
-	main, err := git.Reference(DefaultMainReferenceName, false)
+	main, err := git.Reference(defaultMainReferenceName, false)
 	switch err {
 	case nil:
 		// found `main branch`
@@ -90,13 +90,13 @@ func InitializeBranch(t *testing.T, git *gogit.Repository, branch string) {
 		// main doesn't exist, we won't create the target branch either.
 		return
 	default:
-		t.Fatalf("Error getting %s branch: %v", DefaultMainReferenceName, err)
+		t.Fatalf("Error getting %s branch: %v", defaultMainReferenceName, err)
 		return
 	}
 
 	// `main` branch was found. Create the target branch off of it if needed.
 	name := plumbing.NewBranchReferenceName(branch)
-	if name != DefaultMainReferenceName {
+	if name != defaultMainReferenceName {
 		ref := plumbing.NewHashReference(name, main.Hash())
 		if err := git.Storer.SetReference(ref); err != nil {
 			t.Fatalf("Error creating target branch %q from %q: %v", ref, main, err)
@@ -104,7 +104,7 @@ func InitializeBranch(t *testing.T, git *gogit.Repository, branch string) {
 
 		t.Cleanup(func() {
 			// Verify that main didn't move during the test
-			new, err := git.Reference(DefaultMainReferenceName, false)
+			new, err := git.Reference(defaultMainReferenceName, false)
 			if err != nil {
 				t.Fatalf("Error getting %s branch after test run: %v", gogit.DefaultRemoteName, err)
 			}
@@ -369,7 +369,7 @@ func fetch(t *testing.T, repo *gogit.Repository) {
 	t.Helper()
 
 	switch err := repo.Fetch(&gogit.FetchOptions{
-		RemoteName: OriginName,
+		RemoteName: originName,
 		Tags:       gogit.NoTags,
 	}); err {
 	case nil, gogit.NoErrAlreadyUpToDate:

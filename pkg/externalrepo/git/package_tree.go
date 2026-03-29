@@ -133,14 +133,14 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	}, nil
 }
 
-// DiscoverPackagesOptions holds the configuration for walking a git tree
-type DiscoverPackagesOptions struct {
-	// FilterPrefix restricts package discovery to a particular subdirectory.
+// discoverPackagesOptions holds the configuration for walking a git tree
+type discoverPackagesOptions struct {
+	// filterPrefix restricts package discovery to a particular subdirectory.
 	// The subdirectory is not required to exist (we will return an empty list of packages).
-	FilterPrefix string
+	filterPrefix string
 
-	// Recurse enables recursive traversal of the git tree.
-	Recurse bool
+	// recurse enables recursive traversal of the git tree.
+	recurse bool
 }
 
 // discoverPackages is the recursive function we use to traverse the tree and find packages.

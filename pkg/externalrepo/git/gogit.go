@@ -45,7 +45,7 @@ func initializeDefaultBranches(repo *git.Repository) error {
 		return pkgerrors.Wrapf(err, "gogit: failed to remove reference %+v on repo %+v", plumbing.Master, repo)
 	}
 	// gogit points HEAD at a wrong branch; point it at main
-	main := plumbing.NewSymbolicReference(plumbing.HEAD, DefaultMainReferenceName)
+	main := plumbing.NewSymbolicReference(plumbing.HEAD, defaultMainReferenceName)
 	if err := repo.Storer.SetReference(main); err != nil {
 		return pkgerrors.Wrapf(err, "gogit: failed to set reference %+v on repo %+v", main, repo)
 	}
@@ -66,8 +66,8 @@ func initializeOrigin(repo *git.Repository, address string) error {
 		return pkgerrors.Wrapf(err, "gogit: failed to get configuration for repo %+v", repo)
 	}
 
-	cfg.Remotes[OriginName] = &config.RemoteConfig{
-		Name:  OriginName,
+	cfg.Remotes[originName] = &config.RemoteConfig{
+		Name:  originName,
 		URLs:  []string{address},
 		Fetch: defaultFetchSpec,
 	}
