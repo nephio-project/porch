@@ -24,6 +24,7 @@ import (
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 )
 
@@ -72,7 +73,9 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 		},
 	}
 
-	filter, err := parsePackageFieldSelector(options.FieldSelector)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
+	filter, err := parsePackageFieldSelector(options.FieldSelector, ns)
 	if err != nil {
 		return nil, err
 	}

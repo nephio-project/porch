@@ -129,7 +129,7 @@ func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockeng
 
 func TestList(t *testing.T) {
 	_, mockEngine := setup(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -148,7 +148,7 @@ func TestList(t *testing.T) {
 	//=========================================================================================
 
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
 	mockPkgRev.On("KubeObjectName").Return("test-package").Maybe()
@@ -161,12 +161,11 @@ func TestList(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	mockClient, mockEngine := setup(t)
+	_, mockEngine := setup(t)
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -179,8 +178,7 @@ func TestGet(t *testing.T) {
 	//=========================================================================================
 
 	// Not found case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
 	result, err = packagerevisions.Get(ctx, pkgRevName, &metav1.GetOptions{})
 	assert.Error(t, err)
@@ -191,8 +189,7 @@ func TestGet(t *testing.T) {
 
 	// Error from GetPackageRevision
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil).Once()
 	mockPkgRev.On("KubeObjectName").Return(pkgRevName)
@@ -275,10 +272,52 @@ func TestDelete(t *testing.T) {
 	ctx := request.WithNamespace(context.TODO(), "someDummyNamespace")
 	pkgRevName := "repo.1234567890.ws"
 
-	// Success case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		packageRevision,
+	// Success case - Published package in DeletionProposed state
+	deletionProposedPkgRev := &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: porchapi.PackageRevisionLifecycleDeletionProposed,
+		PackageRevision: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: make(map[string]string),
+			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleDeletionProposed,
+			},
+		},
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				PackageName:    pkg,
+				Revision:       revision,
+				RepositoryName: repositoryName,
+				Resources: map[string]string{
+					kptfilev1.KptFileName: strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+					`),
+				},
+			},
+		},
+	}
+
+	// Need 1 Get call for validateDelete->getRepositoryObj
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		deletionProposedPkgRev,
 	}, nil).Once()
 	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -291,6 +330,76 @@ func TestDelete(t *testing.T) {
 
 	//=========================================================================================
 
+	// Failure case - Published package NOT in DeletionProposed state
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		packageRevision, // This is Published lifecycle
+	}, nil).Once()
+
+	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.False(t, deleted)
+	assert.True(t, apierrors.IsForbidden(err))
+	assert.ErrorContains(t, err, "published PackageRevisions must be proposed for deletion")
+
+	//=========================================================================================
+
+	// Success case - Draft package can be deleted without DeletionProposed
+	draftPkgRev := &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: porchapi.PackageRevisionLifecycleDraft,
+		PackageRevision: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: make(map[string]string),
+			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+			},
+		},
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				PackageName:    pkg,
+				Revision:       revision,
+				RepositoryName: repositoryName,
+				Resources: map[string]string{
+					kptfilev1.KptFileName: strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+					`),
+				},
+			},
+		},
+	}
+
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		draftPkgRev,
+	}, nil).Once()
+	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
+	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, deleted)
+	assert.IsType(t, &porchapi.PackageRevision{}, result)
+
+	//=========================================================================================
 	// Missing namespace
 	result, deleted, err = packagerevisions.Delete(context.TODO(), pkgRevName, nil, &metav1.DeleteOptions{})
 	assert.Error(t, err)
@@ -301,8 +410,7 @@ func TestDelete(t *testing.T) {
 	//=========================================================================================
 
 	// Package not found
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
 	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
 	assert.Error(t, err)
@@ -313,9 +421,9 @@ func TestDelete(t *testing.T) {
 	//=========================================================================================
 
 	// Error from DeletePackageRevision
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		packageRevision,
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		deletionProposedPkgRev,
 	}, nil).Once()
 	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("deletion failed")).Once()

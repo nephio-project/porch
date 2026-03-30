@@ -292,6 +292,11 @@ func (m *mockCache) FindAllUpstreamReferencesInRepositories(ctx context.Context,
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockCache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).([]repository.PackageRevision), args.Error(1)
+}
+
 func TestCreatePRWith2Tasks(t *testing.T) {
 	pr := &porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
