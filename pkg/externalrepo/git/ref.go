@@ -79,10 +79,6 @@ func (b branchName) refInLocal() plumbing.ReferenceName {
 	return plumbing.ReferenceName(branchPrefixInLocalRepo + string(b))
 }
 
-func (b branchName) forceFetchSpec() config.RefSpec {
-	return config.RefSpec(fmt.Sprintf("+%s:%s", b.refInRemote(), b.refInLocal()))
-}
-
 func isProposedBranchNameInLocal(n plumbing.ReferenceName) bool {
 	return strings.HasPrefix(n.String(), proposedPrefixInLocalRepo)
 }
