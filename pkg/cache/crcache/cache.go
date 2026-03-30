@@ -216,6 +216,9 @@ func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.List
 				}
 				cachedRepo, err := c.OpenRepository(ctx, repo)
 				if err != nil {
+					if cancel != nil {
+						cancel()
+					}
 					resultsCh <- pkgRevResult{Err: err}
 					continue
 				}
@@ -259,9 +262,7 @@ func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.List
 			if res.Err != nil {
 				klog.Warningf("error listing package revisions: %+v", res.Err)
 			}
-			for _, rev := range res.Revisions {
-				resultPRs = append(resultPRs, rev)
-			}
+			resultPRs = append(resultPRs, res.Revisions...)
 
 		}
 		if received == repoCount {
