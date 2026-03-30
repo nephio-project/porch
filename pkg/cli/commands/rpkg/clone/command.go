@@ -24,7 +24,6 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
-	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -103,15 +102,6 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 
 	source := args[0]
 	target := args[1]
-
-	pkgExists, err := util.PackageAlreadyExists(r.ctx, r.client, r.repository, target, *r.cfg.Namespace)
-	if err != nil {
-		return err
-	}
-	if pkgExists {
-		return fmt.Errorf("`clone` cannot create a new revision for package %q that already exists in repo %q; make subsequent revisions using `copy`",
-			target, r.repository)
-	}
 
 	switch {
 	case strings.HasPrefix(source, "oci://"):
