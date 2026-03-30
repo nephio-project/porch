@@ -30,7 +30,7 @@ commands:
       - --workspace=clone-3
       - basens-clone
     stderr: |
-      error: `clone` cannot create a new revision for package "basens-clone" that already exists in repo "git"; make subsequent revisions using `copy`
+      Error: Internal error occurred: `clone` cannot create a new revision for package "basens-clone" that already exists in repo "git"; make subsequent revisions using `copy` 
     exitCode: 1
   - args:
       - porchctl
