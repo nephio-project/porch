@@ -220,7 +220,7 @@ porchctl rpkg propose porch-test.my-first-package.v1 --namespace default
 
 - Changes lifecycle from `Draft` to `Proposed`
 - Signals the package revision is ready for review
-- PackageRevision can still be modified if needed
+- Package revision contents can no longer be modified directly; to make further changes, the proposal must first be rejected back to `Draft`
 
 ![Diagram](/static/images/porch/guides/propose-workflow.drawio.svg)
 
