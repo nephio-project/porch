@@ -71,6 +71,8 @@ type podCacheConfigEntry struct {
 type functionInfo struct {
 	// status of all pods belonging to the same KRM function image
 	pods []functionPodInfo
+	// roundRobinIdx is used to distribute requests across pods when all have equal load
+	roundRobinIdx int
 }
 
 // functionPodInfo represents the state of a single pod instance.
@@ -82,8 +84,6 @@ type functionPodInfo struct {
 	waitlist []chan<- *connectionResponse
 	// time of last function evaluation, used by the garbage collector to identify idle pods
 	lastActivity time.Time
-	// mutex used to prevent concurrent fn evaluations in the same pod
-	fnEvaluationMutex *sync.Mutex
 	// the number of currently ongoing and waiting fn evaluations in the pod
 	concurrentEvaluations *atomic.Int32
 }
@@ -369,25 +369,39 @@ func forEachConcurrently(m []podCacheConfigEntry, fn func(k podCacheConfigEntry)
 	wg.Wait()
 }
 
-// findBestPod returns with the index of the least loaded healthy pod for the given function.
+// findBestPod returns with the index of the best pod for the given function.
+// It uses round-robin among pods with equal load to ensure even distribution.
 // If there are no suitable pods, it returns with -1.
 func (pcm *podCacheManager) findBestPod(fn *functionInfo) (int, int) {
 	if fn == nil {
 		return -1, 0
 	}
-	if len(fn.pods) == 0 {
+	n := len(fn.pods)
+	if n == 0 {
 		return -1, 0
 	}
-	bestPodIdx := 0
-	bestWaitlistLen := fn.pods[0].WaitlistLen()
-	for i := 1; i < len(fn.pods); i++ {
-		waitlistLen := fn.pods[i].WaitlistLen()
-		if waitlistLen < bestWaitlistLen {
-			bestPodIdx = i
-			bestWaitlistLen = waitlistLen
+
+	minWaitlist := 0
+	// Find the minimum waitlist length across all pods
+	minWaitlist = fn.pods[0].WaitlistLen()
+	for i := 1; i < n; i++ {
+		wl := fn.pods[i].WaitlistLen()
+		if wl < minWaitlist {
+			minWaitlist = wl
 		}
 	}
-	return bestPodIdx, bestWaitlistLen
+
+	// Round-robin among pods that have the minimum waitlist length
+	for i := 0; i < n; i++ {
+		idx := (fn.roundRobinIdx + i) % n
+		if fn.pods[idx].WaitlistLen() == minWaitlist {
+			fn.roundRobinIdx = (idx + 1) % n
+			return idx, minWaitlist
+		}
+	}
+
+	// This should never happen since minWaitlist was calculated from these same pods
+	return -1, 0
 }
 
 // removeUnhealthyPods removes unhealthy pods from the function's pod list.
@@ -539,7 +553,6 @@ func NewPodInfo(firstResponseCh chan<- *connectionResponse) functionPodInfo {
 		podData:               nil, // This will be filled in when the pod is ready.
 		lastActivity:          time.Now(),
 		concurrentEvaluations: &atomic.Int32{},
-		fnEvaluationMutex:     &sync.Mutex{},
 	}
 	if firstResponseCh != nil {
 		pod.waitlist = append(pod.waitlist, firstResponseCh)
@@ -564,7 +577,6 @@ func (pod *functionPodInfo) SendResponse(responseCh chan<- *connectionResponse, 
 	default:
 		responseCh <- &connectionResponse{
 			podData:               *pod.podData,
-			fnEvaluationMutex:     pod.fnEvaluationMutex,
 			concurrentEvaluations: pod.concurrentEvaluations,
 			err:                   nil,
 		}

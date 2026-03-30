@@ -141,10 +141,12 @@ Pod      Pod       Pod
 
 **Execution pattern:**
 - Pod cache checked for existing pod (reuse if available)
+- Pod selection uses round-robin among pods with minimum waitlist length
 - Cache miss triggers pod creation with wrapper server
 - ClusterIP service provides stable DNS-based access
 - gRPC connection to wrapper server in pod
 - Wrapper server executes function binary and returns results
+- Multiple evaluations can execute in parallel on the same pod
 
 **For detailed pod lifecycle, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).**
 
@@ -430,7 +432,8 @@ The Function Runner handles concurrent operations safely:
 
 **Concurrency characteristics:**
 - Multiple function executions can run concurrently
-- Each request gets own gRPC connection
+- Multiple evaluations can run in parallel on the same pod
+- Each request gets own gRPC connection to pod
 - Pod cache manager coordinates access via channels
 - Waitlist prevents duplicate pod creation
 
