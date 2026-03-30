@@ -358,6 +358,10 @@ When multiple pods serve the same function, the cache manager selects the pod wi
 - Different functions: Fully concurrent
 - No artificial concurrency limits
 
+**Evaluation Timeout:**
+
+Function evaluations have a 5-minute timeout to prevent goroutine leaks. If an evaluation doesn't complete within this timeframe, the request is cancelled and an error is returned.
+
 ### Resource Management
 
 Function pods have resource limits configured via pod template to prevent resource exhaustion. Limits affect concurrent execution capacity and should be tuned based on function requirements and cluster resources.

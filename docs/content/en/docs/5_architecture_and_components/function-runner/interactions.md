@@ -321,6 +321,7 @@ Wrapper Server (in pod)
 **Error handling:**
 - Non-zero exit codes indicate function failure
 - Invalid output triggers parse errors
+- 5-minute timeout on function evaluation requests
 - Timeout errors if function exceeds deadline
 - All errors propagated through gRPC to Task Handler
 
@@ -403,7 +404,7 @@ Engine
 **Error types:**
 - **NotFoundError**: Function not available (triggers fallback)
 - **Execution error**: Function failed (non-zero exit code)
-- **Timeout error**: Execution exceeded deadline
+- **Timeout error**: Execution exceeded deadline (5-minute limit)
 - **System error**: Infrastructure problem (pod creation, registry access)
 
 **Error handling strategy:**

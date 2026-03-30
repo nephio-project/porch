@@ -269,32 +269,6 @@ For detailed explanations of how these differences affect operations, see the in
 - Requires maintaining round-robin index per function
 - Better load distribution justifies the minimal added complexity
 
-### Parallel Execution Model
-
-**Decision**: Allow parallel function evaluations within the same pod.
-
-**Rationale:**
-- Improves throughput by utilizing pod capacity fully
-- Reduces wait times when multiple requests target the same function
-- Simplifies code by removing serialization mutex
-- Works well with round-robin pod selection for even load distribution
-
-**Implementation:**
-- Removed per-pod mutex that was serializing executions
-- Concurrent executions tracked via atomic counter
-- gRPC connection shared across parallel calls to same pod
-- Context timeout prevents goroutine leaks
-
-**Alternatives considered:**
-- **Serial execution per pod**: Simpler but underutilizes pod capacity
-- **Connection pooling**: More complex, unnecessary with gRPC multiplexing
-- **Per-function concurrency limits**: Added complexity without clear benefit
-
-**Trade-offs:**
-- Functions must be safe for concurrent execution (standard KRM function requirement)
-- Multiple evaluations share pod resources (CPU, memory)
-- Better resource utilization justifies the concurrency model
-
 ### Service Mesh Compatibility
 
 **Decision**: Use ClusterIP services as frontends for function pods.
@@ -374,3 +348,29 @@ For detailed explanations of how these differences affect operations, see the in
 - Requires manual configuration updates
 - No automatic discovery of new binaries
 - Configuration must be kept in sync with available binaries
+
+### Parallel Execution Model
+
+**Decision**: Allow parallel function evaluations within the same pod.
+
+**Rationale:**
+- Improves throughput by utilizing pod capacity fully
+- Reduces wait times when multiple requests target the same function
+- Simplifies code by removing serialization mutex
+- Works well with round-robin pod selection for even load distribution
+
+**Implementation:**
+- Removed per-pod mutex that was serializing executions
+- Concurrent executions tracked via atomic counter
+- gRPC connection shared across parallel calls to same pod
+- 5-minute timeout per evaluation prevents goroutine leaks
+
+**Alternatives considered:**
+- **Serial execution per pod**: Simpler but underutilizes pod capacity
+- **Connection pooling**: More complex, unnecessary with gRPC multiplexing
+- **Per-function concurrency limits**: Added complexity without clear benefit
+
+**Trade-offs:**
+- Functions must be safe for concurrent execution (standard KRM function requirement)
+- Multiple evaluations share pod resources (CPU, memory)
+- Better resource utilization justifies the concurrency model

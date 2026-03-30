@@ -154,7 +154,7 @@ Once gRPC client acquired, function execution proceeds:
 **Execution characteristics:**
 - Synchronous gRPC call
 - Context passed through for cancellation
-- Timeout enforced by context deadline
+- 5-minute timeout enforced to prevent goroutine leaks
 - Stderr logged even on success
 - Detailed logging on errors
 
@@ -336,6 +336,7 @@ The wrapper server parses structured results from function output:
 ### Timeout Handling
 
 **Timeout sources:**
+- Pod evaluator enforces 5-minute timeout per function evaluation
 - Task Handler sets context deadline
 - Function Runner respects deadline
 - Evaluators check context
@@ -435,8 +436,8 @@ The evaluation system employs several performance strategies.
 
 **Concurrency handling:**
 - Multiple requests can execute concurrently
-- Each request gets own gRPC connection
 - Pod cache manager coordinates access
+- Waitlist prevents duplicate pod creation
 - Round-robin load balancing across equal-load pods
 
 **Concurrency characteristics:**
