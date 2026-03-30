@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -103,7 +102,6 @@ func TestEvaluateFunction_GrpcCallFails(t *testing.T) {
 		req := <-reqCh
 		req.responseCh <- &connectionResponse{
 			podData:               podData{image: "test-image", grpcConnection: conn},
-			fnEvaluationMutex:     &sync.Mutex{},
 			concurrentEvaluations: counter,
 		}
 	}()
@@ -138,7 +136,6 @@ func TestEvaluateFunction_SuccessWithStderr(t *testing.T) {
 		req := <-reqCh
 		req.responseCh <- &connectionResponse{
 			podData:               podData{image: "test-image", grpcConnection: conn},
-			fnEvaluationMutex:     &sync.Mutex{},
 			concurrentEvaluations: counter,
 		}
 	}()
@@ -173,7 +170,6 @@ func TestEvaluateFunction_SuccessClean(t *testing.T) {
 		req := <-reqCh
 		req.responseCh <- &connectionResponse{
 			podData:               podData{image: "test-image", grpcConnection: conn},
-			fnEvaluationMutex:     &sync.Mutex{},
 			concurrentEvaluations: counter,
 		}
 	}()
@@ -206,7 +202,6 @@ func TestEvaluateFunction_CounterDecrement(t *testing.T) {
 		req := <-reqCh
 		req.responseCh <- &connectionResponse{
 			podData:               podData{image: "test-image", grpcConnection: conn},
-			fnEvaluationMutex:     &sync.Mutex{},
 			concurrentEvaluations: counter,
 		}
 	}()
