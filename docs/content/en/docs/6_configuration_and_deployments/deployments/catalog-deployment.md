@@ -101,7 +101,6 @@ Expected output:
 ```
 NAME                                 READY   STATUS    RESTARTS   AGE
 function-runner-xxx-xxx              1/1     Running   0          2m
-function-runner-xxx-xxx              1/1     Running   0          2m
 porch-controllers-xxx-xxx            1/1     Running   0          2m
 porch-server-xxx-xxx                 1/1     Running   0          2m
 ```

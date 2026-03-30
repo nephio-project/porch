@@ -44,7 +44,6 @@ A healthy Porch installation should show:
 ```bash
 NAME                                   READY   STATUS    RESTARTS   AGE
 pod/function-runner-567ddc76d-7k8sj    1/1     Running   0          4m3s
-pod/function-runner-567ddc76d-x75lv    1/1     Running   0          4m3s
 pod/porch-controllers-d8dfccb4-8lc6j   1/1     Running   0          4m3s
 pod/porch-server-7dc5d7cd4f-smhf5      1/1     Running   0          4m3s
 
@@ -53,12 +52,12 @@ service/api               ClusterIP   10.96.108.221   <none>        443/TCP,8443
 service/function-runner   ClusterIP   10.96.237.108   <none>        9445/TCP           4m3s
 
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/function-runner     2/2     2            2           4m3s
+deployment.apps/function-runner     1/1     1            1           4m3s
 deployment.apps/porch-controllers   1/1     1            1           4m3s
 deployment.apps/porch-server        1/1     1            1           4m3s
 
 NAME                                         DESIRED   CURRENT   READY   AGE
-replicaset.apps/function-runner-567ddc76d    2         2         2       4m3s
+replicaset.apps/function-runner-567ddc76d    1         1         1       4m3s
 replicaset.apps/porch-controllers-d8dfccb4   1         1         1       4m3s
 replicaset.apps/porch-server-7dc5d7cd4f      1         1         1       4m3s
 ```
