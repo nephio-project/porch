@@ -18,6 +18,9 @@ The Package Cache provides a unified interface that abstracts the underlying sto
 - Update repository metadata
 - Check repository connectivity
 
+**Cross-Repository Listing:**
+- `ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)` — retrieves all package revisions across all repositories in a single cache-level call. This is the key architectural delegation point: callers (the engine/registry layer) no longer iterate repositories externally; listing is delegated entirely to the cache implementation. This allows each backend to optimize accordingly — the CR cache uses concurrent worker pools per repository, while the DB cache executes a single unified database query.
+
 **Repository Interface Delegation:**
 
 Once a repository is opened through the cache, the returned Repository interface provides:
@@ -44,6 +47,7 @@ The interface design follows the **Strategy Pattern**, where different caching s
 - Testing with mock implementations
 - Future cache implementations without CaDEngine changes
 - Consistent behavior regardless of storage backend
+- Backend-specific optimizations for cross-repository listing (concurrent workers vs. single database query)
 
 ## Factory Pattern
 
@@ -71,10 +75,15 @@ The cache selection process follows these steps:
 The factory receives CacheOptions containing:
 - **CacheType**: Which cache implementation to use (CR or DB)
 - **ExternalRepoOptions**: Configuration for repository adapters (credentials, resolvers)
-- **RepoSyncFrequency**: How often to sync with external repositories
+- **RepoSyncFrequency**: How often to sync with external repositories (set directly on `CacheOptions`)
 - **RepoPRChangeNotifier**: Watcher manager for change notifications
 - **CoreClient**: Kubernetes client for CR operations
 - **DBCacheOptions**: Database connection details (driver, data source) for DB cache
+- **CRCacheOptions**: CR cache-specific tuning parameters, containing:
+  - **MaxConcurrentLists**: Limits the number of repositories queried concurrently during a `ListPackageRevisions` call in the CR cache
+  - **ListTimeoutPerRepository**: Per-repository timeout applied during CR cache listing
+
+> **Note:** `MaxConcurrentLists` and `ListTimeoutPerRepository` were previously top-level `ExtraConfig` fields. They are now scoped specifically within `CRCacheOptions` to reflect that these settings only apply to the CR cache's concurrent listing behaviour.
 
 **Factory Benefits:**
 - **Encapsulation**: Cache creation logic isolated in factories

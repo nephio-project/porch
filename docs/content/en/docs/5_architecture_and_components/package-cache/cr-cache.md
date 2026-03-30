@@ -153,6 +153,24 @@ The CR Cache computes the latest package revision:
 - Sends Modified notification for new latest revision
 - Ensures clients see latest revision updates
 
+### ListPackageRevisions
+
+The CR Cache implements `ListPackageRevisions(ctx, filter)` directly at the cache level:
+
+**Listing behavior:**
+- Lists all relevant repositories from the Kubernetes API, applying namespace and repository filters from the context and filter
+- Queries each repository's cached package revisions concurrently using a worker pool
+- Returns partial results (with a warning log) if the overall context deadline is exceeded before all repositories are processed
+
+**Concurrency control:**
+- Number of concurrent workers is controlled by `CRCacheOptions.MaxConcurrentLists`
+- If `MaxConcurrentLists` is not set (or zero), one worker per repository is used
+- A per-repository timeout is applied if `CRCacheOptions.ListTimeoutPerRepository` is set
+
+**Separation of concerns:**
+- This logic was previously implemented in the registry layer and has been moved into the cache
+- The DB Cache handles listing differently, via a single database query rather than per-repository fan-out
+
 ## Storage Mechanism
 
 ### Draft Package Handling
@@ -227,6 +245,7 @@ The CR Cache manages memory usage:
 - Thousands of package revisions per repository
 - Memory usage proportional to package count
 - For larger deployments, consider using the DB Cache
+- `ListPackageRevisions` queries repositories concurrently; concurrency and per-repository timeouts are controlled by `CRCacheOptions` (see [Configuration](#configuration))
 
 ### Repository Lifecycle
 
@@ -270,3 +289,14 @@ The CR Cache uses **selective invalidation** for package revision deletion:
 - No full cache rebuild required
 - No performance impact on other package revisions
 - Memory freed immediately for deleted revision
+
+## Configuration
+
+CR-cache-specific options are grouped in the `CRCacheOptions` struct, which is nested within `CacheOptions`:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `MaxConcurrentLists` | `int` | `0` (one worker per repository) | Maximum number of repositories queried concurrently during `ListPackageRevisions`. Set to `0` to use one worker per repository. |
+| `ListTimeoutPerRepository` | `time.Duration` | `0` (no timeout) | Per-repository timeout applied when listing package revisions. Set to `0` to disable. |
+
+These fields are CR-cache-specific and have no effect when the DB Cache is used.

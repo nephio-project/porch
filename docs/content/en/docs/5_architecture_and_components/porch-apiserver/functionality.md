@@ -30,6 +30,7 @@ The Porch API Server provides the Kubernetes API interface for Porch resources. 
 │          │   Background     │                           │
 │          │   Operations     │                           │
 │          │                  │                           │
+│          │  • Repo Sync     │                           │
 │          │  • Cleanup       │                           │
 │          └──────────────────┘                           │
 └─────────────────────────────────────────────────────────┘
@@ -280,20 +281,28 @@ The API Server provides real-time watch streams:
 
 ## Background Operations
 
-The API Server delegates certain background operations to separate controller components for better separation of concerns and scalability.
+The API Server runs background tasks for maintenance:
 
 ### Repository Synchronization
 
-Repository synchronization is handled by the dedicated [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), which runs as a separate component using the controller-runtime framework.
+**Sync process:**
+- Background goroutine discovers repositories
+- Creates SyncManager for each repository
+- SyncManager triggers periodic sync
+- Cache updates from Git repository
+- Watch notifications sent to clients
 
-The Repository Controller manages:
-- Repository resource lifecycle and reconciliation
-- Periodic and on-demand repository synchronization
-- Repository health checks and status updates
-- Cache updates and invalidation
-- Repository deletion and cleanup
+**Sync configuration:**
+- Default frequency set at server startup
+- Per-repository frequency via Repository CR
+- Manual sync via Repository CR update
+- Cron schedule support
 
-See the [Repository Controller documentation]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}) for details on sync configuration, scheduling, and implementation.
+**Sync coordination:**
+- One SyncManager per repository
+- Syncs run independently
+- Errors logged and reported in Repository status
+- Automatic retry on next cycle
 
 ### Resource Cleanup
 
@@ -322,15 +331,17 @@ The API Server employs several optimization strategies:
 ### List Operation Optimization
 
 **Optimization techniques:**
-- Concurrent repository listing (configurable max concurrency)
-- Per-repository timeout (prevents slow repos from blocking)
+- Registry layer delegates listing entirely to the active cache implementation via a single `cad.ListPackageRevisions(ctx, filter)` call
+- Cache backend selects the optimal listing strategy for its storage model
 - Early termination on context cancellation
 - Efficient filtering at Engine level
 
-**Configuration:**
-- MaxConcurrentLists: Maximum concurrent repository operations
-- ListTimeoutPerRepository: Timeout per repository
-- Prevents slow repositories from impacting overall performance
+**Cache-backend-specific strategies:**
+
+- **CR Cache**: Implements concurrent per-repository listing using a configurable worker pool. `CRCacheOptions.MaxConcurrentLists` controls the maximum number of concurrent repository operations, and `CRCacheOptions.ListTimeoutPerRepository` sets a per-repository timeout to prevent slow repositories from blocking the overall list. Returns partial results if the context deadline is exceeded.
+- **DB Cache**: Implements listing as a single unified database query, which is inherently more efficient and requires no concurrency controls or per-repository timeouts.
+
+**Note:** Concurrent repository listing and its associated configuration (`MaxConcurrentLists`, `ListTimeoutPerRepository`) are specific to the CR cache backend and are configured via `CRCacheOptions`. They are not general API server-level settings.
 
 ### Watch Stream Efficiency
 
@@ -355,7 +366,7 @@ The API Server employs several optimization strategies:
 - Consistent performance
 
 **Cache coordination:**
-- Repository Controller keeps cache fresh via periodic sync
+- Background sync keeps cache fresh
 - Watch notifications on cache updates
 - Automatic cache invalidation
 - Transparent to API clients
@@ -425,7 +436,7 @@ The API Server handles concurrent operations:
 - Read operations fully concurrent
 - Write operations serialized per package (Engine mutex)
 - Watch streams independent
-- Resource cleanup operations concurrent
+- Background jobs concurrent
 
 ### Optimistic Locking
 
