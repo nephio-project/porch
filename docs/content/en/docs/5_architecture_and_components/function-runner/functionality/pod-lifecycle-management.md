@@ -34,7 +34,7 @@ The Pod Cache Manager runs as a single goroutine managing all pod caching operat
 
 The manager maintains two data structures:
 
-**Cache Map** - Maps function image names to pod information and gRPC client connections. Each entry contains the pod namespace/name and an active gRPC client connection to the pod's wrapper server.
+**Cache Map** - Maps function image names to pod information and gRPC client connections. Each entry contains the pod namespace/name and an active gRPC client connection to the pod's wrapper server. When multiple pods serve the same function, the cache uses a round-robin index to distribute requests evenly across pods with equal load.
 
 **Waitlist Map** - Maps function image names to lists of channels waiting for pod readiness. When multiple evaluation requests arrive for the same function before a pod is ready, they queue in the waitlist to prevent duplicate pod creation.
 
@@ -346,9 +346,14 @@ The system supports concurrent operations efficiently:
 - Each request gets own gRPC connection
 - Pod cache manager coordinates access via channels
 - Waitlist prevents duplicate pod creation
+- Function evaluations can execute in parallel within the same pod
+
+**Pod Selection Strategy:**
+
+When multiple pods serve the same function, the cache manager selects the pod with the least load (smallest waitlist length). When multiple pods have equal load, the system uses round-robin distribution to ensure even load balancing across pods rather than always selecting the first available pod.
 
 **Concurrency benefits:**
-- Same function, same pod: Sequential (one at a time)
+- Same function, same pod: Parallel (multiple evaluations execute concurrently)
 - Same function, different pods: Concurrent
 - Different functions: Fully concurrent
 - No artificial concurrency limits

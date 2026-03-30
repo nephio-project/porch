@@ -244,6 +244,57 @@ For detailed explanations of how these differences affect operations, see the in
 - May recreate pods for functions with irregular usage patterns
 - Configurable TTL allows tuning for specific workloads
 
+### Pod Selection Strategy
+
+**Decision**: Use round-robin distribution among pods with equal minimum load.
+
+**Rationale:**
+- Ensures even distribution of requests across equally-loaded pods
+- Prevents all requests from going to the same pod when multiple pods have equal capacity
+- Simple and predictable load balancing behavior
+- Works well with parallel execution within pods
+
+**Implementation:**
+- Find the minimum waitlist length across all pods for a function
+- Use round-robin to select among pods that have the minimum waitlist
+- Maintains round-robin index per function to track position
+
+**Alternatives considered:**
+- **Pure least-loaded**: Can cause all requests to go to same pod when loads are equal
+- **Random selection**: Less predictable distribution patterns
+- **Weighted round-robin**: Unnecessary complexity for uniform pod capacities
+
+**Trade-offs:**
+- Slightly more complex than pure least-loaded selection
+- Requires maintaining round-robin index per function
+- Better load distribution justifies the minimal added complexity
+
+### Parallel Execution Model
+
+**Decision**: Allow parallel function evaluations within the same pod.
+
+**Rationale:**
+- Improves throughput by utilizing pod capacity fully
+- Reduces wait times when multiple requests target the same function
+- Simplifies code by removing serialization mutex
+- Works well with round-robin pod selection for even load distribution
+
+**Implementation:**
+- Removed per-pod mutex that was serializing executions
+- Concurrent executions tracked via atomic counter
+- gRPC connection shared across parallel calls to same pod
+- Context timeout prevents goroutine leaks
+
+**Alternatives considered:**
+- **Serial execution per pod**: Simpler but underutilizes pod capacity
+- **Connection pooling**: More complex, unnecessary with gRPC multiplexing
+- **Per-function concurrency limits**: Added complexity without clear benefit
+
+**Trade-offs:**
+- Functions must be safe for concurrent execution (standard KRM function requirement)
+- Multiple evaluations share pod resources (CPU, memory)
+- Better resource utilization justifies the concurrency model
+
 ### Service Mesh Compatibility
 
 **Decision**: Use ClusterIP services as frontends for function pods.
