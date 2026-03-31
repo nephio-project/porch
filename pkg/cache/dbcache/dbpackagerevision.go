@@ -433,6 +433,18 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 
 	pr.resources = new.Spec.Resources
 
+	if kfString, ok := new.Spec.Resources[kptfile.KptFileName]; ok {
+		if kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString)); err == nil {
+			if pr.spec == nil {
+				pr.spec = &porchapi.PackageRevisionSpec{}
+			}
+			pr.spec.PackageMetadata = &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			}
+		}
+	}
+
 	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
 		if len(pr.tasks) > 0 {
 			klog.Warningf("Replacing first task of %q", pr.Key())
