@@ -189,40 +189,30 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		return nil, fmt.Errorf("package revision %s has no associated repository (may be deleted or not yet cached)", pr.KubeObjectName())
 	}
 
-	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
-	if err != nil {
-		if pr.GetMeta().DeletionTimestamp != nil || strings.Contains(err.Error(), "sql: no rows in result set") {
-			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
-			readPR = pr
-		} else {
-			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
-		}
-	}
-
-	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
-	_, selfLock, _ := readPR.GetLock(ctx)
-	kf, _ := readPR.GetKptfile(ctx)
+	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
+	_, selfLock, _ := pr.GetLock(ctx)
+	kf, _ := pr.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
-		Deployment:   readPR.repo.deployment,
+		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
-	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
-		if !readPR.updated.IsZero() {
-			status.PublishedAt = metav1.Time{Time: readPR.updated}
+	if porchapi.LifecycleIsPublished(pr.Lifecycle(ctx)) {
+		if !pr.updated.IsZero() {
+			status.PublishedAt = metav1.Time{Time: pr.updated}
 		}
-		if readPR.updatedBy != "" {
-			status.PublishedBy = readPR.updatedBy
+		if pr.updatedBy != "" {
+			status.PublishedBy = pr.updatedBy
 		}
 	}
 
 	// Set the "latest" label
 	labels := pr.GetMeta().Labels
 
-	if readPR.latest {
+	if pr.latest {
 		// copy the labels in case the cached object is being read by another go routine
 		newLabels := make(map[string]string, len(labels))
 		maps.Copy(newLabels, labels)
@@ -236,25 +226,25 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              readPR.KubeObjectName(),
-			Namespace:         readPR.Key().RKey().Namespace,
-			UID:               readPR.UID(),
-			ResourceVersion:   readPR.ResourceVersion(),
-			CreationTimestamp: readPR.GetMeta().CreationTimestamp,
-			DeletionTimestamp: readPR.GetMeta().DeletionTimestamp,
+			Name:              pr.KubeObjectName(),
+			Namespace:         pr.Key().RKey().Namespace,
+			UID:               pr.UID(),
+			ResourceVersion:   pr.ResourceVersion(),
+			CreationTimestamp: pr.GetMeta().CreationTimestamp,
+			DeletionTimestamp: pr.GetMeta().DeletionTimestamp,
 			Labels:            labels,
-			OwnerReferences:   readPR.GetMeta().OwnerReferences,
-			Annotations:       readPR.GetMeta().Annotations,
-			Finalizers:        readPR.GetMeta().Finalizers,
+			OwnerReferences:   pr.GetMeta().OwnerReferences,
+			Annotations:       pr.GetMeta().Annotations,
+			Finalizers:        pr.GetMeta().Finalizers,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    readPR.Key().PKey().ToPkgPathname(),
-			RepositoryName: readPR.Key().RKey().Name,
-			Lifecycle:      readPR.Lifecycle(ctx),
-			Tasks:          readPR.tasks,
+			PackageName:    pr.Key().PKey().ToPkgPathname(),
+			RepositoryName: pr.Key().RKey().Name,
+			Lifecycle:      pr.Lifecycle(ctx),
+			Tasks:          pr.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
-			WorkspaceName:  readPR.Key().WorkspaceName,
-			Revision:       readPR.Key().Revision,
+			WorkspaceName:  pr.Key().WorkspaceName,
+			Revision:       pr.Key().Revision,
 			PackageMetadata: &porchapi.PackageMetadata{
 				Labels:      kf.Labels,
 				Annotations: kf.Annotations,
