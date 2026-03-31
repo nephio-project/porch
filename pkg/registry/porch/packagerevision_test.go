@@ -89,6 +89,9 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: make(map[string]string),
 			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			},
 		},
 		Resources: &porchapi.PackageRevisionResources{
 			Spec: porchapi.PackageRevisionResourcesSpec{

@@ -66,7 +66,8 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	}
 	for _, rev := range revisions {
 		if err := callback(ctx, rev); err != nil {
-			return err
+			klog.Warningf("callback error for revision from repository: %+v", err)
+			continue
 		}
 	}
 	return nil
@@ -394,6 +395,16 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 		if err != nil {
 			klog.Infof("delete failed validation: %v", err)
 			return nil, err
+		}
+	}
+
+	// Check if the PackageRevision is Published and not in DeletionProposed state
+	if pkgRev, ok := obj.(*porchapi.PackageRevision); ok {
+		if pkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+			return nil, apierrors.NewForbidden(
+				porchapi.Resource("packagerevisions"),
+				name,
+				fmt.Errorf("published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion"))
 		}
 	}
 
