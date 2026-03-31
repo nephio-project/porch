@@ -20,8 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/get"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -66,6 +69,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	cmd.Flags().Int64Var(&r.revision, "revision", -2, "Revision of the packages to get. Any package whose revision matches this value will be included in the results.")
 	cmd.Flags().StringVar(&r.workspace, "workspace", "",
 		"WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
+	cmd.Flags().BoolVar(&r.showKptfile, "show-kptfile", false, "Display the root Kptfile of the specified package revision. Requires a single package revision name as an argument.")
 
 	r.getFlags.AddFlags(cmd)
 	r.printFlags.AddFlags(cmd)
@@ -85,18 +89,47 @@ type runner struct {
 	packageName string
 	revision    int64
 	workspace   string
+	showKptfile bool
 	printFlags  *get.PrintFlags
 
 	requestTable bool
+
+	// client is used for --show-kptfile; set in preRunE or injected in tests
+	client client.Client
 }
 
-func (r *runner) preRunE(cmd *cobra.Command, _ []string) error {
+func (r *runner) preRunE(cmd *cobra.Command, args []string) error {
 	// Check for --namespace or -n flag specified without a value
 	nsFlag := cmd.Flag("namespace")
 	nFlag := cmd.Flag("n")
 	if (nsFlag != nil && nsFlag.Changed && nsFlag.Value.String() == "") ||
 		(nFlag != nil && nFlag.Changed && nFlag.Value.String() == "") {
 		return fmt.Errorf("error: namespace flag specified without a value; please provide a value for --namespace/-n or omit the flag")
+	}
+
+	if r.showKptfile {
+		if len(args) != 1 {
+			return fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument")
+		}
+		if r.packageName != "" || r.revision != -2 || r.workspace != "" {
+			return fmt.Errorf("--show-kptfile cannot be combined with --name, --revision, or --workspace")
+		}
+		if r.getFlags.AllNamespaces {
+			return fmt.Errorf("--show-kptfile cannot be combined with --all-namespaces")
+		}
+		if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+			namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
+			if err != nil {
+				return fmt.Errorf("error getting namespace: %w", err)
+			}
+			r.getFlags.ConfigFlags.Namespace = &namespace
+		}
+		c, err := cliutils.CreateClientWithFlags(r.getFlags.ConfigFlags)
+		if err != nil {
+			return err
+		}
+		r.client = c
+		return nil
 	}
 
 	// Print the namespace if we're spanning namespaces
@@ -115,6 +148,10 @@ func (r *runner) preRunE(cmd *cobra.Command, _ []string) error {
 
 func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
+
+	if r.showKptfile {
+		return r.showKptfileContent(cmd, args[0])
+	}
 
 	var objs []runtime.Object
 	b, err := r.getFlags.ResourceBuilder()
@@ -320,5 +357,29 @@ func (r *runner) filterTableRows(table *metav1.Table) error {
 		filtered = append(filtered, *row)
 	}
 	table.Rows = filtered
+	return nil
+}
+
+func (r *runner) showKptfileContent(cmd *cobra.Command, name string) error {
+	const op errors.Op = command + ".showKptfileContent"
+
+	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+		return errors.E(op, fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig"))
+	}
+
+	var resources porchapi.PackageRevisionResources
+	if err := r.client.Get(r.ctx, client.ObjectKey{
+		Namespace: *r.getFlags.ConfigFlags.Namespace,
+		Name:      name,
+	}, &resources); err != nil {
+		return errors.E(op, err)
+	}
+
+	kptfile, ok := resources.Spec.Resources[kptfilev1.KptFileName]
+	if !ok {
+		return errors.E(op, fmt.Errorf("package revision %q does not contain a root Kptfile", name))
+	}
+
+	fmt.Fprint(cmd.OutOrStdout(), kptfile)
 	return nil
 }
