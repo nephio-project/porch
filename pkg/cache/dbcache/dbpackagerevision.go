@@ -189,30 +189,40 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		return nil, fmt.Errorf("package revision %s has no associated repository (may be deleted or not yet cached)", pr.KubeObjectName())
 	}
 
-	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
-	_, selfLock, _ := pr.GetLock(ctx)
-	kf, _ := pr.GetKptfile(ctx)
+	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
+	if err != nil {
+		if pr.GetMeta().DeletionTimestamp != nil || strings.Contains(err.Error(), "sql: no rows in result set") {
+			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
+			readPR = pr
+		} else {
+			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+		}
+	}
+
+	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
+	_, selfLock, _ := readPR.GetLock(ctx)
+	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
-		Deployment:   pr.repo.deployment,
+		Deployment:   readPR.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
-	if porchapi.LifecycleIsPublished(pr.Lifecycle(ctx)) {
-		if !pr.updated.IsZero() {
-			status.PublishedAt = metav1.Time{Time: pr.updated}
+	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
+		if !readPR.updated.IsZero() {
+			status.PublishedAt = metav1.Time{Time: readPR.updated}
 		}
-		if pr.updatedBy != "" {
-			status.PublishedBy = pr.updatedBy
+		if readPR.updatedBy != "" {
+			status.PublishedBy = readPR.updatedBy
 		}
 	}
 
 	// Set the "latest" label
 	labels := pr.GetMeta().Labels
 
-	if pr.latest {
+	if readPR.latest {
 		// copy the labels in case the cached object is being read by another go routine
 		newLabels := make(map[string]string, len(labels))
 		maps.Copy(newLabels, labels)
@@ -226,25 +236,25 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              pr.KubeObjectName(),
-			Namespace:         pr.Key().RKey().Namespace,
-			UID:               pr.UID(),
-			ResourceVersion:   pr.ResourceVersion(),
-			CreationTimestamp: pr.GetMeta().CreationTimestamp,
-			DeletionTimestamp: pr.GetMeta().DeletionTimestamp,
+			Name:              readPR.KubeObjectName(),
+			Namespace:         readPR.Key().RKey().Namespace,
+			UID:               readPR.UID(),
+			ResourceVersion:   readPR.ResourceVersion(),
+			CreationTimestamp: readPR.GetMeta().CreationTimestamp,
+			DeletionTimestamp: readPR.GetMeta().DeletionTimestamp,
 			Labels:            labels,
-			OwnerReferences:   pr.GetMeta().OwnerReferences,
-			Annotations:       pr.GetMeta().Annotations,
-			Finalizers:        pr.GetMeta().Finalizers,
+			OwnerReferences:   readPR.GetMeta().OwnerReferences,
+			Annotations:       readPR.GetMeta().Annotations,
+			Finalizers:        readPR.GetMeta().Finalizers,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    pr.Key().PKey().ToPkgPathname(),
-			RepositoryName: pr.Key().RKey().Name,
-			Lifecycle:      pr.Lifecycle(ctx),
-			Tasks:          pr.tasks,
+			PackageName:    readPR.Key().PKey().ToPkgPathname(),
+			RepositoryName: readPR.Key().RKey().Name,
+			Lifecycle:      readPR.Lifecycle(ctx),
+			Tasks:          readPR.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
-			WorkspaceName:  pr.Key().WorkspaceName,
-			Revision:       pr.Key().Revision,
+			WorkspaceName:  readPR.Key().WorkspaceName,
+			Revision:       readPR.Key().Revision,
 			PackageMetadata: &porchapi.PackageMetadata{
 				Labels:      kf.Labels,
 				Annotations: kf.Annotations,
@@ -432,18 +442,6 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	}
 
 	pr.resources = new.Spec.Resources
-
-	if kfString, ok := new.Spec.Resources[kptfile.KptFileName]; ok {
-		if kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString)); err == nil {
-			if pr.spec == nil {
-				pr.spec = &porchapi.PackageRevisionSpec{}
-			}
-			pr.spec.PackageMetadata = &porchapi.PackageMetadata{
-				Labels:      kf.Labels,
-				Annotations: kf.Annotations,
-			}
-		}
-	}
 
 	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
 		if len(pr.tasks) > 0 {
