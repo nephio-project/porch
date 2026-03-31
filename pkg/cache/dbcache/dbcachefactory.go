@@ -37,7 +37,7 @@ func (f *DBCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheO
 	}
 
 	if err := backfillKptfileMeta(ctx); err != nil {
-		return nil, fmt.Errorf("kptfile_meta backfill failed: %w", err)
+		return nil, fmt.Errorf("kptfile_status backfill failed: %w", err)
 	}
 
 	return &dbCache{

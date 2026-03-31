@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -50,7 +51,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks,
-			package_revisions.kptfile_meta
+			package_revisions.kptfile_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -121,7 +122,7 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks,
-			package_revisions.kptfile_meta
+			package_revisions.kptfile_status
 		FROM package_revisions
 		INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
@@ -169,7 +170,7 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks,
-			package_revisions.kptfile_meta
+			package_revisions.kptfile_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -218,7 +219,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks,
-			package_revisions.kptfile_meta
+			package_revisions.kptfile_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -285,7 +286,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks, kptfileMetaJSON string
+		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks, kptfileStatusJSON string
 
 		err := rows.Scan(
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
@@ -304,7 +305,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&extPRID,
 			&pkgRev.latest,
 			&tasks,
-			&kptfileMetaJSON)
+			&kptfileStatusJSON)
 
 		if err != nil {
 			klog.Warningf("pkgRevScanRowsFromDB: scanning rows failed: %q", err)
@@ -329,7 +330,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		setValueFromJSON(specAsJSON, &pkgRev.spec)
 		setValueFromJSON(extPRID, &pkgRev.extPRID)
 		setValueFromJSON(tasks, &pkgRev.tasks)
-		setValueFromJSON(kptfileMetaJSON, &pkgRev.kptfileMeta)
+		setValueFromJSON(kptfileStatusJSON, &pkgRev.kptfileStatus)
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}
@@ -344,7 +345,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	klog.V(5).Infof("pkgRevWriteToDB: writing package revision %+v", pr.Key())
 
 	sqlStatement := `
-        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, kptfile_meta)
+        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, kptfile_status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
@@ -353,7 +354,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	if _, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.kptfileMeta)); err == nil {
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.kptfileStatus)); err == nil {
 		klog.V(5).Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Warningf("pkgRevWriteToDB: query failed for %+v %q", pr.Key(), err)
@@ -376,13 +377,13 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	klog.V(5).Infof("pkgRevUpdateDB: updating package revision %+v", pr.Key())
 
 	sqlStatement := `
-        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, ext_pr_id=$10, tasks=$11, kptfile_meta=$12
+        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, ext_pr_id=$10, tasks=$11, kptfile_status=$12
         WHERE k8s_name_space=$1 AND k8s_name=$2
 	`
 	if pr.pkgRevKey.Revision == -1 {
 		sqlStatement = `
     INSERT INTO package_revisions (
-        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, kptfile_meta
+        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, kptfile_status
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
     )
@@ -397,7 +398,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
         lifecycle        = EXCLUDED.lifecycle,
         ext_pr_id        = EXCLUDED.ext_pr_id,
         tasks            = EXCLUDED.tasks,
-        kptfile_meta     = EXCLUDED.kptfile_meta;
+        kptfile_status     = EXCLUDED.kptfile_status;
 	`
 	}
 
@@ -406,7 +407,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	result, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.kptfileMeta))
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.kptfileStatus))
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
@@ -488,9 +489,10 @@ func findUpstreamRefsFromDB(ctx context.Context, namespace, prName string) (stri
 	return downstreamName, nil
 }
 
-// backfillKptfileMeta populates the kptfile_meta column for any package
+// backfillKptfileMeta populates the kptfile_status column for any package
 // revisions that still have the default empty value. It reads the Kptfile
-// resource for each such row, parses it, and stores the extracted metadata.
+// resource for each such row, parses it, and stores the extracted status
+// (conditions, upstreamLock) and updates the spec (readinessGates, packageMetadata).
 // This runs once on startup to handle rows created before the column existed.
 func backfillKptfileMeta(ctx context.Context) error {
 	tx, err := GetDB().db.BeginTx(ctx, nil)
@@ -500,23 +502,21 @@ func backfillKptfileMeta(ctx context.Context) error {
 	defer tx.Rollback() //nolint:errcheck
 
 	sqlSelect := `
-		SELECT pr.k8s_name_space, pr.k8s_name, r.resource_value
+		SELECT pr.k8s_name_space, pr.k8s_name, pr.spec, r.resource_value
 		FROM package_revisions pr
 		JOIN resources r ON pr.k8s_name_space = r.k8s_name_space AND pr.k8s_name = r.k8s_name
-		WHERE pr.kptfile_meta = '{}' AND r.resource_key = 'Kptfile'
+		WHERE pr.kptfile_status = '{}' AND r.resource_key = 'Kptfile'
 	`
 	rows, err := tx.QueryContext(ctx, sqlSelect)
 	if err != nil {
 		return fmt.Errorf("backfillKptfileMeta: query failed: %w", err)
 	}
 
-	// Collect all rows first — the driver does not support interleaving
-	// reads and writes on the same transaction connection.
-	type row struct{ ns, name, kfYAML string }
+	type row struct{ ns, name, specJSON, kfYAML string }
 	var pending []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.ns, &r.name, &r.kfYAML); err != nil {
+		if err := rows.Scan(&r.ns, &r.name, &r.specJSON, &r.kfYAML); err != nil {
 			rows.Close()
 			return fmt.Errorf("backfillKptfileMeta: scan failed: %w", err)
 		}
@@ -524,10 +524,17 @@ func backfillKptfileMeta(ctx context.Context) error {
 	}
 	rows.Close()
 
-	sqlUpdate := `UPDATE package_revisions SET kptfile_meta = $3 WHERE k8s_name_space = $1 AND k8s_name = $2`
+	sqlUpdate := `UPDATE package_revisions SET kptfile_status = $3, spec = $4 WHERE k8s_name_space = $1 AND k8s_name = $2`
 	for _, r := range pending {
-		meta := extractKptfileMeta(map[string]string{kptfile.KptFileName: r.kfYAML})
-		if _, err := tx.ExecContext(ctx, sqlUpdate, r.ns, r.name, valueAsJSON(meta)); err != nil {
+		resources := map[string]string{kptfile.KptFileName: r.kfYAML}
+		status, gates, pkgMeta := extractFromKptfile(resources)
+
+		var spec porchapi.PackageRevisionSpec
+		setValueFromJSON(r.specJSON, &spec)
+		spec.ReadinessGates = gates
+		spec.PackageMetadata = pkgMeta
+
+		if _, err := tx.ExecContext(ctx, sqlUpdate, r.ns, r.name, valueAsJSON(status), valueAsJSON(spec)); err != nil {
 			return fmt.Errorf("backfillKptfileMeta: update failed for %s/%s: %w", r.ns, r.name, err)
 		}
 	}
@@ -536,7 +543,7 @@ func backfillKptfileMeta(ctx context.Context) error {
 		return fmt.Errorf("backfillKptfileMeta: commit failed: %w", err)
 	}
 	if len(pending) > 0 {
-		klog.Infof("backfillKptfileMeta: populated kptfile_meta for %d package revisions", len(pending))
+		klog.Infof("backfillKptfileMeta: populated kptfile_status for %d package revisions", len(pending))
 	}
 	return nil
 }

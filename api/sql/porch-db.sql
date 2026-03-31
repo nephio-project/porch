@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     ext_pr_id        TEXT NOT NULL,
     latest           BOOLEAN NOT NULL DEFAULT FALSE,
     tasks            TEXT NOT NULL,
-    kptfile_meta     TEXT NOT NULL DEFAULT '{}',
+    kptfile_status   TEXT NOT NULL DEFAULT '{}',
     PRIMARY KEY (k8s_name_space, k8s_name),
     CONSTRAINT fk_package
         FOREIGN KEY (k8s_name_space, package_k8s_name)

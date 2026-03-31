@@ -230,7 +230,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			extPRID:     extPRUpstreamLock,
 			tasks:       extAPIPR.Spec.Tasks,
 			resources:   resources,
-			kptfileMeta: extractKptfileMeta(resources),
+			kptfileStatus: extractKptfileStatus(resources),
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {

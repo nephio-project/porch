@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
--- Add the kptfile_meta column to cache pre-parsed Kptfile metadata fields
--- (conditions, readinessGates, Kptfile labels and annotations) needed for
--- serving PackageRevision API queries without re-parsing the Kptfile YAML
--- on every read.
+-- Add the kptfile_status column to cache Kptfile-derived status fields
+-- (conditions, upstreamLock) needed for serving PackageRevision API queries
+-- without re-parsing the Kptfile YAML on every read.
 --
 -- Existing rows default to '{}'. The Porch server automatically backfills
 -- this column on startup by reading each Kptfile resource from the resources
--- table, parsing it, and storing the extracted metadata. No manual resync
--- is required.
+-- table, parsing it, and storing the extracted status. It also backfills
+-- the spec column with readinessGates and packageMetadata from the Kptfile.
+-- No manual resync is required.
 
 ALTER TABLE package_revisions
-    ADD COLUMN IF NOT EXISTS kptfile_meta TEXT NOT NULL DEFAULT '{}';
+    ADD COLUMN IF NOT EXISTS kptfile_status TEXT NOT NULL DEFAULT '{}';
