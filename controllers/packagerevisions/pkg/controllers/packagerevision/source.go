@@ -15,10 +15,10 @@
 package packagerevision
 
 import (
-	"maps"
 	"context"
 	"fmt"
 	iofs "io/fs"
+	"maps"
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"

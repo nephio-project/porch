@@ -50,11 +50,13 @@ func newV1Alpha2Runner(ctx context.Context, rcg *genericclioptions.ConfigFlags) 
 
 func (r *v1alpha2Runner) preRunE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".preRunE"
-	c, err := cliutils.CreateV1Alpha2ClientWithFlags(r.cfg)
-	if err != nil {
-		return errors.E(op, err)
+	if r.client == nil {
+		c, err := cliutils.CreateV1Alpha2ClientWithFlags(r.cfg)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		r.client = c
 	}
-	r.client = c
 
 	// Read shared flags from the command (flags are bound to the v1alpha1 runner)
 	r.revision, _ = cmd.Flags().GetInt("revision")
@@ -273,7 +275,6 @@ func (r *v1alpha2Runner) findLatestPackageRevisionForRef(name, repo string) *por
 	return output
 }
 
-
 // findUpstreamName walks spec.source to find the upstream PR name.
 func (r *v1alpha2Runner) findUpstreamName(pr *porchv1alpha2.PackageRevision) string {
 	if pr.Spec.Source == nil {
@@ -322,9 +323,3 @@ func (r *v1alpha2Runner) findUpstreamBySelfLock(lock *porchv1alpha2.Locator) *po
 	}
 	return nil
 }
-
-
-
-
-
-

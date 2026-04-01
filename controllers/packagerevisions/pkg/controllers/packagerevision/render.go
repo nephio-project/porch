@@ -23,8 +23,8 @@ import (
 	"time"
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
-	"github.com/kptdev/kpt/pkg/fn"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
@@ -192,7 +192,6 @@ func isRenderedTrue(pr *porchv1alpha2.PackageRevision) bool {
 	}
 	return false
 }
-
 
 // isPushOnRenderFailure returns true if the PR opts into persisting resources on render failure.
 func isPushOnRenderFailure(pr *porchv1alpha2.PackageRevision) bool {

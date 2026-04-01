@@ -39,16 +39,16 @@ import (
 // git operations via the shared cache.
 type PackageRevisionReconciler struct {
 	client.Client
-	Scheme                 		*runtime.Scheme
-	ContentCache           		repository.ContentCache
-	ExternalPackageFetcher 		repository.ExternalPackageFetcher
-	Renderer               		Renderer // nil = skip rendering
+	Scheme                 *runtime.Scheme
+	ContentCache           repository.ContentCache
+	ExternalPackageFetcher repository.ExternalPackageFetcher
+	Renderer               Renderer // nil = skip rendering
 
-	MaxConcurrentReconciles    	int
-	MaxConcurrentRenders       	int
-	RepoOperationRetryAttempts 	int
-	loggerName                 	string
-	renderLimiter              	chan struct{} // bounds concurrent fn-runner calls
+	MaxConcurrentReconciles    int
+	MaxConcurrentRenders       int
+	RepoOperationRetryAttempts int
+	loggerName                 string
+	renderLimiter              chan struct{} // bounds concurrent fn-runner calls
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -185,7 +185,6 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 	return &result, nil
 }
 
-
 // reconcileRender checks if rendering is needed and renders if so.
 // Two triggers:
 //   - Annotation porch.kpt.dev/render-request differs from status.observedPrrResourceVersion (push path)
@@ -261,4 +260,3 @@ func (r *PackageRevisionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return err
 }
-

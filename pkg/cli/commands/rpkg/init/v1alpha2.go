@@ -50,11 +50,13 @@ func newV1Alpha2Runner(ctx context.Context, rcg *genericclioptions.ConfigFlags) 
 func (r *v1alpha2Runner) preRunE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	c, err := cliutils.CreateV1Alpha2ClientWithFlags(r.cfg)
-	if err != nil {
-		return errors.E(op, err)
+	if r.client == nil {
+		c, err := cliutils.CreateV1Alpha2ClientWithFlags(r.cfg)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		r.client = c
 	}
-	r.client = c
 
 	if len(args) < 1 {
 		return errors.E(op, "PACKAGE_NAME is a required positional argument")

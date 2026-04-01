@@ -166,8 +166,8 @@ const (
 )
 
 const (
-	AnnotationKeyV1Alpha2Migration   = "porch.kpt.dev/v1alpha2-migration"
-	AnnotationValueMigrationEnabled  = "true"
+	AnnotationKeyV1Alpha2Migration  = "porch.kpt.dev/v1alpha2-migration"
+	AnnotationValueMigrationEnabled = "true"
 )
 
 // RepositoryStatus defines the observed state of Repository

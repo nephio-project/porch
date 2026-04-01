@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/controllers/packagerevisions/pkg/controllers/packagerevision"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
@@ -48,7 +49,6 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	porch "github.com/nephio-project/porch/pkg/registry/porch"
 	repolib "github.com/nephio-project/porch/pkg/repository"
-	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"

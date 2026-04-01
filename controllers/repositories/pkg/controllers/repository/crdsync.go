@@ -270,6 +270,3 @@ func packageRevisionLabelsForUpdate(repoName string) map[string]string {
 		RepositoryLabel: repoName,
 	}
 }
-
-
-
