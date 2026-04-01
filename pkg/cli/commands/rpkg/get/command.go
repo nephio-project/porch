@@ -99,37 +99,12 @@ type runner struct {
 }
 
 func (r *runner) preRunE(cmd *cobra.Command, args []string) error {
-	// Check for --namespace or -n flag specified without a value
-	nsFlag := cmd.Flag("namespace")
-	nFlag := cmd.Flag("n")
-	if (nsFlag != nil && nsFlag.Changed && nsFlag.Value.String() == "") ||
-		(nFlag != nil && nFlag.Changed && nFlag.Value.String() == "") {
-		return fmt.Errorf("error: namespace flag specified without a value; please provide a value for --namespace/-n or omit the flag")
+	if err := r.validateNamespaceFlag(cmd); err != nil {
+		return err
 	}
 
 	if r.showKptfile {
-		if len(args) != 1 {
-			return fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument")
-		}
-		if r.packageName != "" || r.revision != -2 || r.workspace != "" {
-			return fmt.Errorf("--show-kptfile cannot be combined with --name, --revision, or --workspace")
-		}
-		if r.getFlags.AllNamespaces {
-			return fmt.Errorf("--show-kptfile cannot be combined with --all-namespaces")
-		}
-		if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
-			namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
-			if err != nil {
-				return fmt.Errorf("error getting namespace: %w", err)
-			}
-			r.getFlags.ConfigFlags.Namespace = &namespace
-		}
-		c, err := cliutils.CreateClientWithFlags(r.getFlags.ConfigFlags)
-		if err != nil {
-			return err
-		}
-		r.client = c
-		return nil
+		return r.preRunShowKptfile(args)
 	}
 
 	// Print the namespace if we're spanning namespaces
@@ -146,10 +121,50 @@ func (r *runner) preRunE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func (r *runner) validateNamespaceFlag(cmd *cobra.Command) error {
+	nsFlag := cmd.Flag("namespace")
+	nFlag := cmd.Flag("n")
+	if (nsFlag != nil && nsFlag.Changed && nsFlag.Value.String() == "") ||
+		(nFlag != nil && nFlag.Changed && nFlag.Value.String() == "") {
+		return fmt.Errorf("namespace flag specified without a value; please provide a value for --namespace/-n or omit the flag")
+	}
+	return nil
+}
+
+func (r *runner) preRunShowKptfile(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument")
+	}
+	if r.packageName != "" || r.revision != -2 || r.workspace != "" {
+		return fmt.Errorf("--show-kptfile cannot be combined with --name, --revision, or --workspace")
+	}
+	if r.getFlags.AllNamespaces {
+		return fmt.Errorf("--show-kptfile cannot be combined with --all-namespaces")
+	}
+	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return fmt.Errorf("error getting namespace: %w", err)
+		}
+		r.getFlags.ConfigFlags.Namespace = &namespace
+	}
+	if r.client == nil {
+		c, err := cliutils.CreateClientWithFlags(r.getFlags.ConfigFlags)
+		if err != nil {
+			return err
+		}
+		r.client = c
+	}
+	return nil
+}
+
 func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 
 	if r.showKptfile {
+		if len(args) != 1 {
+			return errors.E(op, fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument"))
+		}
 		return r.showKptfileContent(cmd, args[0])
 	}
 
@@ -364,7 +379,18 @@ func (r *runner) showKptfileContent(cmd *cobra.Command, name string) error {
 	const op errors.Op = command + ".showKptfileContent"
 
 	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
-		return errors.E(op, fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig"))
+		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return errors.E(op, fmt.Errorf("error resolving namespace from kubeconfig: %w", err))
+		}
+		if namespace == "" {
+			return errors.E(op, fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig"))
+		}
+		r.getFlags.ConfigFlags.Namespace = &namespace
+	}
+
+	if r.client == nil {
+		return errors.E(op, fmt.Errorf("client is not initialized; ensure preRunE has been executed"))
 	}
 
 	var resources porchapi.PackageRevisionResources
@@ -380,6 +406,8 @@ func (r *runner) showKptfileContent(cmd *cobra.Command, name string) error {
 		return errors.E(op, fmt.Errorf("package revision %q does not contain a root Kptfile", name))
 	}
 
-	fmt.Fprint(cmd.OutOrStdout(), kptfile)
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), kptfile); err != nil {
+		return errors.E(op, err)
+	}
 	return nil
 }

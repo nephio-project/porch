@@ -17,6 +17,9 @@ package get
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
@@ -28,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -266,56 +270,65 @@ func TestShowKptfilePreRunE(t *testing.T) {
 	ctx := context.Background()
 	ns := "default"
 	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
-	r := newRunner(ctx, &gcf)
-	r.showKptfile = true
 	cmd := NewCommand(ctx, &gcf)
 
 	// no args should fail
-	err := r.preRunE(cmd, []string{})
+	noArgsRunner := newRunner(ctx, &gcf)
+	noArgsRunner.showKptfile = true
+	err := noArgsRunner.preRunE(cmd, []string{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile requires exactly one package revision name")
 
 	// multiple args should fail
-	err = r.preRunE(cmd, []string{"pkg1", "pkg2"})
+	multiArgsRunner := newRunner(ctx, &gcf)
+	multiArgsRunner.showKptfile = true
+	err = multiArgsRunner.preRunE(cmd, []string{"pkg1", "pkg2"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile requires exactly one package revision name")
 
 	// --show-kptfile with --name should fail
-	r2 := newRunner(ctx, &gcf)
-	r2.showKptfile = true
-	r2.packageName = "some-pkg"
-	err = r2.preRunE(cmd, []string{"pkg1"})
+	withNameRunner := newRunner(ctx, &gcf)
+	withNameRunner.showKptfile = true
+	withNameRunner.packageName = "some-pkg"
+	err = withNameRunner.preRunE(cmd, []string{"pkg1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile cannot be combined with --name, --revision, or --workspace")
 
 	// --show-kptfile with --revision should fail
-	r3 := newRunner(ctx, &gcf)
-	r3.showKptfile = true
-	r3.revision = 1
-	err = r3.preRunE(cmd, []string{"pkg1"})
+	withRevisionRunner := newRunner(ctx, &gcf)
+	withRevisionRunner.showKptfile = true
+	withRevisionRunner.revision = 1
+	err = withRevisionRunner.preRunE(cmd, []string{"pkg1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile cannot be combined with --name, --revision, or --workspace")
 
 	// --show-kptfile with --workspace should fail
-	r4 := newRunner(ctx, &gcf)
-	r4.showKptfile = true
-	r4.workspace = "ws1"
-	err = r4.preRunE(cmd, []string{"pkg1"})
+	withWorkspaceRunner := newRunner(ctx, &gcf)
+	withWorkspaceRunner.showKptfile = true
+	withWorkspaceRunner.workspace = "ws1"
+	err = withWorkspaceRunner.preRunE(cmd, []string{"pkg1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile cannot be combined with --name, --revision, or --workspace")
 
 	// --show-kptfile with --all-namespaces should fail
-	r5 := newRunner(ctx, &gcf)
-	r5.showKptfile = true
-	r5.getFlags.AllNamespaces = true
-	err = r5.preRunE(cmd, []string{"pkg1"})
+	withAllNsRunner := newRunner(ctx, &gcf)
+	withAllNsRunner.showKptfile = true
+	withAllNsRunner.getFlags.AllNamespaces = true
+	err = withAllNsRunner.preRunE(cmd, []string{"pkg1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--show-kptfile cannot be combined with --all-namespaces")
+
+	// happy path: pre-injected client, namespace provided
+	happyRunner := newRunner(ctx, &gcf)
+	happyRunner.showKptfile = true
+	happyRunner.client = fake.NewClientBuilder().Build()
+	err = happyRunner.preRunE(cmd, []string{"pkg1"})
+	assert.NoError(t, err)
 }
 
 func TestShowKptfileContent(t *testing.T) {
-	ns := "ns"
 	ctx := context.Background()
+	ns := "ns"
 
 	scheme := runtime.NewScheme()
 	if err := porchapi.AddToScheme(scheme); err != nil {
@@ -330,102 +343,187 @@ info:
   description: test package
 `
 
-	testCases := map[string]struct {
-		resources map[string]string
-		wantOut   string
-		wantErr   bool
-		errMsg    string
-	}{
-		"shows root Kptfile": {
-			resources: map[string]string{
-				"Kptfile":        kptfileContent,
-				"nested/Kptfile": "should not appear",
-				"cm.yaml":        "should not appear",
-			},
-			wantOut: kptfileContent,
-		},
-		"no Kptfile in package": {
-			resources: map[string]string{
-				"cm.yaml": "apiVersion: v1\nkind: ConfigMap\n",
-			},
-			wantErr: true,
-			errMsg:  "does not contain a root Kptfile",
-		},
+	newFakeClient := func(resources map[string]string) client.Client {
+		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(&porchapi.PackageRevisionResources{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-repo.test-pkg.v1", Namespace: ns},
+			Spec:       porchapi.PackageRevisionResourcesSpec{Resources: resources},
+		}).Build()
 	}
 
-	for tn, tc := range testCases {
-		t.Run(tn, func(t *testing.T) {
-			c := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevisionResources{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-repo.test-pkg.v1",
-						Namespace: ns,
-					},
-					Spec: porchapi.PackageRevisionResourcesSpec{
-						Resources: tc.resources,
-					},
-				}).
-				Build()
-
-			r := &runner{
-				ctx:      ctx,
-				getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
-				client:   c,
-			}
-
-			out := &bytes.Buffer{}
-			cmd := &cobra.Command{}
-			cmd.SetOut(out)
-
-			err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
-			if tc.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.errMsg)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.wantOut, out.String())
-			}
-		})
-	}
-
-	// Test nil namespace
-	t.Run("nil namespace", func(t *testing.T) {
-		r := &runner{
-			ctx:      ctx,
-			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: nil}},
-			client:   fake.NewClientBuilder().WithScheme(scheme).Build(),
-		}
-		cmd := &cobra.Command{}
-		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "namespace is not configured")
-	})
-
-	// Test empty namespace
-	t.Run("empty namespace", func(t *testing.T) {
-		emptyNs := ""
-		r := &runner{
-			ctx:      ctx,
-			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &emptyNs}},
-			client:   fake.NewClientBuilder().WithScheme(scheme).Build(),
-		}
-		cmd := &cobra.Command{}
-		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "namespace is not configured")
-	})
-
-	// Test package not found
-	t.Run("package not found", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	t.Run("shows root Kptfile", func(t *testing.T) {
 		r := &runner{
 			ctx:      ctx,
 			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
-			client:   c,
+			client: newFakeClient(map[string]string{
+				"Kptfile":        kptfileContent,
+				"nested/Kptfile": "should not appear",
+				"cm.yaml":        "should not appear",
+			}),
+		}
+		out := &bytes.Buffer{}
+		cmd := &cobra.Command{}
+		cmd.SetOut(out)
+		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
+		assert.NoError(t, err)
+		assert.Equal(t, kptfileContent, out.String())
+	})
+
+	t.Run("no Kptfile in package", func(t *testing.T) {
+		r := &runner{
+			ctx:      ctx,
+			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+			client:   newFakeClient(map[string]string{"cm.yaml": "apiVersion: v1\nkind: ConfigMap\n"}),
+		}
+		cmd := &cobra.Command{}
+		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not contain a root Kptfile")
+	})
+
+	t.Run("package not found", func(t *testing.T) {
+		r := &runner{
+			ctx:      ctx,
+			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+			client:   fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
 		cmd := &cobra.Command{}
 		err := r.showKptfileContent(cmd, "nonexistent-pkg")
 		assert.Error(t, err)
 	})
+
+	t.Run("nil client", func(t *testing.T) {
+		r := &runner{
+			ctx:      ctx,
+			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+		}
+		cmd := &cobra.Command{}
+		err := r.showKptfileContent(cmd, "some-pkg")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "client is not initialized")
+	})
+
+	t.Run("write error", func(t *testing.T) {
+		r := &runner{
+			ctx:      ctx,
+			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+			client:   newFakeClient(map[string]string{"Kptfile": "content"}),
+		}
+		cmd := &cobra.Command{}
+		cmd.SetOut(&errWriter{})
+		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "broken pipe")
+	})
+
+	// NOTE: No other command in this repo unit-tests kubeconfig namespace resolution;
+	// they always supply an explicit namespace via ConfigFlags. This subtest is added
+	// specifically to satisfy code coverage requirements for the --show-kptfile feature.
+	t.Run("namespace resolved from kubeconfig", func(t *testing.T) {
+		resolvedNs := "resolved-ns"
+		kubeconfigPath := testKubeconfig(t, resolvedNs)
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&porchapi.PackageRevisionResources{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-repo.test-pkg.v1", Namespace: resolvedNs},
+			Spec:       porchapi.PackageRevisionResourcesSpec{Resources: map[string]string{"Kptfile": "content"}},
+		}).Build()
+		r := &runner{
+			ctx:      ctx,
+			getFlags: cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{KubeConfig: &kubeconfigPath}},
+			client:   c,
+		}
+		out := &bytes.Buffer{}
+		cmd := &cobra.Command{}
+		cmd.SetOut(out)
+		err := r.showKptfileContent(cmd, "test-repo.test-pkg.v1")
+		assert.NoError(t, err)
+		assert.Equal(t, "content", out.String())
+	})
+}
+
+type errWriter struct{}
+
+func (e *errWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("broken pipe")
+}
+
+func TestShowKptfileRunE(t *testing.T) {
+	ctx := context.Background()
+	ns := "ns"
+
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	t.Run("no args", func(t *testing.T) {
+		r := &runner{
+			ctx:         ctx,
+			showKptfile: true,
+			getFlags:    cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+		}
+		cmd := &cobra.Command{}
+		err := r.runE(cmd, []string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "--show-kptfile requires exactly one package revision name")
+	})
+
+	t.Run("happy path", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&porchapi.PackageRevisionResources{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-repo.test-pkg.v1", Namespace: ns},
+			Spec:       porchapi.PackageRevisionResourcesSpec{Resources: map[string]string{"Kptfile": "content"}},
+		}).Build()
+		r := &runner{
+			ctx:         ctx,
+			showKptfile: true,
+			getFlags:    cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+			client:      c,
+		}
+		out := &bytes.Buffer{}
+		cmd := &cobra.Command{}
+		cmd.SetOut(out)
+		err := r.runE(cmd, []string{"test-repo.test-pkg.v1"})
+		assert.NoError(t, err)
+		assert.Equal(t, "content", out.String())
+	})
+}
+
+// testKubeconfig writes a minimal kubeconfig to a temp directory and returns its path.
+// NOTE: Other commands in this repo do not unit-test kubeconfig namespace resolution;
+// they always supply an explicit namespace via ConfigFlags. These tests are added
+// specifically to satisfy code coverage requirements for the --show-kptfile feature.
+func testKubeconfig(t *testing.T, namespace string) string {
+	t.Helper()
+	content := fmt.Sprintf(`apiVersion: v1
+kind: Config
+current-context: test
+contexts:
+- context:
+    cluster: test
+    namespace: %s
+  name: test
+clusters:
+- cluster:
+    server: https://localhost:6443
+  name: test
+`, namespace)
+	p := filepath.Join(t.TempDir(), "kubeconfig")
+	if err := os.WriteFile(p, []byte(content), 0600); err != nil {
+		t.Fatalf("failed to write test kubeconfig: %v", err)
+	}
+	return p
+}
+
+// NOTE: No other command in this repo unit-tests kubeconfig namespace resolution;
+// added here specifically to satisfy code coverage requirements for --show-kptfile.
+func TestPreRunShowKptfileNamespaceResolution(t *testing.T) {
+	ctx := context.Background()
+	kubeconfigPath := testKubeconfig(t, "resolved-ns")
+	gcf := genericclioptions.ConfigFlags{KubeConfig: &kubeconfigPath}
+	r := newRunner(ctx, &gcf)
+	r.showKptfile = true
+	cmd := NewCommand(ctx, &gcf)
+
+	err := r.preRunE(cmd, []string{"pkg1"})
+	assert.NoError(t, err)
+	assert.Equal(t, "resolved-ns", *r.getFlags.ConfigFlags.Namespace)
+	assert.NotNil(t, r.client)
 }
