@@ -29,7 +29,7 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Resolve the last 2 published releases and build the server matrix
+  # 1. Resolve the last 4 published releases and build the server matrix
   # ---------------------------------------------------------------------------
   resolve-versions:
     name: Resolve Versions
@@ -38,7 +38,7 @@ jobs:
       releases: ${{ steps.releases.outputs.versions }}
       server_matrix: ${{ steps.matrix.outputs.server_matrix }}
     steps:
-      - name: Get last 2 releases
+      - name: Get last 4 releases
         id: releases
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,7 +46,7 @@ jobs:
         run: |
           # Always query upstream repo for releases (works correctly from forks)
           VERSIONS=$(gh api repos/${UPSTREAM_REPO}/releases \
-            --jq '[.[] | select(.draft == false)] | sort_by(.published_at) | reverse | .[0:2] | [.[].tag_name]')
+            --jq '[.[] | select(.draft == false)] | sort_by(.published_at) | reverse | .[0:4] | [.[].tag_name]')
           echo "versions=${VERSIONS}" >> "$GITHUB_OUTPUT"
           echo "Resolved releases: ${VERSIONS}"
 
@@ -99,6 +99,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # --- Install's kpt based on porch go.mod native version ---
+
       - name: Install kpt
         run: |
           KPT_VERSION=$(go list -m -f '{{.Version}}' github.com/kptdev/kpt 2>/dev/null)
@@ -143,7 +145,7 @@ jobs:
           echo "=============================================="
           make run-in-kind-db-cache-no-git
 
-      # --- Step 5: Download all CLI binaries ---
+      # --- Step 5: Download the CLI binaries ---
 
       - name: Download released CLI versions
         run: |
