@@ -53,9 +53,15 @@ func TestV1Alpha2PreRunE(t *testing.T) {
 	ctx := context.Background()
 	cfg := &genericclioptions.ConfigFlags{Namespace: &ns}
 
+	scheme, err := createV1Alpha2Scheme()
+	if err != nil {
+		t.Fatalf("error creating scheme: %v", err)
+	}
+
 	r := &v1alpha2Runner{
-		ctx: ctx,
-		cfg: cfg,
+		ctx:    ctx,
+		cfg:    cfg,
+		client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 	}
 
 	cmd := &cobra.Command{}
@@ -63,7 +69,7 @@ func TestV1Alpha2PreRunE(t *testing.T) {
 	cmd.Flags().String("workspace", "v1", "")
 	cmd.Flags().String("strategy", "resource-merge", "")
 	cmd.Flags().String("discover", "", "")
-	err := r.preRunE(cmd, []string{"test-pkg"})
+	err = r.preRunE(cmd, []string{"test-pkg"})
 
 	// preRunE should succeed (it just creates a client)
 	if err != nil {
