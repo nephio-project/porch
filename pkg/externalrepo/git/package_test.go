@@ -18,6 +18,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-cmp/cmp"
@@ -145,4 +146,21 @@ func TestPackageGetters(t *testing.T) {
 	assert.Equal(t, "my-repo.my-package.my-workspace", gitPr.KubeObjectName())
 	assert.Equal(t, "my-namespace", gitPr.KubeObjectNamespace())
 	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), gitPr.UID())
+	assert.False(t, gitPr.IsLatestRevision())
+
+	ts, author := gitPr.GetCommitInfo()
+	assert.True(t, ts.IsZero())
+	assert.Empty(t, author)
+}
+
+func TestPackageGetters_WithCommitInfo(t *testing.T) {
+	now := time.Now()
+	gitPr := gitPackageRevision{
+		updated:   now,
+		updatedBy: "user@example.com",
+	}
+
+	ts, author := gitPr.GetCommitInfo()
+	assert.Equal(t, now, ts)
+	assert.Equal(t, "user@example.com", author)
 }

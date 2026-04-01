@@ -33,7 +33,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["porch.kpt.dev"]
     resources: ["packagerevisions", "packagerevisions/status", "packagerevisionresources"]
-    verbs: ["get", "list", "update", "watch"]
+    verbs: ["get", "list", "update", "watch", "patch"]
   - apiGroups: ["config.porch.kpt.dev"]
     resources: ["packagerevs", "packagerevs/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

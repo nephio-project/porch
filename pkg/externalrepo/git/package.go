@@ -252,6 +252,14 @@ func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, k
 		}, nil
 }
 
+func (p *gitPackageRevision) GetCommitInfo() (time.Time, string) {
+	return p.updated, p.updatedBy
+}
+
+func (p *gitPackageRevision) IsLatestRevision() bool {
+	return false
+}
+
 func (p *gitPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {
 	return p.repo.GetLifecycle(ctx, p)
 }

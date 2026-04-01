@@ -26,6 +26,9 @@ export PORCH_CACHE_TYPE ?= DB
 # Function runner warm-up pod cache
 export FN_RUNNER_WARM_UP_POD_CACHE ?= true
 
+# Enable v1alpha2 PackageRevision support (CRD install + controller flag + reconciler)
+export CREATE_V1ALPHA2_RPKG ?= false
+
 # Reconciler configuration
 ALL_RECONCILERS=packagevariants,packagevariantsets,repositories
 ifndef RECONCILERS
@@ -44,6 +47,19 @@ endif
 run-in-kind: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with CR cache
 run-in-kind: PORCH_CACHE_TYPE=CR
 run-in-kind: load-images-to-kind deployment-config deploy-current-config
+
+.PHONY: run-in-kind-v1alpha2
+run-in-kind-v1alpha2: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with DB cache and v1alpha2 PackageRevision CRD creation
+run-in-kind-v1alpha2: PORCH_CACHE_TYPE=DB
+run-in-kind-v1alpha2: CREATE_V1ALPHA2_RPKG=true
+run-in-kind-v1alpha2: load-images-to-kind deployment-config deploy-current-config
+
+.PHONY: run-in-kind-v1alpha2-no-controller
+run-in-kind-v1alpha2-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch with DB cache, v1alpha2, fn-runner exposed, no controller (run locally)
+run-in-kind-v1alpha2-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-v1alpha2-no-controller: PORCH_CACHE_TYPE=DB
+run-in-kind-v1alpha2-no-controller: CREATE_V1ALPHA2_RPKG=true
+run-in-kind-v1alpha2-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
 .PHONY: run-in-kind-db-cache
 run-in-kind-db-cache: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend

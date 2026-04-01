@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ func TestNewGRPCFunctionRuntimeSuccess(t *testing.T) {
 		DefaultImagePrefix:    "gcr.io/",
 	}
 
-	runtime, err := newGRPCFunctionRuntime(options)
+	runtime, err := NewGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 	require.NotNil(t, runtime)
 	assert.NotNil(t, runtime.cc)
@@ -55,7 +55,7 @@ func TestNewGRPCFunctionRuntimeEmptyAddress(t *testing.T) {
 	options := GRPCRuntimeOptions{
 		MaxGrpcMessageSize: 1024,
 	}
-	runtime, err := newGRPCFunctionRuntime(options)
+	runtime, err := NewGRPCFunctionRuntime(options)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "address is required")
 	if runtime != nil {
@@ -72,7 +72,7 @@ func TestGRPCRuntimeGetRunner(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := newGRPCFunctionRuntime(options)
+	runtime, err := NewGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 	defer runtime.Close()
 
@@ -100,7 +100,7 @@ func TestGRPCRuntimeCloseWithConnection(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := newGRPCFunctionRuntime(options)
+	runtime, err := NewGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 
 	err = runtime.Close()
@@ -117,7 +117,7 @@ func TestGRPCRuntimeCloseMultipleCalls(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := newGRPCFunctionRuntime(options)
+	runtime, err := NewGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 
 	err = runtime.Close()

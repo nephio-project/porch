@@ -54,6 +54,9 @@ type RepositoryReconciler struct {
 	SyncStaleTimeout           time.Duration // How long before sync is considered stale
 	RepoOperationRetryAttempts int           // Git operation retry attempts
 
+	// Feature flags
+	CreateV1Alpha2Rpkg bool // Create v1alpha2 PackageRevision CRDs during repo sync
+
 	// Configuration (set via flags or defaults)
 	cacheType              string // Cache type (DB or CR)
 	cacheDirectory         string // Directory for git repository cache
@@ -70,6 +73,8 @@ type RepositoryReconciler struct {
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagerevs,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 

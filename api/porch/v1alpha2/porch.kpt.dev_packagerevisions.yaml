@@ -274,7 +274,7 @@ spec:
             description: PackageRevisionStatus defines the observed state of PackageRevision
             properties:
               conditions:
-                description: Conditions for controller state (e.g., Ready).
+                description: Conditions for controller state (e.g., Ready, Rendered).
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -330,6 +330,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               creationSource:
                 description: |-
                   CreationSource indicates how this package was created (for debugging/history).
@@ -340,6 +343,11 @@ spec:
                 description: Deployment is true if this is a deployment package (in
                   a deployment repository).
                 type: boolean
+              observedGeneration:
+                description: ObservedGeneration is the generation of the PackageRevision
+                  spec that was last reconciled.
+                format: int64
+                type: integer
               observedPrrResourceVersion:
                 description: |-
                   ObservedPrrResourceVersion tracks the last observed PRR resourceVersion.
@@ -452,6 +460,8 @@ spec:
                     description: Type is the type of origin.
                     type: string
                 type: object
+            required:
+            - revision
             type: object
         type: object
     served: true

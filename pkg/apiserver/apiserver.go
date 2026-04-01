@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -163,6 +164,12 @@ func buildCompleteScheme() (*runtime.Scheme, error) {
 			func(s *runtime.Scheme) error {
 				if e := porchapi.AddToScheme(s); e != nil {
 					return fmt.Errorf("error adding porchapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := porchv1alpha2.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding porchv1alpha2 to scheme: %w", e)
 				}
 				return nil
 			},

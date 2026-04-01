@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,11 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// isV1Alpha2Repo returns true if the repository is annotated for v1alpha2 CRD management.
+func isV1Alpha2Repo(repo *configapi.Repository) bool {
+	return repo.Annotations[configapi.AnnotationKeyV1Alpha2Migration] == configapi.AnnotationValueMigrationEnabled
+}
 
 const ConflictErrorMsgBase = "another request is already in progress %s"
 
@@ -121,14 +126,38 @@ func (n *namespaceFilteringWatcher) OnPackageRevisionChange(eventType watch.Even
 	return n.delegate.OnPackageRevisionChange(eventType, obj)
 }
 
+// v1alpha2FilteringWatcher filters out watch events for v1alpha2-managed repositories.
+type v1alpha2FilteringWatcher struct {
+	coreClient client.Client
+	delegate   engine.ObjectWatcher
+}
+
+func (v *v1alpha2FilteringWatcher) OnPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) bool {
+	repoName := obj.Key().RKey().Name
+	ns := obj.KubeObjectNamespace()
+	var repo configapi.Repository
+	if err := v.coreClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, &repo); err != nil {
+		// If we can't look up the repo, let the event through (fail open)
+		return v.delegate.OnPackageRevisionChange(eventType, obj)
+	}
+	if isV1Alpha2Repo(&repo) {
+		return true // skip, but keep watching
+	}
+	return v.delegate.OnPackageRevisionChange(eventType, obj)
+}
+
 func (r *packageCommon) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	wrappedCallback := callback
 	if namespaced && ns != "" {
 		wrappedCallback = &namespaceFilteringWatcher{
 			ns:       ns,
-			delegate: callback,
+			delegate: wrappedCallback,
 		}
+	}
+	wrappedCallback = &v1alpha2FilteringWatcher{
+		coreClient: r.coreClient,
+		delegate:   wrappedCallback,
 	}
 	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter, wrappedCallback); err != nil {
 		return err
@@ -314,6 +343,13 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 			return nil, false, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
 		}
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
+	}
+
+	if isV1Alpha2Repo(&repositoryObj) {
+		return nil, false, apierrors.NewForbidden(
+			porchapi.Resource("packagerevisions"),
+			name,
+			fmt.Errorf("repository %q is managed by v1alpha2 controller", repositoryID.Name))
 	}
 
 	var parentPackage repository.PackageRevision

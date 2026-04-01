@@ -386,6 +386,10 @@ func (pr *dbPackageRevision) IsLatestRevision() bool {
 	return pr.latest
 }
 
+func (pr *dbPackageRevision) GetCommitInfo() (time.Time, string) {
+	return pr.updated, pr.updatedBy
+}
+
 func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetKptfile", trace.WithAttributes())
 	defer span.End()

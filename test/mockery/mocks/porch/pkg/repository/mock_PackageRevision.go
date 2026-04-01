@@ -6,6 +6,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -40,6 +41,59 @@ type MockPackageRevision_Expecter struct {
 
 func (_m *MockPackageRevision) EXPECT() *MockPackageRevision_Expecter {
 	return &MockPackageRevision_Expecter{mock: &_m.Mock}
+}
+
+// GetCommitInfo provides a mock function for the type MockPackageRevision
+func (_mock *MockPackageRevision) GetCommitInfo() (time.Time, string) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCommitInfo")
+	}
+
+	var r0 time.Time
+	var r1 string
+	if returnFunc, ok := ret.Get(0).(func() (time.Time, string)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() time.Time); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(time.Time)
+	}
+	if returnFunc, ok := ret.Get(1).(func() string); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+	return r0, r1
+}
+
+// MockPackageRevision_GetCommitInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCommitInfo'
+type MockPackageRevision_GetCommitInfo_Call struct {
+	*mock.Call
+}
+
+// GetCommitInfo is a helper method to define mock.On call
+func (_e *MockPackageRevision_Expecter) GetCommitInfo() *MockPackageRevision_GetCommitInfo_Call {
+	return &MockPackageRevision_GetCommitInfo_Call{Call: _e.mock.On("GetCommitInfo")}
+}
+
+func (_c *MockPackageRevision_GetCommitInfo_Call) Run(run func()) *MockPackageRevision_GetCommitInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockPackageRevision_GetCommitInfo_Call) Return(time1 time.Time, s string) *MockPackageRevision_GetCommitInfo_Call {
+	_c.Call.Return(time1, s)
+	return _c
+}
+
+func (_c *MockPackageRevision_GetCommitInfo_Call) RunAndReturn(run func() (time.Time, string)) *MockPackageRevision_GetCommitInfo_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetKptfile provides a mock function for the type MockPackageRevision
@@ -398,6 +452,94 @@ func (_c *MockPackageRevision_GetUpstreamLock_Call) Return(upstream v1.Upstream,
 }
 
 func (_c *MockPackageRevision_GetUpstreamLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.Locator, error)) *MockPackageRevision_GetUpstreamLock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsLatestRevision provides a mock function for the type MockPackageRevision
+func (_mock *MockPackageRevision) IsLatestRevision() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsLatestRevision")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockPackageRevision_IsLatestRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsLatestRevision'
+type MockPackageRevision_IsLatestRevision_Call struct {
+	*mock.Call
+}
+
+// IsLatestRevision is a helper method to define mock.On call
+func (_e *MockPackageRevision_Expecter) IsLatestRevision() *MockPackageRevision_IsLatestRevision_Call {
+	return &MockPackageRevision_IsLatestRevision_Call{Call: _e.mock.On("IsLatestRevision")}
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) Run(run func()) *MockPackageRevision_IsLatestRevision_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) Return(b bool) *MockPackageRevision_IsLatestRevision_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) RunAndReturn(run func() bool) *MockPackageRevision_IsLatestRevision_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsLatestRevision provides a mock function for the type MockPackageRevision
+func (_mock *MockPackageRevision) IsLatestRevision() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsLatestRevision")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockPackageRevision_IsLatestRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsLatestRevision'
+type MockPackageRevision_IsLatestRevision_Call struct {
+	*mock.Call
+}
+
+// IsLatestRevision is a helper method to define mock.On call
+func (_e *MockPackageRevision_Expecter) IsLatestRevision() *MockPackageRevision_IsLatestRevision_Call {
+	return &MockPackageRevision_IsLatestRevision_Call{Call: _e.mock.On("IsLatestRevision")}
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) Run(run func()) *MockPackageRevision_IsLatestRevision_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) Return(b bool) *MockPackageRevision_IsLatestRevision_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockPackageRevision_IsLatestRevision_Call) RunAndReturn(run func() bool) *MockPackageRevision_IsLatestRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -296,9 +297,12 @@ type PackageRevision interface {
 
 	// Set the Kubernetes metadata for the package revision
 	SetMeta(ctx context.Context, meta metav1.ObjectMeta) error
-}
 
-type hasLatestRevisionInfo interface {
+	// GetCommitInfo returns the commit time and author for the package revision.
+	// Returns zero values for backends that don't track commits (e.g. OCI).
+	GetCommitInfo() (time.Time, string)
+
+	// IsLatestRevision returns true if this is the latest published revision of its package.
 	IsLatestRevision() bool
 }
 
@@ -404,12 +408,7 @@ func getPkgRevLabels(p PackageRevision) labels.Set {
 		}
 		return labels
 	}()
-	isLatest := func() bool {
-		if cachedPr, ok := p.(hasLatestRevisionInfo); ok {
-			return cachedPr.IsLatestRevision()
-		}
-		return false
-	}()
+	isLatest := p.IsLatestRevision()
 	if isLatest {
 		labelSet[porchapi.LatestPackageRevisionKey] = porchapi.LatestPackageRevisionValue
 	}

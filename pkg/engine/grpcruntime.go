@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ type grpcRuntime struct {
 	client evaluator.FunctionEvaluatorClient
 }
 
-func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
+func NewGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
 	if options.FunctionRunnerAddress == "" {
 		return nil, fmt.Errorf("address is required to instantiate gRPC function runtime")
 	}
@@ -112,4 +112,25 @@ func (gr *grpcRunner) Run(r io.Reader, w io.Writer) error {
 		return fmt.Errorf("failed to write function runner output: %w", err)
 	}
 	return nil
+}
+
+// NewMultiFunctionRuntime creates a FunctionRuntime that tries builtin functions
+// first, then falls back to the gRPC fn-runner.
+func NewMultiFunctionRuntime(grpcAddress string, maxGrpcMessageSize int, defaultImagePrefix string) (fn.FunctionRuntime, error) {
+	builtin := NewBuiltinRuntime(defaultImagePrefix)
+
+	if grpcAddress == "" {
+		return builtin, nil
+	}
+
+	grpc, err := NewGRPCFunctionRuntime(GRPCRuntimeOptions{
+		FunctionRunnerAddress: grpcAddress,
+		MaxGrpcMessageSize:    maxGrpcMessageSize,
+		DefaultImagePrefix:    defaultImagePrefix,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return fn.NewMultiRuntime([]fn.FunctionRuntime{builtin, grpc}), nil
 }

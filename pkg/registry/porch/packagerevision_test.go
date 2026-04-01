@@ -268,6 +268,21 @@ func TestCreate(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.True(t, apierrors.IsInternalError(err))
+
+	//=========================================================================================
+
+	// v1alpha2 repo returns Forbidden
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(args mock.Arguments) {
+			repo := args.Get(2).(*configapi.Repository)
+			repo.Annotations = map[string]string{configapi.AnnotationKeyV1Alpha2Migration: configapi.AnnotationValueMigrationEnabled}
+		}).Return(nil).Once()
+
+	result, err = packagerevisions.Create(ctx, newPkgRev, nil, &metav1.CreateOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, apierrors.IsForbidden(err))
+	assert.ErrorContains(t, err, "managed by v1alpha2 controller")
 }
 
 func TestDelete(t *testing.T) {

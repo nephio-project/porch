@@ -40,6 +40,7 @@ Supported Flags:
   --porch-cache-type TYPE             ... porch cache type (CR or DB)
   --db-push-drafts-to-git BOOL        ... enable db-push-drafts-to-git flag for porch-server
   --dockerhub-mirror REGISTRY         ... alternate registry to pull additional images from (postgres)
+  --create-v1alpha2-rpkg BOOL         ... enable v1alpha2 PackageRevision CRD creation by repo controller
 EOF
   exit 1
 }
@@ -56,6 +57,7 @@ DOCKERHUB_MIRROR=""
 FN_RUNNER_WARM_UP_POD_CACHE="true"
 PORCH_CACHE_TYPE="DB"
 DB_PUSH_DRAFTS_TO_GIT="false"
+CREATE_V1ALPHA2_RPKG="false"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -102,6 +104,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dockerhub-mirror)
       DOCKERHUB_MIRROR="${2}"
+      shift 2
+      ;;
+    --create-v1alpha2-rpkg)
+      CREATE_V1ALPHA2_RPKG="${2}"
       shift 2
       ;;
     *)
@@ -213,6 +219,25 @@ function enable_db_push_drafts_to_git() {
       --match-name porch-server \
       --match-namespace porch-system \
       -- by-value="--db-push-drafts-to-git=false" put-value="--db-push-drafts-to-git=true"
+}
+
+function enable_v1alpha2_packagerevisions() {
+    echo "Enabling v1alpha2 PackageRevision CRD creation and PR controller"
+
+    # Install the v1alpha2 PackageRevision CRD
+    cp "${PORCH_DIR}/api/porch/v1alpha2/porch.kpt.dev_packagerevisions.yaml" \
+       "${DESTINATION}/0-v1alpha2-packagerevisions.yaml"
+
+    # Flip the controller flag
+    kpt fn eval ${DESTINATION} \
+      --image ${SEARCH_REPLACE_IMG} \
+      --match-kind Deployment \
+      --match-name porch-controllers \
+      --match-namespace porch-system \
+      -- by-value="--repositories.create-v1alpha2-rpkg=false" put-value="--repositories.create-v1alpha2-rpkg=true"
+
+    # Enable the PR controller that reconciles v1alpha2 CRDs
+    ENABLED_RECONCILERS="${ENABLED_RECONCILERS},packagerevisions"
 }
 
 function configure_porch_cache() {
@@ -347,6 +372,10 @@ function main() {
 
   if [[ "${DB_PUSH_DRAFTS_TO_GIT}" == "true" ]]; then
     enable_db_push_drafts_to_git
+  fi
+
+  if [[ "${CREATE_V1ALPHA2_RPKG}" == "true" ]]; then
+    enable_v1alpha2_packagerevisions
   fi
 
   customize_controller_reconcilers

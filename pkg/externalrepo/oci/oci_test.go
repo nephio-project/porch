@@ -82,4 +82,9 @@ func TestPackageGettersAndSetters(t *testing.T) {
 	assert.Equal(t, "oci-repo-name", fakePr.parent.key.Name)
 
 	assert.Panics(t, func() { fakePr.ToMainPackageRevision(context.TODO()) }, "The code did not panic")
+
+	assert.False(t, fakePr.IsLatestRevision())
+	ts, author := fakePr.GetCommitInfo()
+	assert.True(t, ts.IsZero())
+	assert.Empty(t, author)
 }

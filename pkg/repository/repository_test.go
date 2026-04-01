@@ -19,6 +19,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -512,6 +513,10 @@ func (f *fakePackageRevision) GetMeta() metav1.ObjectMeta {
 
 func (f *fakePackageRevision) IsLatestRevision() bool {
 	return f.isLatest
+}
+
+func (f *fakePackageRevision) GetCommitInfo() (time.Time, string) {
+	return time.Time{}, ""
 }
 
 type fakePackage struct {

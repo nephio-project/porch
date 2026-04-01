@@ -38,11 +38,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/nephio-project/porch/controllers/packagerevisions/pkg/controllers/packagerevision"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	porchotel "github.com/nephio-project/porch/internal/otel"
+	"github.com/nephio-project/porch/pkg/cache/contentcache"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
+	"github.com/nephio-project/porch/pkg/engine"
+	porch "github.com/nephio-project/porch/pkg/registry/porch"
+	repolib "github.com/nephio-project/porch/pkg/repository"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	porchinternal "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -59,10 +66,16 @@ import (
 const errInitScheme = "error initializing scheme: %w"
 
 var (
+	// repoReconciler and prReconciler are declared separately because they share
+	// a cache instance and must be set up in order (repo first, then PR).
+	repoReconciler = &repository.RepositoryReconciler{}
+	prReconciler   = &packagerevision.PackageRevisionReconciler{}
+
 	reconcilers = map[string]Reconciler{
+		"packagerevisions":   prReconciler,
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
-		"repositories":       &repository.RepositoryReconciler{},
+		"repositories":       repoReconciler,
 	}
 )
 
@@ -134,6 +147,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf(errInitScheme, err)
 	}
 
+	if err := porchv1alpha2.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
+	}
+
 	if err := configapi.AddToScheme(scheme); err != nil {
 		return fmt.Errorf(errInitScheme, err)
 	}
@@ -188,7 +205,60 @@ func run(ctx context.Context) error {
 
 	enabledReconcilers := parseReconcilers(enabledReconcilersString)
 	var enabled []string
+
+	// Set up repo controller first — it creates the shared cache.
+	if reconcilerIsEnabled(enabledReconcilers, "repositories") {
+		repoReconciler.SetLogger("repositories")
+		ctrl.Log.WithName("repositories").Info("setting up repositories controller")
+		if err = repoReconciler.SetupWithManager(mgr); err != nil {
+			return fmt.Errorf("error creating repositories reconciler: %w", err)
+		}
+		enabled = append(enabled, "repositories")
+	}
+
+	// Wire shared cache into PR controller.
+	if reconcilerIsEnabled(enabledReconcilers, "packagerevisions") {
+		if repoReconciler.Cache == nil {
+			return fmt.Errorf("packagerevisions reconciler requires repositories reconciler (shared cache)")
+		}
+		prReconciler.ContentCache = contentcache.NewContentCache(repoReconciler.Cache)
+		credResolver := createCredentialResolver(mgr.GetClient())
+		caBundleResolver := createCaBundleResolver(mgr.GetClient())
+		prReconciler.ExternalPackageFetcher = contentcache.NewExternalPackageFetcher(
+			credResolver,
+			caBundleResolver,
+			prReconciler.RepoOperationRetryAttempts,
+		)
+		// Wire function runtime for rendering if fn-runner address is available.
+		if fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS"); fnRunnerAddr != "" {
+			runtime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, 6*1024*1024, "")
+			if err != nil {
+				return fmt.Errorf("failed to create function runtime: %w", err)
+			}
+			opts := runneroptions.RunnerOptions{}
+			defaultImagePrefix := os.Getenv("DEFAULT_IMAGE_PREFIX")
+			if defaultImagePrefix == "" {
+				defaultImagePrefix = runneroptions.GHCRImagePrefix
+			}
+			opts.InitDefaults(defaultImagePrefix)
+			prReconciler.Renderer = packagerevision.NewKptRenderer(runtime, opts)
+			ctrl.Log.WithName("packagerevisions").Info("function runtime enabled", "address", fnRunnerAddr)
+		} else {
+			ctrl.Log.WithName("packagerevisions").Info("function runtime not configured — rendering disabled")
+		}
+		prReconciler.SetLogger("packagerevisions")
+		ctrl.Log.WithName("packagerevisions").Info("setting up packagerevisions controller")
+		if err = prReconciler.SetupWithManager(mgr); err != nil {
+			return fmt.Errorf("error creating packagerevisions reconciler: %w", err)
+		}
+		enabled = append(enabled, "packagerevisions")
+	}
+
+	// Set up remaining controllers (no cache dependency).
 	for name, reconciler := range reconcilers {
+		if name == "repositories" || name == "packagerevisions" {
+			continue
+		}
 		if !reconcilerIsEnabled(enabledReconcilers, name) {
 			continue
 		}
@@ -240,4 +310,16 @@ func reconcilerIsEnabled(reconcilers []string, reconciler string) bool {
 		return valLower == "true" || val == "1" || valLower == "yes"
 	}
 	return false
+}
+
+func createCredentialResolver(coreClient client.Reader) repolib.CredentialResolver {
+	resolverChain := []porch.Resolver{
+		porch.NewBasicAuthResolver(),
+		porch.NewBearerTokenAuthResolver(),
+	}
+	return porch.NewCredentialResolver(coreClient, resolverChain)
+}
+
+func createCaBundleResolver(coreClient client.Reader) repolib.CredentialResolver {
+	return porch.NewCredentialResolver(coreClient, []porch.Resolver{porch.NewCaBundleResolver()})
 }

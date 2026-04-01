@@ -165,6 +165,11 @@ const (
 	ReasonReconciling = "Reconciling"
 )
 
+const (
+	AnnotationKeyV1Alpha2Migration   = "porch.kpt.dev/v1alpha2-migration"
+	AnnotationValueMigrationEnabled  = "true"
+)
+
 // RepositoryStatus defines the observed state of Repository
 type RepositoryStatus struct {
 	// Conditions describes the reconciliation state of the object.

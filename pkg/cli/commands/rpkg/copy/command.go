@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,10 @@ const (
 )
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
-	return newRunner(ctx, rcg).Command
+	v1 := newRunner(ctx, rcg)
+	v2 := newV1Alpha2Runner(ctx, rcg)
+	cliutils.WrapVersionDispatch(v1.Command, v2.preRunE, v2.runE)
+	return v1.Command
 }
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {

@@ -60,7 +60,7 @@ func WithBuiltinFunctionRuntime(functionConfigStore *reconciler.FunctionConfigSt
 
 func WithGRPCFunctionRuntime(options GRPCRuntimeOptions) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		runtime, err := newGRPCFunctionRuntime(options)
+		runtime, err := NewGRPCFunctionRuntime(options)
 		if err != nil {
 			return fmt.Errorf("failed to create function runtime: %w", err)
 		}

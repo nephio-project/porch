@@ -144,6 +144,13 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 		return 0, "", err
 	}
 
+	if r.CreateV1Alpha2Rpkg && repo.Annotations[api.AnnotationKeyV1Alpha2Migration] == api.AnnotationValueMigrationEnabled {
+		if err := r.syncPackageRevisionCRDs(ctx, repo, pkgRevs); err != nil {
+			log.Error(err, "Failed to sync v1alpha2 PackageRevisions", "repo", repo.Name)
+			// Non-fatal: don't fail the entire sync for v1alpha2 CRD creation failures
+		}
+	}
+
 	// Get commit hash (best effort - don't fail sync if this fails)
 	commitHash, _ = repoHandle.BranchCommitHash(ctx)
 

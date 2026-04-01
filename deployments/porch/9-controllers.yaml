@@ -45,6 +45,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --repositories.cache-type=DB
+        - --repositories.create-v1alpha2-rpkg=false
         securityContext:
           runAsNonRoot: true
           runAsUser: 10001
@@ -52,8 +53,6 @@ spec:
         volumeMounts:
         - name: cache-volume
           mountPath: /cache
-        # Note: only the existence of the variable matters for enabling the reconciler
-        # So, be sure to remove the var not just change the value to false
         env:
         - name: ENABLE_PACKAGEVARIANTS
           value: "true"

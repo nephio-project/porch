@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	context1 "github.com/nephio-project/porch/pkg/util/context"
@@ -31,6 +32,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type packageRevisionResources struct {
@@ -113,7 +115,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *meta
 
 	klog.V(3).InfoS("Get PackageRevisionResources started", context1.LogMetadataFrom(ctx)...)
 
-	pkg, err := r.getRepoPkgRev(ctx, name)
+	pkg, err := r.getRepoPkgRevForResources(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +157,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	}
 	defer pkgMutex.Unlock()
 
-	oldRepoPkgRev, err := r.getRepoPkgRev(ctx, name)
+	oldRepoPkgRev, err := r.getRepoPkgRevForResources(ctx, name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -199,9 +201,21 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
 
-	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
-	if err != nil {
-		return nil, false, apierrors.NewInternalError(err)
+	var rev repository.PackageRevision
+	var renderStatus *porchapi.RenderStatus
+
+	if isV1Alpha2Repo(&repositoryObj) {
+		// v1alpha2: write resources without render. PR controller renders async.
+		rev, err = r.cad.UpdatePackageResourcesWithoutRender(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
+		if err != nil {
+			return nil, false, apierrors.NewInternalError(err)
+		}
+		r.patchRenderRequestAnnotation(ctx, namespace, name, rev.ResourceVersion())
+	} else {
+		rev, renderStatus, err = r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
+		if err != nil {
+			return nil, false, apierrors.NewInternalError(err)
+		}
 	}
 
 	created, err := rev.GetResources(ctx)
@@ -215,4 +229,84 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	klog.InfoS("[API] Update operation completed for PackageRevisionResources", context1.LogMetadataFrom(ctx)...)
 
 	return created, false, nil
+}
+
+// patchRenderRequestAnnotation patches the render-request annotation on the
+// v1alpha2 PackageRevision CRD to trigger async rendering.
+func (r *packageRevisionResources) patchRenderRequestAnnotation(ctx context.Context, namespace, name, resourceVersion string) {
+	pr := &porchv1alpha2.PackageRevision{}
+	key := client.ObjectKey{Namespace: namespace, Name: name}
+	if err := r.coreClient.Get(ctx, key, pr); err != nil {
+		klog.Warningf("failed to get v1alpha2 PR %s/%s for render-request patch: %v", namespace, name, err)
+		return
+	}
+
+	patch := client.MergeFrom(pr.DeepCopy())
+	if pr.Annotations == nil {
+		pr.Annotations = map[string]string{}
+	}
+	pr.Annotations[porchv1alpha2.AnnotationRenderRequest] = resourceVersion
+	if err := r.coreClient.Patch(ctx, pr, patch); err != nil {
+		klog.Warningf("failed to patch render-request annotation on %s/%s: %v", namespace, name, err)
+	}
+}
+
+// getRepoPkgRevForResources looks up a package revision in the cache, including v1alpha2 repos.
+// TODO: Replace r.cad.ListPackageRevisions with direct cache access when engine is removed
+func (r *packageRevisionResources) getRepoPkgRevForResources(ctx context.Context, name string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "packageRevisionResources::getRepoPkgRevForResources", trace.WithAttributes())
+	defer span.End()
+
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if !namespaced {
+		return nil, fmt.Errorf("namespace must be specified")
+	}
+
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{
+		Name:      prKey.RKey().Name,
+		Namespace: prKey.RKey().Namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if repositoryObj.DeletionTimestamp != nil {
+		return nil, apierrors.NewNotFound(r.gr, name)
+	}
+
+	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
+	if err != nil {
+		return nil, err
+	}
+	for _, rev := range revisions {
+		if rev.KubeObjectName() == name {
+			return rev, nil
+		}
+	}
+
+	return nil, apierrors.NewNotFound(r.gr, name)
+}
+
+// Watch supports watching for PackageRevisionResources changes.
+func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
+	defer span.End()
+
+	ctx = context1.WithNewRequestID(ctx)
+
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options, ns)
+	if err != nil {
+		return nil, err
+	}
+
+	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
+		return pr.GetResources(ctx)
+	}, options)
 }
