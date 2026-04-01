@@ -1,0 +1,327 @@
+# Copyright 2026 The Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: CLI Compatibility Matrix
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1" # Every Monday at 8AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KIND_CONTEXT_NAME: porch-test
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Resolve the last 2 published releases and build the server matrix
+  # ---------------------------------------------------------------------------
+  resolve-versions:
+    name: Resolve Versions
+    runs-on: ubuntu-latest
+    outputs:
+      releases: ${{ steps.releases.outputs.versions }}
+      server_matrix: ${{ steps.matrix.outputs.server_matrix }}
+    steps:
+      - name: Get last 2 releases
+        id: releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REPO: nephio-project/porch
+        run: |
+          # Always query upstream repo for releases (works correctly from forks)
+          VERSIONS=$(gh api repos/${UPSTREAM_REPO}/releases \
+            --jq '[.[] | select(.draft == false)] | sort_by(.published_at) | reverse | .[0:2] | [.[].tag_name]')
+          echo "versions=${VERSIONS}" >> "$GITHUB_OUTPUT"
+          echo "Resolved releases: ${VERSIONS}"
+
+      - name: Build server matrix
+        id: matrix
+        run: |
+          RELEASES='${{ steps.releases.outputs.versions }}'
+          SERVER_MATRIX=$(echo "$RELEASES" | jq -c '{include: ([{server_version: "latest"}] + [.[] | {server_version: .}])}')
+          echo "server_matrix=${SERVER_MATRIX}" >> "$GITHUB_OUTPUT"
+          echo "Server matrix:"
+          echo "$SERVER_MATRIX" | jq .
+
+  # ---------------------------------------------------------------------------
+  # 2. One self-contained runner per porch server version
+  #    Each runner: checks out the version source, builds & deploys from it,
+  #    then tests all CLI versions sequentially.
+  # ---------------------------------------------------------------------------
+  compat-test:
+    name: "Server ${{ matrix.server_version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: resolve-versions
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.resolve-versions.outputs.server_matrix) }}
+    env:
+      RELEASES: ${{ needs.resolve-versions.outputs.releases }}
+    steps:
+      # --- Step 1: Checkout the server version's source code ---
+
+      - name: Checkout upstream latest (1.5 branch)
+        if: matrix.server_version == 'latest'
+        uses: actions/checkout@v4
+        with:
+          repository: nephio-project/porch
+          ref: '1.5' # NOTE this should revert back to main when we merge back
+
+      - name: Checkout upstream tag ${{ matrix.server_version }}
+        if: matrix.server_version != 'latest'
+        uses: actions/checkout@v4
+        with:
+          repository: nephio-project/porch
+          ref: ${{ matrix.server_version }}
+
+      # --- Step 2: Setup tooling ---
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install kpt
+        run: |
+          KPT_VERSION=$(go list -m -f '{{.Version}}' github.com/kptdev/kpt 2>/dev/null)
+          if [ -z "${KPT_VERSION}" ]; then
+            echo "::error::Failed to resolve kpt version from go.mod. Cannot proceed with tests."
+            exit 1
+          fi
+          echo "Installing kpt ${KPT_VERSION}"
+          curl -fsSL "https://github.com/kptdev/kpt/releases/download/${KPT_VERSION}/kpt_linux_amd64-${KPT_VERSION#v}.tar.gz" | tar -xz -C /usr/local/bin/
+          # Save kpt version for result reporting
+          mkdir -p .build
+          echo "${KPT_VERSION}" > .build/kpt-version.txt
+
+      # --- Install's Kind without deploying a cluster ---
+
+      - name: Install Kind
+        uses: helm/kind-action@v1
+        with:
+          version: v0.30.0
+          install_only: true
+
+      - name: Set up Git config
+        run: |
+          git config --global user.name "Porch Compat"
+          git config --global user.email "porch-compat@porch.dev"
+
+      # --- Step 3: Setup dev env (kind + gitea + MetalLB + porchctl) ---
+
+      - name: Setup dev env
+        run: |
+          echo "=============================================="
+          echo "[SETUP] Setting up dev env for server ${{ matrix.server_version }}"
+          echo "=============================================="
+          ./scripts/setup-dev-env.sh
+
+      # --- Step 4: Build and deploy porch with DB cache ---
+
+      - name: Build and deploy porch (DB cache, no git server)
+        run: |
+          echo "=============================================="
+          echo "[DEPLOY] Building and deploying porch server ${{ matrix.server_version }} with DB cache"
+          echo "=============================================="
+          make run-in-kind-db-cache-no-git
+
+      # --- Step 5: Download all CLI binaries ---
+
+      - name: Download released CLI versions
+        run: |
+          UPSTREAM_REPO="nephio-project/porch"
+          for VERSION in $(echo "$RELEASES" | jq -r '.[]'); do
+            VERSION_NUM="${VERSION#v}"
+            CLI_URL="https://github.com/${UPSTREAM_REPO}/releases/download/${VERSION}/porchctl_${VERSION_NUM}_linux_amd64.tar.gz"
+            echo "Downloading porchctl ${VERSION} from ${CLI_URL}"
+            mkdir -p ".build/cli/${VERSION}"
+            curl -fsSL "${CLI_URL}" | tar -xz -C ".build/cli/${VERSION}/"
+            chmod +x ".build/cli/${VERSION}/porchctl"
+          done
+
+          # Also save the locally built porchctl as "latest"
+          mkdir -p .build/cli/latest
+          cp .build/porchctl .build/cli/latest/porchctl
+
+          echo "Available CLI versions:"
+          for d in .build/cli/*/; do
+            VERSION=$(basename "$d")
+            echo "  ${VERSION}: $("${d}porchctl" version 2>/dev/null || echo 'version check skipped')"
+          done
+
+      # --- Step 6: Run CLI tests with each porchctl version sequentially ---
+
+      - name: Run CLI tests with all porchctl versions
+        id: run-tests
+        run: |
+          set +e
+          mkdir -p .build/compat-results
+
+          CLI_VERSIONS="latest $(echo "$RELEASES" | jq -r '.[]')"
+
+          for CLI_VERSION in $CLI_VERSIONS; do
+            echo ""
+            echo "=============================================="
+            echo "[TEST] CLI ${CLI_VERSION} against server ${{ matrix.server_version }}"
+            echo "=============================================="
+
+            # Swap the porchctl binary
+            cp "${GITHUB_WORKSPACE}/.build/cli/${CLI_VERSION}/porchctl" "${GITHUB_WORKSPACE}/.build/porchctl"
+            echo "[TEST] Using porchctl from ${CLI_VERSION}:"
+            .build/porchctl version 2>/dev/null || echo "  version check skipped"
+
+            LOG_FILE=".build/compat-results/test-${CLI_VERSION}.log"
+
+            E2E=1 go test -v -timeout 20m ./test/e2e/cli 2>&1 | tee "${LOG_FILE}"
+            TEST_EXIT=${PIPESTATUS[0]}
+
+            # Parse results
+            RESULT="pass"
+            FAILED_TESTS=""
+            if [ $TEST_EXIT -ne 0 ]; then
+              RESULT="fail"
+              FAILED_TESTS=$(grep -E '^\s*--- FAIL:' "${LOG_FILE}" | sed 's/.*--- FAIL: //' | sed 's/ (.*//' | tr '\n' ',' | sed 's/,$//')
+            fi
+
+            # Write result JSON
+            cat > ".build/compat-results/result-${CLI_VERSION}.json" <<EOJSON
+          {
+            "server_version": "${{ matrix.server_version }}",
+            "cli_version": "${CLI_VERSION}",
+            "kpt_version": "$(cat .build/kpt-version.txt 2>/dev/null || echo 'unknown')",
+            "result": "${RESULT}",
+            "failed_tests": "${FAILED_TESTS}"
+          }
+          EOJSON
+
+            echo "Result: ${RESULT}"
+            echo "Failed tests: ${FAILED_TESTS}"
+          done
+
+      # --- Step 7: Upload results + server logs ---
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "compat-results-${{ matrix.server_version }}"
+          path: .build/compat-results/
+          retention-days: 5
+
+      - name: Export porch server logs
+        if: always()
+        run: |
+          name=$(kubectl -n porch-system get pod -l app=porch-server -o custom-columns=NAME:.metadata.name --no-headers=true 2>/dev/null || echo "")
+          if [ -n "$name" ]; then
+            kubectl -n porch-system logs "$name" > server.log 2>/dev/null || true
+          fi
+      - name: Archive server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "server-log-${{ matrix.server_version }}"
+          path: server.log
+          compression-level: 0
+          retention-days: 2
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # 3. Aggregate results into a compatibility matrix summary
+  # ---------------------------------------------------------------------------
+  compat-summary:
+    name: Compatibility Matrix Summary
+    if: always()
+    needs: [resolve-versions, compat-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compat-results-*
+          path: results/
+
+      - name: Generate compatibility matrix
+        run: |
+          RELEASES='${{ needs.resolve-versions.outputs.releases }}'
+
+          # Collect all result JSONs into a single array
+          RESULTS=$(find results/ -name 'result-*.json' -exec cat {} \; | jq -s '.')
+
+          # Build the markdown table
+          CLI_VERSIONS=$(echo "$RELEASES" | jq -r '["latest"] + . | .[]')
+          SERVER_VERSIONS=$(echo "$RELEASES" | jq -r '["latest"] + . | .[]')
+
+          # Header
+          HEADER="| Server ↓ \ CLI → |"
+          SEP="|---|"
+          for cv in $CLI_VERSIONS; do
+            HEADER="${HEADER} ${cv} |"
+            SEP="${SEP}---|"
+          done
+
+          {
+            echo "## CLI Compatibility Matrix (DB Cache)"
+            echo ""
+            echo "$HEADER"
+            echo "$SEP"
+
+            for sv in $SERVER_VERSIONS; do
+              # Extract kpt version for this server from any of its results
+              KPT_VER=$(echo "$RESULTS" | jq -r --arg sv "$sv" '
+                map(select(.server_version == $sv)) | .[0].kpt_version // "unknown"
+              ')
+              ROW="| ${sv} (kpt ${KPT_VER}) |"
+              for cv in $CLI_VERSIONS; do
+                CELL=$(echo "$RESULTS" | jq -r --arg sv "$sv" --arg cv "$cv" '
+                  map(select(.server_version == $sv and .cli_version == $cv)) |
+                  if length == 0 then "⚪ N/A"
+                  elif .[0].result == "pass" then "✅ All tests passed"
+                  else
+                    .[0].failed_tests as $ft |
+                    if ($ft | length) > 0 then
+                      "❌ " + ($ft | split(",") | map(select(. != "TestPorch")) | map(split("/") | last) | .[0:3] | join(", ")) +
+                      (if ($ft | split(",") | map(select(. != "TestPorch")) | length) > 3 then " +" + (($ft | split(",") | map(select(. != "TestPorch")) | length) - 3 | tostring) + " more" else "" end)
+                    else "❌"
+                    end
+                  end
+                ')
+                ROW="${ROW} ${CELL} |"
+              done
+              echo "$ROW"
+            done
+
+            echo ""
+            echo "- ✅ = All CLI tests passed"
+            echo "- ❌ = One or more tests failed (failed test names shown)"
+            echo "- ⚪ = Test did not run"
+            echo ""
+            echo "**Note:** Tests are run using the native kpt version for each porch server release (shown in parentheses)."
+            echo "This version is resolved from the go.mod file of each server version. Results may differ if a different kpt version is used."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check for failures
+        run: |
+          # Fail the workflow if any test failed
+          FAILED=$(find results/ -name 'result-*.json' -exec grep -l '"result": "fail"' {} \;)
+          if [ -n "$FAILED" ]; then
+            echo "::error::Some compatibility tests failed. See the matrix summary above."
+            exit 1
+          fi
