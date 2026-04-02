@@ -131,6 +131,22 @@ func (r *runner) validateNamespaceFlag(cmd *cobra.Command) error {
 	return nil
 }
 
+// resolveNamespace ensures a namespace is set on ConfigFlags, falling back to
+// the kubeconfig default context namespace when none was explicitly provided.
+func (r *runner) resolveNamespace() error {
+	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return fmt.Errorf("error resolving namespace from kubeconfig: %w", err)
+		}
+		if namespace == "" {
+			return fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig")
+		}
+		r.getFlags.ConfigFlags.Namespace = &namespace
+	}
+	return nil
+}
+
 func (r *runner) preRunShowKptfile(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument")
@@ -141,12 +157,8 @@ func (r *runner) preRunShowKptfile(args []string) error {
 	if r.getFlags.AllNamespaces {
 		return fmt.Errorf("--show-kptfile cannot be combined with --all-namespaces")
 	}
-	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
-		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
-			return fmt.Errorf("error getting namespace: %w", err)
-		}
-		r.getFlags.ConfigFlags.Namespace = &namespace
+	if err := r.resolveNamespace(); err != nil {
+		return err
 	}
 	if r.client == nil {
 		c, err := cliutils.CreateClientWithFlags(r.getFlags.ConfigFlags)
@@ -378,15 +390,8 @@ func (r *runner) filterTableRows(table *metav1.Table) error {
 func (r *runner) showKptfileContent(cmd *cobra.Command, name string) error {
 	const op errors.Op = command + ".showKptfileContent"
 
-	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
-		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
-			return errors.E(op, fmt.Errorf("error resolving namespace from kubeconfig: %w", err))
-		}
-		if namespace == "" {
-			return errors.E(op, fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig"))
-		}
-		r.getFlags.ConfigFlags.Namespace = &namespace
+	if err := r.resolveNamespace(); err != nil {
+		return errors.E(op, err)
 	}
 
 	if r.client == nil {
