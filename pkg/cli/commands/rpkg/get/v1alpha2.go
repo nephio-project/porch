@@ -44,6 +44,13 @@ const (
 func (r *runner) runV1Alpha2(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 
+	if r.showKptfile {
+		if len(args) != 1 {
+			return errors.E(op, fmt.Errorf("--show-kptfile requires exactly one package revision name as an argument"))
+		}
+		return r.showKptfileContent(cmd, args[0])
+	}
+
 	var objs []runtime.Object
 	b, err := r.getFlags.ResourceBuilder()
 	if err != nil {

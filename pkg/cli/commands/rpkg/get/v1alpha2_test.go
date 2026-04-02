@@ -15,14 +15,19 @@
 package get
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPackageRevisionMatchesV1Alpha2(t *testing.T) {
@@ -172,6 +177,53 @@ func TestV1Alpha2RunV1Alpha2(t *testing.T) {
 	// We expect an error since we don't have a real k8s config
 	// but the function should be callable
 	_ = err
+}
+
+func TestV1Alpha2ShowKptfile(t *testing.T) {
+	ctx := context.Background()
+	ns := "ns"
+
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add scheme: %v", err)
+	}
+
+	kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+`
+
+	t.Run("happy path", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&porchapi.PackageRevisionResources{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-repo.test-pkg.v1", Namespace: ns},
+			Spec:       porchapi.PackageRevisionResourcesSpec{Resources: map[string]string{"Kptfile": kptfileContent}},
+		}).Build()
+		r := &runner{
+			ctx:         ctx,
+			showKptfile: true,
+			getFlags:    cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+			client:      c,
+		}
+		out := &bytes.Buffer{}
+		cmd := &cobra.Command{}
+		cmd.SetOut(out)
+		err := r.runV1Alpha2(cmd, []string{"test-repo.test-pkg.v1"})
+		assert.NoError(t, err)
+		assert.Equal(t, kptfileContent, out.String())
+	})
+
+	t.Run("no args", func(t *testing.T) {
+		r := &runner{
+			ctx:         ctx,
+			showKptfile: true,
+			getFlags:    cmdutil.Options{ConfigFlags: &genericclioptions.ConfigFlags{Namespace: &ns}},
+		}
+		cmd := &cobra.Command{}
+		err := r.runV1Alpha2(cmd, []string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "--show-kptfile requires exactly one package revision name")
+	})
 }
 
 func TestV1Alpha2RunV1Alpha2WithFilters(t *testing.T) {
