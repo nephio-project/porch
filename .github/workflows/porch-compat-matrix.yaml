@@ -15,7 +15,6 @@
 name: CLI Compatibility Matrix
 
 on:
-  pull_request:
   workflow_dispatch:
   schedule:
     - cron: "0 8 * * 1" # Every Monday at 8AM UTC
