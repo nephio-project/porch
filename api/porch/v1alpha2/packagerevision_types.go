@@ -35,6 +35,11 @@ import (
 // +kubebuilder:printcolumn:name="Lifecycle",type=string,JSONPath=`.spec.lifecycle`
 // +kubebuilder:printcolumn:name="Repository",type=string,JSONPath=`.spec.repository`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:selectablefield:JSONPath=`.spec.lifecycle`
+// +kubebuilder:selectablefield:JSONPath=`.spec.repository`
+// +kubebuilder:selectablefield:JSONPath=`.spec.packageName`
+// +kubebuilder:selectablefield:JSONPath=`.spec.workspaceName`
+// +kubebuilder:selectablefield:JSONPath=`.status.revision`
 type PackageRevision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -464,6 +464,12 @@ spec:
             - revision
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.lifecycle
+    - jsonPath: .spec.repository
+    - jsonPath: .spec.packageName
+    - jsonPath: .spec.workspaceName
+    - jsonPath: .status.revision
     served: true
     storage: true
     subresources:
