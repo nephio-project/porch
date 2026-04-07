@@ -157,7 +157,7 @@ must be able to explain the PR code independently of any AI tools.
 {{% /alert %}}
 
 
-Update the PR description to state whether you used AI to help you crate this PR; if so, list the AI tools you have used.
+Update the PR description to state whether you used AI to help you create this PR; if so, list the AI tools you have used.
 
 For example:
 
