@@ -215,6 +215,14 @@ func TestUpgradeCommand(t *testing.T) {
 			}
 			return nil
 		},
+		List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if prList, ok := list.(*porchapi.PackageRevisionList); ok {
+				// Return all package revisions and let client-side filtering handle it
+				prList.Items = prs
+				return nil
+			}
+			return nil
+		},
 	}
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -295,7 +303,28 @@ func TestFindLatestPR(t *testing.T) {
 		*localRevision,
 	}
 
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, "ns", 0)
+	// Create fake client with custom List interceptor
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
+	interceptorFuncs := interceptor.Funcs{
+		List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if prList, ok := list.(*porchapi.PackageRevisionList); ok {
+				// Return all package revisions and let client-side filtering handle it
+				prList.Items = prs
+				return nil
+			}
+			return nil
+		},
+	}
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(origRevision, newUpstreamRevision, localRevision).
+		WithInterceptorFuncs(interceptorFuncs).
+		Build()
+
+	r := createRunner(context.Background(), client, prs, "ns", 0)
 
 	found := r.findLatestPackageRevisionForRef("orig", "repo")
 	assert.Equal(t, "repo.orig.v2", found.Name)

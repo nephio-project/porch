@@ -303,14 +303,9 @@ func (r *runner) findPackageRevisionForRef(name, repo string, revision int) *por
 		}
 
 		if err := r.client.List(r.ctx, list, listOpts...); err != nil {
-			fmt.Printf("Error with filtered list %v", err)
-			// Fallback to unfiltered list if field selectors not supported
-			if err := r.client.List(r.ctx, list, client.InNamespace(ns)); err != nil {
-				return nil
-			}
+			return nil
 		}
 
-		// Search through results (should be much smaller with server-side filtering)
 		for i := range list.Items {
 			pr := &list.Items[i]
 			if pr.Spec.PackageName == name && pr.Spec.RepositoryName == repo && pr.IsPublished() && pr.Spec.Revision == revision {
@@ -343,7 +338,7 @@ func (r *runner) findLatestPackageRevisionForRef(name, repo string) *porchapi.Pa
 		return output
 	}
 
-	// Non-discovery mode: try server-side filtering first, fallback to simple logic
+	// Non-discovery mode: list with server-side filtering
 	list := &porchapi.PackageRevisionList{}
 	ns := ""
 	if r.cfg.Namespace != nil {
@@ -368,18 +363,7 @@ func (r *runner) findLatestPackageRevisionForRef(name, repo string) *porchapi.Pa
 	}
 
 	if err := r.client.List(r.ctx, list, listOpts...); err != nil {
-		// Fallback to unfiltered list if field selectors not supported
-		if err := r.client.List(r.ctx, list, client.InNamespace(ns)); err != nil {
-			latest := 0
-			var output *porchapi.PackageRevision
-			for _, pr := range r.prs {
-				if pr.Spec.PackageName == name && pr.Spec.RepositoryName == repo && pr.IsPublished() && pr.Spec.Revision > latest {
-					latest = pr.Spec.Revision
-					output = &pr
-				}
-			}
-			return output
-		}
+		return nil
 	}
 	latest := 0
 	var output *porchapi.PackageRevision
