@@ -2073,7 +2073,6 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 		apiPr          *porchapi.PackageRevision
 	}{
 		{
-
 			packageName:    "delete-on-manually-moved-draft-pkg",
 			workspace:      "delete-on-manually-moved-draft-ws",
 			newFile:        "new-file.md",
@@ -2099,7 +2098,6 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 			},
 		},
 		{
-
 			packageName:    "delete-on-manually-moved-proposed-pkg",
 			workspace:      "delete-on-manually-moved-proposed-ws",
 			newFile:        "new-file.md",
@@ -2126,27 +2124,26 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 		},
 	}
 
-	tempdir := t.TempDir()
-	tarfile := filepath.Join("testdata", "trivial-repository.tar")
-	remotepath := filepath.Join(tempdir, "remote")
-	localpath := filepath.Join(tempdir, "local")
-	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
-
-	repoSpec := &configapi.GitRepository{
-		Repo: address,
-	}
-
 	ctx := context.Background()
-
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
-	if err != nil {
-		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
-	}
-	t.Cleanup(func() {
-		localRepo.Close(ctx)
-	})
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
 
 	for _, test := range tests {
+		tempdir := t.TempDir()
+		remotepath := filepath.Join(tempdir, "remote")
+		localpath := filepath.Join(tempdir, "local")
+		gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+		repoSpec := &configapi.GitRepository{
+			Repo: address,
+		}
+
+		localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
+		if err != nil {
+			t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+		}
+		t.Cleanup(func() {
+			localRepo.Close(ctx)
+		})
 
 		draft, err := localRepo.CreatePackageRevisionDraft(ctx, test.apiPr)
 		if err != nil {
