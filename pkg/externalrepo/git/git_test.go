@@ -2065,14 +2065,14 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 		namespace = "default"
 	)
 
-	tests := []struct {
+	tests := map[string]struct {
 		packageName    string
 		workspace      string
 		newFile        string
 		newFileContent string
 		apiPr          *porchapi.PackageRevision
 	}{
-		{
+		"delete on manually moved draft": {
 			packageName:    "delete-on-manually-moved-draft-pkg",
 			workspace:      "delete-on-manually-moved-draft-ws",
 			newFile:        "new-file.md",
@@ -2097,7 +2097,7 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 				},
 			},
 		},
-		{
+		"delete on manually moved proposed": {
 			packageName:    "delete-on-manually-moved-proposed-pkg",
 			workspace:      "delete-on-manually-moved-proposed-ws",
 			newFile:        "new-file.md",
@@ -2127,64 +2127,65 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 	ctx := context.Background()
 	tarfile := filepath.Join("testdata", "trivial-repository.tar")
 
-	for _, test := range tests {
-		tempdir := t.TempDir()
-		remotepath := filepath.Join(tempdir, "remote")
-		localpath := filepath.Join(tempdir, "local")
-		gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+	for tn, test := range tests {
+		t.Run(tn, func(t *testing.T) {
+			tempdir := t.TempDir()
+			remotepath := filepath.Join(tempdir, "remote")
+			localpath := filepath.Join(tempdir, "local")
+			gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
 
-		repoSpec := &configapi.GitRepository{
-			Repo: address,
-		}
+			repoSpec := &configapi.GitRepository{
+				Repo: address,
+			}
 
-		localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
-		if err != nil {
-			t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
-		}
-		t.Cleanup(func() {
-			localRepo.Close(ctx)
+			localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
+			if err != nil {
+				t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+			}
+			t.Cleanup(func() {
+				localRepo.Close(ctx)
+			})
+			draft, err := localRepo.CreatePackageRevisionDraft(ctx, test.apiPr)
+			if err != nil {
+				t.Fatalf("Failed to create PackageRevision draft: %v", err)
+			}
+
+			savedPr, err := localRepo.ClosePackageRevisionDraft(ctx, draft, 0)
+			if err != nil {
+				t.Fatalf("Failed to close PackageRevision draft: %v", err)
+			}
+
+			t.Logf("Created draft PackageRevision %s", savedPr.Key())
+
+			uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+			ch, err := newCommitHelper(gitRepo, uip, savedPr.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+			if err != nil {
+				t.Fatalf("Failed to create commit helper: %v", err)
+			}
+			err = ch.storeFile(test.newFile, test.newFileContent)
+			if err != nil {
+				t.Fatalf("Failed to store new file: %v", err)
+			}
+			newHash, _, err := ch.commit(ctx, "Add new file", "")
+			if err != nil {
+				t.Fatalf("Failed to create commit: %v", err)
+			}
+			refNameInRemote, ok := getBranchNameInLocalRepo(savedPr.(*gitPackageRevision).ref.Name())
+			if !ok {
+				t.Fatalf("Invalid draft ref name: %q", savedPr.(*gitPackageRevision).ref.Name())
+			}
+
+			err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(refNameInRemote), newHash))
+			if err != nil {
+				t.Fatalf("Failed to set new remote ref: %v", err)
+			}
+			t.Logf("Moved %s from %s to %s", savedPr.(*gitPackageRevision).ref, savedPr.(*gitPackageRevision).commit, newHash)
+
+			t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", savedPr.Key())
+			if err := localRepo.DeletePackageRevision(ctx, savedPr); err != nil {
+				t.Fatalf("Failed to delete PackageRevision: %v", err)
+			}
 		})
-
-		draft, err := localRepo.CreatePackageRevisionDraft(ctx, test.apiPr)
-		if err != nil {
-			t.Fatalf("Failed to create PackageRevision draft: %v", err)
-		}
-
-		savedPr, err := localRepo.ClosePackageRevisionDraft(ctx, draft, 0)
-		if err != nil {
-			t.Fatalf("Failed to close PackageRevision draft: %v", err)
-		}
-
-		t.Logf("Created draft PackageRevision %s", savedPr.Key())
-
-		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
-		ch, err := newCommitHelper(gitRepo, uip, savedPr.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
-		if err != nil {
-			t.Fatalf("Failed to create commit helper: %v", err)
-		}
-		err = ch.storeFile(test.newFile, test.newFileContent)
-		if err != nil {
-			t.Fatalf("Failed to store new file: %v", err)
-		}
-		newHash, _, err := ch.commit(ctx, "Add new file", "")
-		if err != nil {
-			t.Fatalf("Failed to create commit: %v", err)
-		}
-		refNameInRemote, ok := getBranchNameInLocalRepo(savedPr.(*gitPackageRevision).ref.Name())
-		if !ok {
-			t.Fatalf("Invalid draft ref name: %q", savedPr.(*gitPackageRevision).ref.Name())
-		}
-
-		err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(refNameInRemote), newHash))
-		if err != nil {
-			t.Fatalf("Failed to set new remote ref: %v", err)
-		}
-		t.Logf("Moved %s from %s to %s", savedPr.(*gitPackageRevision).ref, savedPr.(*gitPackageRevision).commit, newHash)
-
-		t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", savedPr.Key())
-		if err := localRepo.DeletePackageRevision(ctx, savedPr); err != nil {
-			t.Fatalf("Failed to delete PackageRevision: %v", err)
-		}
 	}
 }
 
