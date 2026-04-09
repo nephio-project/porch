@@ -346,7 +346,7 @@ _Appears in:_
 | `revision` _integer_ | Revision identifies the version of the package. |  |  |
 | `parent` _[ParentReference](#parentreference)_ | Deprecated. Parent references a package that provides resources to us |  |  |
 | `lifecycle` _[PackageRevisionLifecycle](#packagerevisionlifecycle)_ |  |  |  |
-| `tasks` _[Task](#task) array_ | The task slice holds zero or more tasks that describe the operations<br />performed on the packagerevision. The are essentially a replayable history<br />of the packagerevision,<br />Packagerevisions that were not created in Porch may have an<br />empty task list.<br />Packagerevisions created and managed through Porch will always<br />have either an Init, Edit, or a Clone task as the first entry in their<br />task list. This represent packagerevisions created from scratch, based<br />a copy of a different revision in the same package, or a packagerevision<br />cloned from another package.<br />Each change to the packagerevision will result in a correspondig<br />task being added to the list of tasks. It will describe the operation<br />performed and will have a corresponding entry (commit or layer) in git<br />or oci.<br />The task slice describes the history of the packagerevision, so it<br />is an append only list (We might introduce some kind of compaction in the<br />future to keep the number of tasks at a reasonable number). |  |  |
+| `tasks` _[Task](#task) array_ | The task slice holds zero or more tasks that describe the operations<br />performed on the packagerevision. The are essentially a replayable history<br />of the packagerevision,<br />Packagerevisions that were not created in Porch may have an<br />empty task list.<br />Packagerevisions created and managed through Porch will always<br />have either an Init, Edit, or a Clone task as the first entry in their<br />task list. This represent packagerevisions created from scratch, based<br />a copy of a different revision in the same package, or a packagerevision<br />cloned from another package.<br />Each change to the packagerevision will result in a corresponding<br />task being added to the list of tasks. It will describe the operation<br />performed and will have a corresponding entry (commit or layer) in git<br />or oci.<br />The task slice describes the history of the packagerevision, so it<br />is an append only list (We might introduce some kind of compaction in the<br />future to keep the number of tasks at a reasonable number). |  |  |
 | `readinessGates` _[ReadinessGate](#readinessgate) array_ |  |  |  |
 | `packageMetadata` _[PackageMetadata](#packagemetadata)_ |  |  |  |
 
@@ -365,7 +365,7 @@ _Appears in:_
 | `upstreamLock` _[Locator](#locator)_ | UpstreamLock identifies the upstream data for this package. |  |  |
 | `selfLock` _[Locator](#locator)_ | SelfLock identifies the location of the current package's data |  |  |
 | `publishedBy` _string_ | PublishedBy is the identity of the user who approved the packagerevision. |  |  |
-| `publishTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)_ | PublishedAt is the time when the packagerevision were approved. |  |  |
+| `publishTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | PublishedAt is the time when the packagerevision were approved. |  |  |
 | `deployment` _boolean_ | Deployment is true if this is a deployment package (in a deployment repository). |  |  |
 | `conditions` _[Condition](#condition) array_ |  |  |  |
 

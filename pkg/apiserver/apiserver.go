@@ -19,17 +19,19 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/registry/porch"
+	pkgerrors "github.com/pkg/errors"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,10 +39,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,6 +56,9 @@ var (
 	// Codecs provides methods for retrieving codecs and serializers for specific
 	// versions and content types.
 	Codecs = serializer.NewCodecFactory(Scheme)
+	// completeScheme is a singleton for the complete scheme with all types
+	completeScheme *runtime.Scheme
+	schemeOnce     sync.Once
 )
 
 func init() {
@@ -92,9 +99,9 @@ type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
-	periodicRepoSyncFrequency  time.Duration
 	ListTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
+	ExtraConfig                *ExtraConfig
 }
 
 type completedConfig struct {
@@ -117,6 +124,54 @@ func (cfg *Config) Complete() CompletedConfig {
 	}
 
 	return CompletedConfig{&c}
+}
+
+// schemeBuilder builds a complete scheme with all necessary types
+type schemeBuilder func(*runtime.Scheme) error
+
+// buildSchemeWithTypes builds a scheme by applying all provided builders
+func buildSchemeWithTypes(builders ...schemeBuilder) (*runtime.Scheme, error) {
+	scheme := runtime.NewScheme()
+	for _, builder := range builders {
+		if err := builder(scheme); err != nil {
+			return nil, err
+		}
+	}
+	return scheme, nil
+}
+
+// buildCompleteScheme returns a singleton runtime scheme with all necessary types registered
+func buildCompleteScheme() (*runtime.Scheme, error) {
+	var err error
+	schemeOnce.Do(func() {
+		completeScheme, err = buildSchemeWithTypes(
+			func(s *runtime.Scheme) error {
+				if e := configapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding configapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := porchapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding porchapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := corev1.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding corev1 to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := internalapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding internalapi to scheme: %w", e)
+				}
+				return nil
+			},
+		)
+	})
+	return completeScheme, err
 }
 
 func (c completedConfig) getRestConfig() (*rest.Config, error) {
@@ -149,18 +204,9 @@ func (c completedConfig) buildClient() (client.WithWatch, error) {
 	restConfig.QPS = 200
 	restConfig.Burst = 400
 
-	scheme := runtime.NewScheme()
-	if err := configapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := porchapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := corev1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := internalapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
+	scheme, err := buildCompleteScheme()
+	if err != nil {
+		return nil, err
 	}
 
 	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme})
@@ -224,14 +270,25 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+	var cacheImpl cachetypes.Cache
+	err = retry.OnError(
+		wait.Backoff{Duration: time.Second, Factor: 1.5, Steps: 20, Cap: 30 * time.Second},
+		func(err error) bool {
+			klog.Warningf("failed to create repository cache: %v; wait a sec...", err)
+			return true
+		},
+		func() error {
+			var err error
+			cacheImpl, err = cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+			return err
+		})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create repository cache: %w", err)
+		return nil, pkgerrors.Wrap(err, "failed to create repository cache")
 	}
 
-	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
-		runnerOptions := fnruntime.RunnerOptions{}
+	runnerOptionsResolver := func(namespace string) runneroptions.RunnerOptions {
+		runnerOptions := runneroptions.RunnerOptions{}
 		runnerOptions.InitDefaults(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix)
 		return runnerOptions
 	}
@@ -268,11 +325,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	s := &PorchServer{
-		GenericAPIServer: genericServer,
-		coreClient:       coreClient,
-		cache:            cacheImpl,
-		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		GenericAPIServer:           genericServer,
+		coreClient:                 coreClient,
+		cache:                      cacheImpl,
+		ExtraConfig:                c.ExtraConfig,
 		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
@@ -286,12 +342,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	porch.RunBackground(ctx, s.coreClient, s.cache,
-		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
-		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
-		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
-	)
-
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")

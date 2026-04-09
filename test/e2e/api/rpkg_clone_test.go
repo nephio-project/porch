@@ -21,7 +21,6 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,7 +52,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), suiteutils.PorchTestRepoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Create PackageRevision from upstream repo
-	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
+	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, "clone-upstream-workspace")
 	clonedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -105,7 +104,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	})
 
 	// Create PackageRevision from upstream repo
-	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
+	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, "istions-deployment", "clone-deployment-workspace")
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -129,7 +128,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	}, &istions)
 
 	kptfile := t.ParseKptfileF(&istions)
-	t.validateKptfileBasics(kptfile, istionsPackage)
+	t.validateKptfileBasics(kptfile, "istions-deployment")
 	t.validateUpstreamLock(kptfile, testBlueprintsRepo)
 	t.validateUpstream(kptfile, testBlueprintsRepo)
 
@@ -139,7 +138,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := configmap.Name, "kptfile.kpt.dev"; got != want {
 		t.Errorf("package context name: got %s, want %s", got, want)
 	}
-	if got, want := configmap.Data["name"], "istions"; got != want {
+	if got, want := configmap.Data["name"], "istions-deployment"; got != want {
 		t.Errorf("package context 'data.name': got %s, want %s", got, want)
 	}
 }
@@ -210,12 +209,11 @@ data:
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	published := t.UpdateApprovalF(pr)
 
-	// upgrade "test-workspace" to basensV2
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
-	pr.Spec.WorkspaceName = testWorkspace + "-upgrade"
-	pr.Spec.Tasks = []porchapi.Task{{
+	// Create new PackageRevision for upgrade workspace
+	upgradePr := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace+"-upgrade")
+	upgradePr.Spec.Tasks = []porchapi.Task{{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
 			OldUpstream: porchapi.PackageRevisionRef{
@@ -225,16 +223,15 @@ data:
 				Name: basensV2.Name,
 			},
 			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
-				Name: pr.Name, // this is still the name of the "test-workspace" PR
+				Name: published.Name,
 			},
 		},
 	}}
-
-	t.CreateF(pr)
+	t.CreateF(upgradePr)
 
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
-		Name:      pr.Name,
+		Name:      upgradePr.Name,
 	}, &revisionResources)
 
 	if _, found := revisionResources.Spec.Resources["resourcequota.yaml"]; !found {

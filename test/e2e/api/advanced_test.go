@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -178,6 +179,8 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 	t.CreateF(ns3)
 
 	t.Cleanup(func() {
+		// Wait for repository cleanup to complete before deleting namespaces
+		time.Sleep(2 * time.Second)
 		t.DeleteE(ns2)
 		t.DeleteE(ns3)
 	})
@@ -208,7 +211,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Namespace + "-2",
+			Name: t.Namespace + "-4",
 		},
 	}
 	t.CreateF(ns2)
@@ -217,7 +220,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 	})
 
 	// Register the upstream repository2
-	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", suiteutils.GiteaUser, suiteutils.GiteaPassword,
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-4-blueprints", "", suiteutils.GiteaUser, suiteutils.GiteaPassword,
 		suiteutils.RepositoryOptions{RepOpts: suiteutils.InNamespace(ns2.Name), SecOpts: suiteutils.SecretInNamespace(ns2.Name)})
 
 	prList := porchapi.PackageRevisionList{}
@@ -265,11 +268,12 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	}
 
 	// Attempt to create the package revision
-	_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Create(ctx, pr, metav1.CreateOptions{})
+	err := t.Client.Create(ctx, pr)
 	assert.Error(t, err, "Expected error when creating package revision with invalid task configuration")
 
 	// Verify that the package revision was not created
-	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
+	var checkPr porchapi.PackageRevision
+	err = t.Reader.Get(ctx, client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &checkPr)
 	assert.True(t, errors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
 
@@ -296,7 +300,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -341,7 +345,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -359,7 +363,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	//
 	// (henceforth called "the v1 package revision")
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,

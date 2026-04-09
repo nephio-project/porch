@@ -42,6 +42,11 @@ func TestRepositoryFunctions(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "99.88.77", version)
 
+	// Test BranchCommitHash
+	commitHash, err := fakeRepo.BranchCommitHash(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, "fake-commit-hash", commitHash)
+
 	fakeRepo.ThrowError = true
 	_, err = fakeRepo.ListPackageRevisions(context.TODO(), repository.ListPackageRevisionFilter{})
 	assert.NotNil(t, err)
@@ -88,12 +93,6 @@ func TestRepositoryFunctions(t *testing.T) {
 	assert.Nil(t, updatedPRDraft)
 
 	assert.Nil(t, fakeRepo.DeletePackageRevision(context.TODO(), newPR))
-
-	newPkg, err := fakeRepo.CreatePackage(context.TODO(), &porchapi.PorchPackage{})
-	assert.Nil(t, err)
-	assert.Nil(t, newPkg)
-
-	assert.Nil(t, fakeRepo.DeletePackage(context.TODO(), newPkg))
 
 	assert.Nil(t, fakeRepo.Refresh(context.TODO()))
 }

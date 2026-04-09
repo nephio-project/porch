@@ -142,7 +142,7 @@ func TestWatchCertificatesInvalidDirectory(t *testing.T) {
 	assertLogMessages := func(log string) error {
 		if len(log) > 0 {
 			if log[0] == 'E' || log[0] == 'W' || log[0] == 'F' {
-				return errors.New("Error Occured in Watcher")
+				return errors.New("Error Occurred in Watcher")
 			}
 		}
 		return nil
@@ -613,12 +613,12 @@ func TestValidateRepository(t *testing.T) {
 			expectOK: true,
 		},
 		{
-			name:      "conflict: empty branch defaults to main",
+			name:      "conflict: branch defaults to main (CRD handles defaulting)",
 			repoName:  "repo9",
 			namespace: "ns1",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir1",
-			branch:    "",
+			branch:    "main",
 			setupRepos: []configapi.Repository{
 				{
 					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},

@@ -23,11 +23,12 @@ import (
 	"time"
 
 	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +55,12 @@ type dbPackageRevision struct {
 	latest    bool
 	tasks     []porchapi.Task
 	resources map[string]string
+
+	// gitDraftPR maintains the draft in the external git repository during editing (when pushDraftsToGit is true)
+	gitPRDraft repository.PackageRevisionDraft
+
+	// gitPR is the closed package revision in git (when pushDraftsToGit is true)
+	gitPR repository.PackageRevision
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -125,6 +132,30 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
+	if pr.repo == nil {
+		return fmt.Errorf("cannot update lifecycle for package revision %s: no associated repository", pr.KubeObjectName())
+	}
+
+	// Only Approve (Proposed → Published) pushes to external repo
+	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
+		klog.InfoS("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision",
+			context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision",
+				context1.LogMetadataFrom(ctx)...)
+		}()
+	} else if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		klog.InfoS("[DB Cache] Updating lifecycle in database and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	} else {
+		klog.InfoS("[DB Cache] Updating lifecycle in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Lifecycle updated in database for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	}
+
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		if err := pr.publishPR(ctx, newLifecycle); err != nil {
 			pr.pkgRevKey.Revision = 0
@@ -135,12 +166,28 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	}
 
 	pr.lifecycle = newLifecycle
+
+	if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		if err := pr.gitPRDraft.UpdateLifecycle(ctx, newLifecycle); err != nil {
+			klog.Warningf("failed to update git draft lifecycle for %+v: %v", pr.Key(), err)
+		}
+	}
+
 	return nil
 }
 
 func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
+
+	if pr == nil {
+		return nil, fmt.Errorf("invalid package revision: nil object")
+	}
+
+	if pr.repo == nil {
+		klog.Warningf("package revision %+v has nil repository, skipping", pr.Key())
+		return nil, fmt.Errorf("package revision %s has no associated repository (may be deleted or not yet cached)", pr.KubeObjectName())
+	}
 
 	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
@@ -152,14 +199,14 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
-	_, selfLock, _ := pr.GetLock(ctx)
+	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
+	_, selfLock, _ := readPR.GetLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
-		Deployment:   pr.repo.deployment,
+		Deployment:   readPR.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
@@ -324,7 +371,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 		return kptfile.KptFile{}, fmt.Errorf("no Kptfile for packagerevision %+v found in DB: %q", pr.Key(), err)
 	}
 
-	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
 		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}
@@ -382,6 +429,18 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
+	if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		klog.InfoS("[DB Cache] Updating resources in memory and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Resources updated in memory and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	} else {
+		klog.InfoS("[DB Cache] Updating resources in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		defer func() {
+			klog.V(3).InfoS("[DB Cache] Resources updated in memory for PackageRevision", context1.LogMetadataFrom(ctx)...)
+		}()
+	}
+
 	pr.resources = new.Spec.Resources
 
 	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
@@ -389,6 +448,12 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 			klog.Warningf("Replacing first task of %q", pr.Key())
 		}
 		pr.tasks = []porchapi.Task{*change}
+	}
+
+	if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
+		if err := pr.gitPRDraft.UpdateResources(ctx, new, change); err != nil {
+			klog.Warningf("failed to update git draft resources for %+v: %v", pr.Key(), err)
+		}
 	}
 
 	return nil
@@ -406,7 +471,16 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr)
+	var gitPR repository.PackageRevision
+	if pr.repo.pushDraftsToGit {
+		if pr.gitPR != nil {
+			gitPR = pr.gitPR
+		} else {
+			gitPR = pr.repo.getCachedGitPR(pr.Key().PkgKey, pr.Key().WorkspaceName)
+		}
+	}
+
+	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr, pr.repo.pushDraftsToGit, gitPR)
 	if err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.pkgRevKey.Revision = 0
@@ -439,7 +513,7 @@ func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) erro
 	placeholderPR := prWithResources.ToMainPackageRevision(ctx).(*dbPackageRevision)
 
 	if prWithResources.pkgRevKey.Revision == 1 {
-		if err := pkgRevWriteToDB(ctx, placeholderPR); err != nil {
+		if err := pkgRevUpdateDB(ctx, placeholderPR, true); err != nil {
 			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not write placeholder package revision for package revision %+v to DB", placeholderPR.Key())
 		}
 		sent := placeholderPR.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, placeholderPR)

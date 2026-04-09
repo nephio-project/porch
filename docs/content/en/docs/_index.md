@@ -31,9 +31,7 @@ New to Porch? Start here:
 - [CLI & API Reference]({{% relref "/docs/7_cli_api/_index.md" %}}) - Command-line and API documentation
 
 ### Operate
-- [Best Practices]({{% relref "/docs/8_best_practices/_index.md" %}}) - Recommendations and patterns
 - [Troubleshooting & FAQ]({{% relref "/docs/9_troubleshooting_and_faq/_index.md" %}}) - Common problems and solutions
-- [Security & Compliance]({{% relref "/docs/10_security_and_compliance/_index.md" %}}) - Security model and considerations
 
 ### Contribute
 - [Contributing]({{% relref "/docs/12_contributing/_index.md" %}}) - How to contribute to Porch

@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -30,9 +29,12 @@ import (
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -280,7 +282,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 				RepoOperationRetryAttempts: 3,
 			},
 			CoreClient:           fakeClient,
-			RepoSyncFrequency:    60 * time.Second,
 			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 		}}
 	cachedRepo, err := cache.OpenRepository(ctx, apiRepo)
@@ -321,5 +322,124 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 
 	return &fakemeta.MemoryMetadataStore{
 		Metas: metas,
+	}
+}
+
+func TestFindUpstreamReference(t *testing.T) {
+	ctx := context.Background()
+	cache := &Cache{repositories: repomap.SafeRepoMap{}}
+	repoKey := repository.RepositoryKey{Namespace: "test-ns", Name: "test-repo"}
+	mockRepo := &cachedRepository{
+		key:                    repoKey,
+		cachedPackageRevisions: make(map[repository.PackageRevisionKey]*cachedPackageRevision),
+	}
+	_, _ = cache.repositories.LoadOrCreate(repoKey, func() (repository.Repository, error) {
+		return mockRepo, nil
+	})
+
+	// Create second repository for cross-repo testing
+	repo2Key := repository.RepositoryKey{Namespace: "test-ns", Name: "test-repo2"}
+	mockRepo2 := &cachedRepository{
+		key:                    repo2Key,
+		cachedPackageRevisions: make(map[repository.PackageRevisionKey]*cachedPackageRevision),
+	}
+	_, _ = cache.repositories.LoadOrCreate(repo2Key, func() (repository.Repository, error) {
+		return mockRepo2, nil
+	})
+
+	addDownstream := func(repo *cachedRepository, downstreamPkgName, taskType, upstreamRefName string) {
+		key := repository.PackageRevisionKey{
+			PkgKey:        repository.PackageKey{RepoKey: repo.key, Package: downstreamPkgName},
+			WorkspaceName: "v1",
+		}
+		var task porchapi.Task
+		switch taskType {
+		case "clone":
+			task = porchapi.Task{
+				Type:  "clone",
+				Clone: &porchapi.PackageCloneTaskSpec{Upstream: porchapi.UpstreamPackage{UpstreamRef: &porchapi.PackageRevisionRef{Name: upstreamRefName}}},
+			}
+		case "upgrade":
+			task = porchapi.Task{
+				Type:    "upgrade",
+				Upgrade: &porchapi.PackageUpgradeTaskSpec{NewUpstream: porchapi.PackageRevisionRef{Name: upstreamRefName}},
+			}
+		}
+		repo.cachedPackageRevisions[key] = &cachedPackageRevision{
+			PackageRevision: &fake.FakePackageRevision{
+				PrKey:           key,
+				PackageRevision: &porchapi.PackageRevision{Spec: porchapi.PackageRevisionSpec{Tasks: []porchapi.Task{task}}},
+			},
+		}
+	}
+
+	tests := map[string]struct {
+		namespace           string
+		upstreamPkgToDelete string
+		repo                *cachedRepository
+		downstreamPkgName   string
+		upstreamRefName     string
+		taskType            string
+		wantDep             string
+	}{
+		"no downstream": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			wantDep:             "",
+		},
+		"find clone downstream": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "downstream",
+			upstreamRefName:     "test-repo.upstream.v1",
+			taskType:            "clone",
+			wantDep:             "test-repo.downstream.v1",
+		},
+		"find upgrade downstream": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "upgrade",
+			upstreamRefName:     "test-repo.upstream.v1",
+			taskType:            "upgrade",
+			wantDep:             "test-repo.upgrade.v1",
+		},
+		"task without downstream": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			repo:                mockRepo,
+			downstreamPkgName:   "other",
+			upstreamRefName:     "test-repo.different.v1",
+			taskType:            "clone",
+			wantDep:             "",
+		},
+		"different namespace": {
+			namespace:           "other-ns",
+			upstreamPkgToDelete: "test-repo.upstream.v1",
+			wantDep:             "",
+		},
+		"cross-repo downstream": {
+			namespace:           "test-ns",
+			upstreamPkgToDelete: "test-repo.base-pkg.v1",
+			repo:                mockRepo2,
+			downstreamPkgName:   "derived",
+			upstreamRefName:     "test-repo.base-pkg.v1",
+			taskType:            "clone",
+			wantDep:             "test-repo2.derived.v1",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockRepo.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+			mockRepo2.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+			if tt.taskType != "" {
+				addDownstream(tt.repo, tt.downstreamPkgName, tt.taskType, tt.upstreamRefName)
+			}
+			dep, err := cache.FindAllUpstreamReferencesInRepositories(ctx, tt.namespace, tt.upstreamPkgToDelete)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDep, dep)
+		})
 	}
 }

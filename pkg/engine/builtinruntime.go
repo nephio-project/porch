@@ -20,13 +20,13 @@ import (
 	"io"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/kpt"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
 )
 
 // When updating the version for the builtin functions, please also update the image version
@@ -60,8 +60,8 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	applyMappings := func(aliases []string, fn fnsdk.ResourceListProcessorFunc) {
 		for _, img := range aliases {
 			fnMap[img] = fn
-			fnMap[fnruntime.GHCRImagePrefix+img] = fn
-			if imagePrefix != "" && imagePrefix != fnruntime.GHCRImagePrefix {
+			fnMap[runneroptions.GHCRImagePrefix+img] = fn
+			if imagePrefix != "" && imagePrefix != runneroptions.GHCRImagePrefix {
 				fnMap[imagePrefix+"/"+img] = fn
 			}
 		}
@@ -76,7 +76,7 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	}
 }
 
-var _ kpt.FunctionRuntime = &builtinRuntime{}
+var _ kptops.FunctionRuntime = &builtinRuntime{}
 
 func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
 	processor, found := br.fnMapping[funct.Image]

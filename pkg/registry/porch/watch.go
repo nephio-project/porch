@@ -331,7 +331,7 @@ func (w *watcher) sendBookmark(initialEvents bool) {
 		}
 		// Add annotation to mark end of initial events
 		if initialEvents {
-			obj.ObjectMeta.Annotations = map[string]string{
+			obj.Annotations = map[string]string{
 				"k8s.io/initial-events-end": "true",
 			}
 		}

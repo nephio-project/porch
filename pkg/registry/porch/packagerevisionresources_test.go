@@ -94,6 +94,48 @@ func TestListResources(t *testing.T) {
 	assert.Equal(t, 0, len(resultList.Items))
 }
 
+func TestGetResources(t *testing.T) {
+	mockClient, mockEngine := setupResourcesTest(t)
+	pkgRevName := "repo.1234567890.ws"
+
+	// Success case
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		packageRevision,
+	}, nil).Once()
+
+	ctx := genericapirequest.WithNamespace(context.TODO(), "someDummyNamespace")
+	result, err := packagerevisionresources.Get(ctx, pkgRevName, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.IsType(t, &porchapi.PackageRevisionResources{}, result)
+
+	//=========================================================================================
+
+	// PRR Not found case
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+
+	result, err = packagerevisionresources.Get(ctx, pkgRevName, nil)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	//=========================================================================================
+
+	// Error from GetResources
+	mockPkgRev := mockrepo.NewMockPackageRevision(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		mockPkgRev,
+	}, nil).Once()
+	mockPkgRev.On("KubeObjectName").Return(pkgRevName)
+	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting resources"))
+
+	result, err = packagerevisionresources.Get(ctx, pkgRevName, nil)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+
 func TestWatchResources(t *testing.T) {
 	_, mockEngine := setupResourcesTest(t)
 	mockWatcherManager := mockengine.NewMockWatcherManager(t)

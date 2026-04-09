@@ -287,25 +287,28 @@ The cache is transparent to the CaDEngine:
 **Cache responsibilities:**
 - Intercepts repository operations
 - Manages caching strategy
-- Handles background synchronization
+- Provides data storage and access interfaces
 - Sends change notifications
 - Maintains consistency with Git
 
 ## Background Synchronization
 
-The cache uses a SyncManager to synchronize with external repositories in the background. Each repository gets its own SyncManager instance that:
+Repository synchronization is orchestrated by the Repository Controller, a separate component that manages Repository custom resources using the controller-runtime framework. The Repository Controller:
 
-- Runs periodic sync based on configured frequency or cron schedule
+- Watches Repository resources for spec changes and reconciles them
+- Performs periodic syncs based on configured cron schedules
 - Handles one-time sync requests via `spec.sync.runOnceAt`
 - Detects changes (added/modified/deleted package revisions)
-- Updates cache and sends watch notifications
-- Updates Repository CR status conditions
+- Updates the cache through standard cache interfaces
+- Updates Repository CR status conditions with sync results and package metadata
+
+The cache provides data storage and access interfaces that the Repository Controller uses to store and retrieve package revision data. The controller drives sync operations, while the cache maintains the data layer.
 
 **Manual sync:**
 - Use `porchctl repo sync <repository-name> -n <namespace>` for immediate sync
 - Or set `spec.sync.runOnceAt` in Repository CR to future timestamp
 
-For detailed synchronization architecture, see [Repository Synchronization](functionality/repository-synchronization).
+For details on the Repository Controller's reconciliation logic and sync scheduling, see the [Repository Controller documentation]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}). For the cache's role in synchronization, see [Repository Synchronization]({{% relref "/docs/5_architecture_and_components/package-cache/functionality/repository-synchronization.md" %}}).
 
 ## Watcher Notification Integration
 

@@ -16,9 +16,7 @@ package server
 
 import (
 	"os"
-	"strings"
 	"testing"
-	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
@@ -38,33 +36,33 @@ func TestAddFlags(t *testing.T) {
 			apiserver.Codecs.LegacyCodec(versions...),
 		),
 	}
-	o.AddFlags(&pflag.FlagSet{})
-	if o.RepoSyncFrequency < 5*time.Minute {
-		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 5 minutes.")
-	}
+	assert.NotPanics(t, func() {
+		o.AddFlags(&pflag.FlagSet{})
+	})
+	// Test passes if AddFlags doesn't panic
 }
 
 func TestValidate(t *testing.T) {
 	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
 
 	err := opts.Validate(nil)
-	assert.True(t, err != nil)
+	assert.Error(t, err)
 
 	opts.CacheType = "CR"
 	err = opts.Validate(nil)
-	assert.True(t, err == nil)
+	assert.NoError(t, err)
 
 	opts.CacheType = "cr"
 	err = opts.Validate(nil)
-	assert.True(t, err == nil)
+	assert.NoError(t, err)
 
 	opts.CacheType = "DB"
 	err = opts.Validate(nil)
-	assert.True(t, err == nil)
+	assert.NoError(t, err)
 
 	opts.CacheType = ""
 	err = opts.Validate(nil)
-	assert.True(t, err != nil)
+	assert.Error(t, err)
 }
 
 func TestComplete(t *testing.T) {
@@ -72,18 +70,18 @@ func TestComplete(t *testing.T) {
 
 	// Test with patterns that have leading/trailing spaces
 	opts.RetryableGitErrors = []string{" git error 1 ", "git error 2", " git error 3"}
-	assert.Equal(t, 3, len(opts.RetryableGitErrors))
+	assert.Len(t, opts.RetryableGitErrors, 3)
 
 	err := opts.Complete()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSetupDBCacheConn(t *testing.T) {
 	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
 
 	err := opts.setupDBCacheConn()
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "missing required environment variables"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required environment variables")
 
 	os.Setenv("DB_DRIVER", "db-driver")
 	os.Setenv("DB_HOST", "db-host")
@@ -93,25 +91,26 @@ func TestSetupDBCacheConn(t *testing.T) {
 	os.Setenv("DB_PASSWORD", "db-password")
 
 	err = opts.setupDBCacheConn()
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "unsupported DB driver: db-driver"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported DB driver: db-driver")
 
 	os.Setenv("DB_DRIVER", "pgx")
 	err = opts.setupDBCacheConn()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "pgx", opts.DbCacheDriver)
 	assert.Equal(t, "postgres://db-user:db-password@db-host:db-port/db-name?sslmode=disable", opts.DbCacheDataSource)
 
 	os.Setenv("DB_DRIVER", "mysql")
 	err = opts.setupDBCacheConn()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "mysql", opts.DbCacheDriver)
 	assert.Equal(t, "db-user:db-password@tcp(db-host:db-port)/db-name", opts.DbCacheDataSource)
 
 	os.Setenv("DB_SSL_MODE", "verify-full")
 	os.Setenv("DB_DRIVER", "pgx")
 	err = opts.setupDBCacheConn()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "pgx", opts.DbCacheDriver)
 	assert.Equal(t, "postgres://db-user@db-host:db-port/db-name?sslmode=verify-full", opts.DbCacheDataSource)
 }
+

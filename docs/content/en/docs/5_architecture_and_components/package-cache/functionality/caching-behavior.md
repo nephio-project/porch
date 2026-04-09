@@ -38,7 +38,7 @@ The Package Cache optimizes performance by storing repository data in memory (CR
 
 ## Cache Population
 
-The cache uses lazy loading and version-based refresh to minimize Git operations:
+The cache uses lazy loading and version-based refresh to minimize Git operations. While the cache provides the data storage and access interfaces, the [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller" %}}) orchestrates background sync operations that populate and refresh the cache on configurable schedules.
 
 ### Initial Population
 
@@ -114,8 +114,8 @@ Operation Request
 - Used when stale data suspected or after errors
 
 **Refresh triggers:**
-- User-driven one-time sync using `porchctl repo sync` or Repository CR `spec.sync.runOnceAt`
-- Background sync operations
+- User-driven one-time sync using `porchctl repo sync` (which triggers the Repository Controller via Repository CR `spec.sync.runOnceAt` updates)
+- Background sync operations orchestrated by the Repository Controller based on `spec.sync.schedule`
 - Version mismatch detection
 - Recovery from sync errors
 
@@ -218,7 +218,67 @@ Read Operation          Write Operation
 
 ## Cache Consistency
 
-The cache maintains consistency with external Git repositories through multiple mechanisms:
+The cache maintains consistency with external Git repositories through multiple mechanisms. The [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller" %}}) drives version checking and performs sync operations to keep the cache synchronized with repository state, while the cache layer provides the storage and comparison logic.
+
+### Change Detection
+
+The cache detects changes by comparing cached and external package revisions:
+
+**Package Revision Comparison:**
+
+1. Build map of existing cached package revisions by name
+2. Build map of new package revisions from Git by name
+3. Identify three categories:
+   - **Added**: In Git but not in cache (new package revisions)
+   - **Modified**: In both but with different resource versions
+   - **Deleted**: In cache but not in Git (removed from repository)
+
+**Change notification:**
+- Added package revisions trigger `watch.Added` events
+- Modified package revisions trigger `watch.Modified` events
+- Deleted package revisions trigger `watch.Deleted` events
+
+**Sync Scope Differences:**
+
+| Cache Type | Synced Lifecycles | Rationale |
+|------------|-------------------|------------|
+| **CR Cache** | All (Draft, Proposed, Published, DeletionProposed) | Pass-through approach - all states exist in Git |
+| **DB Cache** | Published, DeletionProposed only | Database-first approach - drafts don't exist in Git |
+
+### Latest Revision Tracking
+
+The cache automatically identifies and tracks the latest package revision for each package:
+
+**Identification Logic:**
+
+```
+All Package Revisions
+        ↓
+Filter Published Only
+        ↓
+Compare Revision Numbers
+        ↓
+Highest Number = Latest
+        ↓
+Set Latest Flag/Label
+```
+
+**Rules:**
+- Only Published package revisions considered
+- Highest revision number wins
+- Draft and branch-tracking revisions excluded
+- Recomputed during every sync and cache update
+
+**Latest revision label:**
+- `kpt.dev/latest-revision: "true"` added to latest revision
+- Used for filtering and queries
+- Automatically updated when new revisions published
+- Removed from old latest when new latest identified
+
+**Async notification on deletion:**
+- When latest revision deleted, async goroutine identifies new latest
+- Sends Modified notification for new latest revision
+- Ensures clients see latest revision updates without delay
 
 ### Version-Based Consistency
 
@@ -242,7 +302,7 @@ Version: abc123          Version: abc123
 - Prevents serving stale data
 
 **Version update triggers:**
-- Background sync operations
+- Background sync operations orchestrated by the Repository Controller
 - Explicit refresh requests
 - Package revision creation/update/delete
 - Repository reconnection after errors
@@ -313,8 +373,8 @@ Sync Operation
 ```
 
 **Error handling strategy:**
-- Sync errors stored and reported in Repository condition
-- Failed syncs retried on next sync interval
+- Sync errors stored and reported in Repository condition (managed by Repository Controller)
+- Failed syncs retried on next sync interval by the Repository Controller
 - Cache remains available with stale data during failures
 - Operations continue with warning about staleness
 
@@ -364,9 +424,11 @@ The cache employs several strategies to optimize performance:
 
 ### Background Sync
 
+The [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller" %}}) performs asynchronous synchronization on configurable schedules (via `spec.sync.schedule`), using the cache as the data store. This separation allows the cache to serve foreground operations without blocking while the controller independently manages repository polling and updates.
+
 **Async synchronization:**
 ```
-Foreground Operations    Background Sync
+Foreground Operations    Repository Controller
         ↓                       ↓
   Serve from Cache        Periodic Sync
         ↓                       ↓
@@ -377,9 +439,10 @@ Foreground Operations    Background Sync
 
 **Benefits:**
 - Operations don't block on sync
-- Cache updated asynchronously
+- Cache updated asynchronously by the Repository Controller
 - Clients notified of changes via watch
 - Balances freshness with responsiveness
+- Independent scaling of sync operations
 
 ### Database Query Optimization (DB Cache)
 

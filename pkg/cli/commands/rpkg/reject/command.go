@@ -21,7 +21,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -50,7 +50,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.RejectExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -73,7 +73,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, "PACKAGE_REVISION is a required positional argument")
 	}
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -92,24 +92,43 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				lastErr = err
 				return err
 			}
 			switch pr.Spec.Lifecycle {
 			case porchapi.PackageRevisionLifecycleProposed:
 				proposedFor = "approval"
-				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+				err := cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+				if err == nil {
+					lastErr = nil
+				} else {
+					lastErr = err
+				}
+				return err
 			case porchapi.PackageRevisionLifecycleDeletionProposed:
 				proposedFor = "deletion"
 				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-				return r.client.Update(r.ctx, &pr)
+				err := r.client.Update(r.ctx, &pr)
+				if err == nil {
+					lastErr = nil
+				} else {
+					lastErr = err
+				}
+				return err
 			default:
-				return fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
+				lastErr = fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
+				return lastErr
 			}
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)

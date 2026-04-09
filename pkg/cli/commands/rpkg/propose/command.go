@@ -21,7 +21,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -51,7 +51,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.ProposeExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -70,7 +70,7 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -88,29 +88,42 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
-			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+			err := r.client.Get(r.ctx, key, &pr)
+			if err != nil {
+				lastErr = err
 				return err
 			}
 			if !porchapi.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
-				return fmt.Errorf("readiness conditions not met")
+				lastErr = fmt.Errorf("readiness conditions not met")
+				return lastErr
 			}
 			switch pr.Spec.Lifecycle {
 			case porchapi.PackageRevisionLifecycleDraft:
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 				err := r.client.Update(r.ctx, &pr)
 				if err == nil {
+					lastErr = nil
 					fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed\n", name)
+				} else {
+					lastErr = err
 				}
 				return err
 			case porchapi.PackageRevisionLifecycleProposed:
+				lastErr = nil
 				fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed\n", name)
 				return nil
 			default:
-				return fmt.Errorf("cannot propose %s package", pr.Spec.Lifecycle)
+				lastErr = fmt.Errorf("cannot propose %s package", pr.Spec.Lifecycle)
+				return lastErr
 			}
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)

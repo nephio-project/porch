@@ -1,4 +1,4 @@
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,11 +35,52 @@ spec:
         k8s-app: porch-controllers
     spec:
       serviceAccountName: porch-controllers
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:17-alpine
+        command:
+        - sh
+        - -c
+        - |
+          # Only wait for postgres if DB config is provided (needed for repository controller)
+          if [ -z "$DB_HOST" ]; then
+            echo "DB_HOST not set, skipping postgres check (repository controller not enabled or DB config missing)"
+            exit 0
+          fi
+          until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        resources:
+          requests:
+            ephemeral-storage: 50Mi
+          limits:
+            ephemeral-storage: 100Mi
+        envFrom:
+        - configMapRef:
+            name: porch-db-config
+            optional: true
+        - secretRef:
+            name: porch-db-secret
+            optional: true
+      volumes:
+      - name: cache-volume
+        emptyDir: {}
       containers:
       - name: porch-controllers
         # Update to the image of your porch-controllers build.
         image: docker.io/nephio/porch-controllers:latest
         imagePullPolicy: IfNotPresent
+        args:
+        - --repositories.cache-type=DB
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /cache
         # Note: only the existence of the variable matters for enabling the reconciler
         # So, be sure to remove the var not just change the value to false
         env:
@@ -47,6 +88,34 @@ spec:
           value: "true"
         - name: ENABLE_PACKAGEVARIANTSETS
           value: "true"
+        - name: ENABLE_REPOSITORIES
+          value: "true"
+        - name: GIT_CACHE_DIR
+          value: "/cache"
+        - name: OTEL_SERVICE_NAME
+          value: porch-controllers
+        - name: OTEL_METRICS_EXPORTER
+          value: "prometheus"
+        - name: OTEL_EXPORTER_PROMETHEUS_HOST
+          value: "0.0.0.0"
+        - name: OTEL_EXPORTER_PROMETHEUS_PORT
+          value: "9464" # Default value, showing for visibility
+        - name: OTEL_TRACES_EXPORTER
+          value: none
+        envFrom:
+        - configMapRef:
+            name: porch-db-config
+            optional: true
+        - secretRef:
+            name: porch-db-secret
+            optional: true
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 500m
+          limits:
+            memory: 1Gi
+            cpu: 1000m
         livenessProbe:
           failureThreshold: 3
           httpGet:

@@ -20,7 +20,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/spf13/cobra"
 	coreapi "k8s.io/api/core/v1"
@@ -50,7 +50,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.UnregExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -81,7 +81,7 @@ func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 		r.cfg.Namespace = &namespace
 	}
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}

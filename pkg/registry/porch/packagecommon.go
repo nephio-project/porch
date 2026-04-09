@@ -26,6 +26,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
+	context1 "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
@@ -266,6 +267,11 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, err
 	}
 
+	// Check if repository is being deleted
+	if repositoryObj.DeletionTimestamp != nil {
+		return nil, apierrors.NewNotFound(r.gr, name)
+	}
+
 	var cancel context.CancelFunc
 	if r.ListTimeoutPerRepository != 0 {
 		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
@@ -307,6 +313,11 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (repository
 		return nil, err
 	}
 
+	// Check if repository is being deleted
+	if repositoryObj.DeletionTimestamp != nil {
+		return nil, apierrors.NewNotFound(r.gr, name)
+	}
+
 	revisions, err := r.cad.ListPackages(ctx, repositoryObj, repository.ListPackageFilter{Key: pkgKey})
 	if err != nil {
 		return nil, err
@@ -327,6 +338,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	defer span.End()
 
 	// TODO: Is this all boilerplate??
+	klog.V(3).InfoS("PackageRevision update validation started", context1.LogMetadataFrom(ctx)...)
 
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -394,6 +406,15 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
 
+	klog.V(3).InfoS("PackageRevision update validation completed", context1.LogMetadataFrom(ctx)...)
+
+	if oldApiPkgRev != nil {
+		action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev)
+		klog.InfoS("[API] Operation started for PackageRevision", context1.LogMetadataFromWithExtras(ctx, "action", action)...)
+	} else {
+		klog.InfoS("[API] Update operation started for PackageRevision", context1.LogMetadataFrom(ctx)...)
+	}
+
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, false, err
@@ -448,7 +469,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	}
 
 	if action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev); action != "" {
-		klog.Infof("%s operation completed for package revision: %s", action, name)
+		klog.InfoS("[API] Operation completed for PackageRevision", context1.LogMetadataFromWithExtras(ctx, "action", action)...)
 	}
 
 	return updated, false, nil
@@ -478,111 +499,13 @@ func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) stri
 			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 			return "Approve"
 		}
-		// Approve or Reject Operation: Published -> Proposed
+		// Approve or Reject Operation: DeletionProposed -> Published
 		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed &&
 			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 			return "Approve/Reject"
 		}
 	}
 	return "Update"
-}
-
-// Common implementation of Package update logic.
-func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo,
-	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
-	// TODO: Is this all boilerplate??
-
-	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if !namespaced {
-		return nil, false, apierrors.NewBadRequest("namespace must be specified")
-	}
-
-	// isCreate tracks whether this is an update that creates an object (this happens in server-side apply)
-	isCreate := false
-
-	oldPackage, err := r.getPackage(ctx, name)
-	if err != nil {
-		if forceAllowCreate && apierrors.IsNotFound(err) {
-			// For server-side apply, we can create the object here
-			isCreate = true
-		} else {
-			return nil, false, err
-		}
-	}
-
-	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
-	var oldRuntimeObj runtime.Object
-	if !isCreate {
-		oldRuntimeObj = oldPackage.GetPackage(ctx)
-	}
-
-	newRuntimeObj, err := objInfo.UpdatedObject(ctx, oldRuntimeObj)
-	if err != nil {
-		klog.Infof("update failed to construct UpdatedObject: %v", err)
-		return nil, false, err
-	}
-
-	// This type conversion is necessary because mutations work with unversioned types
-	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
-	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
-		klog.Warningf("converting from unversioned to versioned object")
-		typed := &porchapi.PackageRevision{}
-		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
-			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
-		}
-		newRuntimeObj = typed
-	}
-
-	if err := r.validateUpdate(ctx, newRuntimeObj, oldRuntimeObj, isCreate, createValidation,
-		updateValidation, "Package", name); err != nil {
-		return nil, false, err
-	}
-
-	newObj, ok := newRuntimeObj.(*porchapi.PorchPackage)
-	if !ok {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
-	}
-
-	pkgKey, err := repository.PkgK8sName2Key(namespace, name)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if isCreate {
-		if newObj.Spec.RepositoryName == "" {
-			return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid repositoryName %q", name))
-		}
-		pkgKey.RepoKey.Name = newObj.Spec.RepositoryName
-	}
-
-	var repositoryObj configapi.Repository
-	repositoryID := types.NamespacedName{Namespace: pkgKey.RKey().Namespace, Name: pkgKey.RKey().Name}
-	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
-		}
-		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
-	}
-
-	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*porchapi.PorchPackage), newObj)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		updated := rev.GetPackage(ctx)
-
-		return updated, false, nil
-	} else {
-		rev, err := r.cad.CreatePackage(ctx, &repositoryObj, newObj)
-		if err != nil {
-			klog.Infof("error creating package: %v", err)
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		created := rev.GetPackage(ctx)
-		return created, true, nil
-	}
 }
 
 func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation rest.ValidateObjectFunc, obj runtime.Object, name, namespace string) (*configapi.Repository, error) {

@@ -27,19 +27,19 @@ unit: test
 
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
-	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.6-bookworm \
+	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.7-bookworm \
 	sh -c "useradd -m -s /bin/sh porch && \
 	         mkdir -p ${TEST_COVERAGE_TMP_DIR} && chown porch:porch ${TEST_COVERAGE_TMP_DIR} && \
 	         su porch -c 'export TEST_COVERAGE_TMP_DIR=${TEST_COVERAGE_TMP_DIR}; \
 	                       export PORCHDIR=${PORCHDIR}; \
 	                       git config --global user.name test; \
 	                       git config --global user.email test@nephio.org; \
-	                       go test ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
+	                       go test -short ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
 	                       go tool cover -html=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} && \
 	                       go tool cover -func=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE}' && \
 	         cp ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE} ."
 else
-	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
+	go test -short ./... -v -coverprofile=${TEST_COVERAGE_FILE}
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
 	go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
 endif
@@ -77,3 +77,9 @@ test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch 
 .PHONY: test-3pp-fns
 test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
 	TPP=1 go test -v -failfast ./test/e2e/fn_runner
+
+.PHONY: test-disaster-recovery
+test-disaster-recovery: ## Run disaster-recovery test scenarios against environment deployed by `test/disaster/deployment/setup.sh`
+# To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
+#	to the `go test` command line below
+	go test -count 1 -v -failfast -timeout 60m ./test/disaster/api

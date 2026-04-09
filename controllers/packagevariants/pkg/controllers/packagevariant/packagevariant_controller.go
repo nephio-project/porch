@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The kpt and Nephio Authors
+// Copyright 2023-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/krm-functions-sdk/go/fn"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -51,7 +51,9 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
+	client.Reader
 	Options
+	loggerName string
 }
 
 const (
@@ -61,7 +63,12 @@ const (
 	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+// SetLogger sets the logger name for this reconciler
+func (r *PackageVariantReconciler) SetLogger(name string) {
+	r.loggerName = name
+}
+
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants/status,verbs=get;update;patch
@@ -156,12 +163,12 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *PackageVariantReconciler) init(ctx context.Context,
 	req ctrl.Request) (*api.PackageVariant, *porchapi.PackageRevisionList, error) {
 	var pv api.PackageVariant
-	if err := r.Get(ctx, req.NamespacedName, &pv); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &pv); err != nil {
 		return nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -820,6 +827,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests
@@ -858,7 +866,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 	// Load the PackageRevisionResources
 	var prr porchapi.PackageRevisionResources
 	prrKey := types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}
-	if err := r.Get(ctx, prrKey, &prr); err != nil {
+	if err := r.Client.Get(ctx, prrKey, &prr); err != nil {
 		return nil, false, err
 	}
 

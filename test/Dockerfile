@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # limitations under the License.
 
 
-FROM golang:1.25.6-bookworm AS builder
+ARG GOLANG_BOOKWORM_VERSION=latest
+
+FROM golang:${GOLANG_BOOKWORM_VERSION} AS builder
 
 WORKDIR /go/src
 
@@ -21,7 +23,9 @@ WORKDIR /go/src
 # and so that source changes don't invalidate our downloaded layer
 
 COPY . .
-RUN cd test; go build -v -o /git-server ./git
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd test; go build -trimpath -ldflags="-s -w" -v -o /git-server ./git
 
 FROM debian:bookworm-slim
 RUN apt update && apt install -y ca-certificates && rm -rf /var/lib/apt && rm -rf /var/cache/apt

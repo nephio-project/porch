@@ -21,7 +21,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -50,7 +50,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.ApproveExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -69,7 +69,7 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -88,16 +88,30 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
-			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+			err := r.client.Get(r.ctx, key, &pr)
+			if err != nil {
+				lastErr = err
 				return err
 			}
 			if !porchapi.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
-				return fmt.Errorf("readiness conditions not met")
+				lastErr = fmt.Errorf("readiness conditions not met")
+				return lastErr
 			}
-			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecyclePublished)
+			err = cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecyclePublished)
+			if err != nil {
+				lastErr = err
+			} else {
+				lastErr = nil
+			}
+			return err
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)

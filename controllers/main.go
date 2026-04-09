@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,45 +14,55 @@
 
 package main
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers webhook paths="."
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers,year=$YEAR_GEN webhook paths="."
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../scripts/boilerplate.yaml.txt paths="./..." output:crd:artifacts:config=config/crd/bases
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../scripts/boilerplate.yaml.txt,year=$YEAR_GEN paths="./..." output:crd:artifacts:config=config/crd/bases
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
+	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
+	porchotel "github.com/nephio-project/porch/internal/otel"
+	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
-	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
-	"github.com/nephio-project/porch/pkg/controllerrestmapper"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	porchinternal "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
+
+const errInitScheme = "error initializing scheme: %w"
 
 var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
+		"repositories":       &repository.RepositoryReconciler{},
 	}
 )
 
@@ -68,6 +78,9 @@ type Reconciler interface {
 
 	// SetupWithManager registers the reconciler to run under the specified manager
 	SetupWithManager(ctrl.Manager) error
+
+	// SetLogger sets the logger for the reconciler
+	SetLogger(name string)
 }
 
 // We include our lease / events permissions in the main RBAC role
@@ -114,17 +127,26 @@ func run(ctx context.Context) error {
 
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	if err := porchapi.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
+	}
+
+	if err := configapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
+	}
+
+	if err := porchinternal.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	managerOptions := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress: ":8080",
+			// Disable the inbuilt metrics server in favor of the OpenTelemetry server
+			BindAddress: "0",
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
@@ -147,8 +169,19 @@ func run(ctx context.Context) error {
 		textlogger.Output(os.Stdout),
 	)
 	ctrl.SetLogger(textlogger.NewLogger(config))
+	cfg := ctrl.GetConfigOrDie()
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		klog.Infof("Wrapping client-go transport with OpenTelemetry")
+		return otelhttp.NewTransport(rt)
+	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
+	otel.SetLogger(klog.NewKlogr())
+	err := porchotel.SetupOpenTelemetry(ctx)
+	if err != nil {
+		return fmt.Errorf("error setting up OpenTelemetry: %w", err)
+	}
+
+	mgr, err := ctrl.NewManager(cfg, managerOptions)
 	if err != nil {
 		return fmt.Errorf("error creating manager: %w", err)
 	}
@@ -159,6 +192,8 @@ func run(ctx context.Context) error {
 		if !reconcilerIsEnabled(enabledReconcilers, name) {
 			continue
 		}
+		reconciler.SetLogger(name)
+		ctrl.Log.WithName(name).Info("setting up controller")
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("error creating %s reconciler: %w", name, err)
 		}
@@ -197,8 +232,12 @@ func reconcilerIsEnabled(reconcilers []string, reconciler string) bool {
 	if slices.Contains(reconcilers, reconciler) {
 		return true
 	}
-	if _, found := os.LookupEnv(fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))); found {
-		return true
+	// Check env var value (not just existence)
+	envVar := fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))
+	if val := os.Getenv(envVar); val != "" {
+		// Parse as boolean: "true", "1", "yes" = enabled
+		valLower := strings.ToLower(val)
+		return valLower == "true" || val == "1" || valLower == "yes"
 	}
 	return false
 }

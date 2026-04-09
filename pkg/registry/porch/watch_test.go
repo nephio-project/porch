@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -339,13 +339,13 @@ func TestWatcherPeriodicBookmark(t *testing.T) {
 
 done:
 	require.GreaterOrEqual(t, len(bookmarks), 2, "Expected at least 2 bookmarks (initial + periodic)")
-	
+
 	// First should be initial bookmark
 	if obj, ok := bookmarks[0].Object.(*porchapi.PackageRevision); ok {
 		assert.NotNil(t, obj.Annotations)
 		assert.Equal(t, "true", obj.Annotations["k8s.io/initial-events-end"])
 	}
-	
+
 	// Second should be periodic bookmark without annotation
 	if obj, ok := bookmarks[1].Object.(*porchapi.PackageRevision); ok {
 		assert.Empty(t, obj.Annotations, "Periodic bookmark should not have annotations")

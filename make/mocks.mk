@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,7 +14,8 @@
 
 # Mock generation tools
 
-MOCKERY_VERSION=3.6.3
+MOCKERY_VERSION=3.6.4
+
 OS_ARCH ?= $(shell uname -m)
 OS ?= $(shell uname)
 

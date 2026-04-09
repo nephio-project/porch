@@ -22,13 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,11 +38,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(porchapi.AddToScheme(scheme))
 	utilruntime.Must(configapi.AddToScheme(scheme))
-}
-
-// Helper functions for metrics collection and operations
-func getPorchClientset(cfg *rest.Config) (*versioned.Clientset, error) {
-	return versioned.NewForConfig(cfg)
 }
 
 func createGiteaRepo(repoName string) error {

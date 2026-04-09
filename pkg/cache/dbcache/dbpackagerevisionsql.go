@@ -305,7 +305,18 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			return nil, err
 		}
 
-		pkgRev.repo = cachetypes.CacheInstance.GetRepository(pkgRev.pkgRevKey.PkgKey.RepoKey).(*dbRepository)
+		repo := cachetypes.CacheInstance.GetRepository(pkgRev.pkgRevKey.PkgKey.RepoKey)
+		if repo != nil {
+			if dbRepo, ok := repo.(*dbRepository); ok {
+				pkgRev.repo = dbRepo
+			} else {
+				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
+				continue
+			}
+		} else {
+			klog.V(4).Infof("pkgRevScanRowsFromDB: repository %+v not found in cache for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
+			continue
+		}
 		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
 		setValueFromJSON(metaAsJSON, &pkgRev.meta)
@@ -442,4 +453,29 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	}
 
 	return err
+}
+
+func findUpstreamRefsFromDB(ctx context.Context, namespace, prName string) (string, error) {
+	_, span := tracer.Start(ctx, "dbpackagerevisionsql::findUpstreamRefsFromDB")
+	defer span.End()
+
+	// Match newUpstreamRef (upgrade) or nested upstreamRef (clone)
+	// Exclude main branch packages (revision = -1) as they are auto-managed
+	sqlStatement := `
+		SELECT k8s_name FROM package_revisions
+		WHERE k8s_name_space=$1
+		  AND revision != -1
+		  AND tasks::text ~ ('"(upstreamRef|newUpstreamRef)":\{"name":"' || $2 || '"')
+		LIMIT 1
+	`
+
+	var downstreamName string
+	err := GetDB().db.QueryRow(ctx, sqlStatement, namespace, prName).Scan(&downstreamName)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return downstreamName, nil
 }

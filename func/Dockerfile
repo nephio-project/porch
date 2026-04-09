@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+ARG ALPINE_VERSION=latest
+ARG GOLANG_ALPINE_VERSION=latest
 
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0 AS apply-setters
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-v1
@@ -25,31 +28,49 @@ FROM ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0 AS set-project-i
 FROM ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3.0 AS starlark
 FROM ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0 AS upsert-resource
 
-FROM golang:1.25.6-alpine AS builder
+
+FROM golang:${GOLANG_ALPINE_VERSION} AS builder
 WORKDIR /go/src
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 RUN cp $GOPATH/bin/grpc-health-probe /grpc-health-probe
 
-COPY . .
-RUN cd func ; go build -v -o /server ./server
+COPY go.mod go.sum ./
+COPY ./third_party ./third_party
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY ./api ./api
+COPY ./cmd ./cmd
+COPY ./pkg ./pkg
+COPY ./internal ./internal
+COPY ./controllers ./controllers
+COPY ./func ./func
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd func ; go build -trimpath -ldflags="-s -w" -v -o /server ./server
 COPY func/config.yaml /config.yaml
 
-FROM alpine:3.21
+FROM alpine:${ALPINE_VERSION}
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=apply-setters          /usr/local/bin/function /functions/apply-setters
-COPY --from=apply-setters-v1       /usr/local/bin/function /functions/apply-setters-v1
-COPY --from=ensure-name-substring  /usr/local/bin/function /functions/ensure-name-substring
-COPY --from=search-replace         /usr/local/bin/function /functions/search-replace
-COPY --from=set-annotations        /usr/local/bin/function /functions/set-annotations
-COPY --from=set-image              /usr/local/bin/function /functions/set-image
-COPY --from=set-labels             /usr/local/bin/function /functions/set-labels
-COPY --from=set-namespace          /usr/local/bin/function /functions/set-namespace
-COPY --from=set-namespace-v3       /usr/local/bin/function /functions/set-namespace-v3
-COPY --from=set-project-id         /usr/local/bin/function /functions/set-project-id
-COPY --from=starlark               /usr/local/bin/star     /functions/starlark
-COPY --from=upsert-resource        /usr/local/bin/function /functions/upsert-resource
-COPY --from=builder                /server /grpc-health-probe /config.yaml /
+COPY --from=apply-setters          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters
+COPY --from=apply-setters-v1       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters-v1
+COPY --from=ensure-name-substring  --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/ensure-name-substring
+COPY --from=search-replace         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/search-replace
+COPY --from=set-annotations        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-annotations
+COPY --from=set-image              --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-image
+COPY --from=set-labels             --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-labels
+COPY --from=set-namespace          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace
+COPY --from=set-namespace-v3       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace-v3
+COPY --from=set-project-id         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-project-id
+COPY --from=starlark               --chown=root:root --chmod=555 /usr/local/bin/star     /home/nonroot/functions/starlark
+COPY --from=upsert-resource        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/upsert-resource
+COPY --from=builder                --chown=root:root --chmod=555 /server /grpc-health-probe /home/nonroot/
+COPY --from=builder                --chown=root:root --chmod=444 /config.yaml /home/nonroot/
 
+USER nonroot:nonroot
 EXPOSE 9445/tcp
-ENTRYPOINT [ "/server", "--config=/config.yaml", "--functions=/functions" ]
+ENTRYPOINT [ "/home/nonroot/server", "--config=/home/nonroot/config.yaml", "--functions=/home/nonroot/functions" ]

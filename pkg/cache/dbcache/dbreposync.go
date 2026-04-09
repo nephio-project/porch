@@ -17,12 +17,12 @@ package dbcache
 import (
 	"context"
 	"fmt"
+	"strings"
 	stdSync "sync"
 	"time"
+	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -33,10 +33,10 @@ import (
 type repositorySync struct {
 	repo                    *dbRepository
 	mutex                   stdSync.Mutex
+	syncWg                  stdSync.WaitGroup
 	lastExternalRepoVersion string
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncStats           repositorySyncStats
-	syncManager             *sync.SyncManager
 }
 
 type repositorySyncStats struct {
@@ -46,44 +46,19 @@ type repositorySyncStats struct {
 }
 
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
-	ctx := context.Background()
 	s := repositorySync{
 		repo: repo,
 	}
-
-	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
-	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
 
-func (s *repositorySync) Stop() {
-	if s != nil && s.syncManager != nil {
-		s.syncManager.Stop()
-	}
-}
-
-// SyncOnce implements the SyncHandler interface
+// SyncOnce synchronizes the DB cache with the external repository
 func (s *repositorySync) SyncOnce(ctx context.Context) error {
+	s.syncWg.Add(1)
+	defer s.syncWg.Done()
 	var err error
 	s.lastSyncStats, err = s.sync(ctx)
 	return err
-}
-
-// Key implements the SyncHandler interface
-func (s *repositorySync) Key() repository.RepositoryKey {
-	return s.repo.Key()
-}
-
-// GetSpec implements the SyncHandler interface
-func (s *repositorySync) GetSpec() *configapi.Repository {
-	return s.repo.spec
-}
-
-func (s *repositorySync) getLastSyncError() error {
-	if s.syncManager != nil {
-		return s.syncManager.GetLastSyncError()
-	}
-	return nil
 }
 
 func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
@@ -97,13 +72,6 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
-
-	// Set condition to sync-in-progress
-	if s.syncManager != nil {
-		if err := s.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", s.repo.Key(), err)
-		}
-	}
 
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())
@@ -145,12 +113,16 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
-	deployedFilter := repository.ListPackageRevisionFilter{
-		Lifecycles: []porchapi.PackageRevisionLifecycle{
-			porchapi.PackageRevisionLifecyclePublished,
-			porchapi.PackageRevisionLifecycleDeletionProposed,
-		},
+	deployedFilter := repository.ListPackageRevisionFilter{}
+	if !s.repo.pushDraftsToGit {
+		deployedFilter = repository.ListPackageRevisionFilter{
+			Lifecycles: []porchapi.PackageRevisionLifecycle{
+				porchapi.PackageRevisionLifecyclePublished,
+				porchapi.PackageRevisionLifecycleDeletionProposed,
+			},
+		}
 	}
+
 	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
@@ -224,6 +196,24 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
+		// Guard against nil return from GetResources (interface contract allows it).
+		var resources map[string]string
+		if extPRResources == nil || extPRResources.Spec.Resources == nil {
+			resources = make(map[string]string)
+		} else {
+			// Filter out files with invalid UTF-8 or NUL bytes to avoid PostgreSQL TEXT errors.
+			// Both resource_key and resource_value are TEXT columns, so both must be validated.
+			resources = make(map[string]string, len(extPRResources.Spec.Resources))
+			for key, val := range extPRResources.Spec.Resources {
+				if !utf8.ValidString(key) || strings.Contains(key, "\x00") ||
+					!utf8.ValidString(val) || strings.Contains(val, "\x00") {
+					klog.Warningf("repositorySync %+v: skipping file %q in PR %+v (not compatible with PostgreSQL TEXT)", s.repo.Key(), key, extPRKey)
+					continue
+				}
+				resources[key] = val
+			}
+		}
+
 		if extAPIPR.CreationTimestamp.Time.IsZero() {
 			extAPIPR.CreationTimestamp.Time = time.Now()
 		}
@@ -239,7 +229,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			lifecycle: extAPIPR.Spec.Lifecycle,
 			extPRID:   extPRUpstreamLock,
 			tasks:     extAPIPR.Spec.Tasks,
-			resources: extPRResources.Spec.Resources,
+			resources: resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {

@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25.6-alpine AS builder
+ARG ALPINE_VERSION=latest
+ARG GOLANG_ALPINE_VERSION=latest
+
+FROM golang:${GOLANG_ALPINE_VERSION} AS builder
 
 WORKDIR /go/src
 
@@ -20,17 +23,25 @@ WORKDIR /go/src
 ENV CGO_ENABLED=0
 
 COPY go.mod go.sum ./
+COPY ./third_party ./third_party
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 COPY func/ func/
 COPY ./api ./api
 COPY ./pkg ./pkg
 COPY ./internal ./internal
-COPY ./third_party ./third_party
 
-RUN cd func ; go build -v -o /wrapper-server/wrapper-server ./wrapper-server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd func ; go build -trimpath -ldflags="-s -w" -v -o /wrapper-server/wrapper-server ./wrapper-server
 RUN cp $GOPATH/bin/grpc-health-probe /wrapper-server/
 
-FROM alpine:3.21
+FROM alpine:${ALPINE_VERSION}
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=builder /wrapper-server/* /wrapper-server/
+COPY --from=builder --chown=root:root --chmod=555 /wrapper-server/* /home/nonroot/wrapper-server/
+USER nonroot:nonroot
