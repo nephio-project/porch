@@ -10,8 +10,8 @@ func (t *PorchSuite) TestMetricsEndpoint() {
 		"go_*",
 		"http_server_*",
 		"http_client_*",
-		"errors_total_*",
-		"target_info_*",
+		"errors_total*",
+		"target_info*",
 		"promhttp_metric_handler_*",
 	}
 	porchControllerShouldHaveRegexList := []string{
