@@ -9,7 +9,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.32.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-billy/v5 v5.8.0
-	github.com/go-git/go-git/v5 v5.17.1
+	github.com/go-git/go-git/v5 v5.17.2
 	github.com/golang/protobuf v1.5.4
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
@@ -40,7 +40,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0
 	go.opentelemetry.io/proto/otlp v1.10.0
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.254.0
 	google.golang.org/genproto v0.0.0-20251103181224-f26f9409b101
 	google.golang.org/grpc v1.80.0
