@@ -289,6 +289,12 @@ func (c completedConfig) buildFunctionConfigReconciler(ctx context.Context, sche
 		return nil, fmt.Errorf("error at creating controller: %w", err)
 	}
 
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			klog.Infof("manager stopped: %v", err)
+		}
+	}()
+
 	return rec, nil
 }
 

@@ -20,7 +20,6 @@ import (
 	"net"
 	"slices"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 

@@ -63,7 +63,7 @@ type PorchServerOptions struct {
 	CacheType         string
 	DbCacheDriver     string
 	DbCacheDataSource string
-  DbPushDrafsToGit  bool
+	DbPushDrafsToGit  bool
 
 	DefaultImagePrefix       string
 	FunctionRunnerAddress    string

@@ -33,7 +33,12 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+const BaseFinalizer = "config.porch.kpt.dev/functionconfig"
+const ServerFinalizer = BaseFinalizer + "-porch-server"
+const FunctionRunnerFinalizer = BaseFinalizer + "-function-runner"
 
 type FunctionConfigStore struct {
 	mu sync.RWMutex
@@ -180,7 +185,7 @@ type FunctionConfigReconciler struct {
 }
 
 func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, finalErr error) {
-	klog.Infof("FunctionConfig configuration changed")
+	klog.Infof("FunctionConfig %q changed", req.NamespacedName)
 	obj := &configapi.FunctionConfig{}
 	err := r.Client.Get(ctx, req.NamespacedName, obj)
 	if apierrors.IsNotFound(err) {
@@ -191,8 +196,21 @@ func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if obj.DeletionTimestamp != nil {
+		if err := r.removeFinalizer(ctx, obj); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		r.FunctionConfigStore.DeleteFunctionConfig(req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+
+	if err := r.addFinalizer(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	defer func() {
-		patch := client.MergeFromWithOptions(obj.DeepCopy())
+		patch := client.MergeFrom(obj.DeepCopy())
 
 		if finalErr != nil {
 			obj.Status.Error = finalErr.Error()
@@ -207,7 +225,7 @@ func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if err := r.Client.Status().Patch(ctx, obj, patch); err != nil {
-			klog.Errorf("Failed to update function config status: %v", err)
+			klog.Errorf("Failed to update status of FunctionConfig %q: %v", obj.Name, err)
 		}
 	}()
 
@@ -231,4 +249,43 @@ func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *FunctionConfigReconciler) removeFinalizer(ctx context.Context, obj *configapi.FunctionConfig) error {
+	patch := client.MergeFrom(obj.DeepCopy())
+
+	switch r.For {
+	case ReconcilerForFunctionRunner:
+		controllerutil.RemoveFinalizer(obj, FunctionRunnerFinalizer)
+	case ReconcilerForServer:
+		controllerutil.RemoveFinalizer(obj, ServerFinalizer)
+	}
+
+	if err := r.Client.Patch(ctx, obj, patch); err != nil {
+		klog.Errorf("Failed to remove finalizer from FunctionConfig %q: %v", obj.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (r *FunctionConfigReconciler) addFinalizer(ctx context.Context, obj *configapi.FunctionConfig) error {
+	patch := client.MergeFrom(obj.DeepCopy())
+
+	updated := false
+	switch r.For {
+	case ReconcilerForFunctionRunner:
+		updated = controllerutil.AddFinalizer(obj, FunctionRunnerFinalizer)
+	case ReconcilerForServer:
+		updated = controllerutil.AddFinalizer(obj, ServerFinalizer)
+	}
+
+	if updated {
+		if err := r.Client.Patch(ctx, obj, patch); err != nil {
+			klog.Errorf("Failed to add finalizer to FunctionConfig %q: %v", obj.Name, err)
+			return err
+		}
+	}
+
+	return nil
 }

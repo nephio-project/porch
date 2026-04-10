@@ -171,7 +171,7 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:     "BuiltInExecutorCache is availablefor starlark",
+			name:     "BuiltInExecutorCache is available for starlark",
 			objs:     []client.Object{builtInSetNamespace, builtInApplyReplacements, builtInStarlarkWithId},
 			requests: []string{"apply-replacements", "set-namespace", "starlark"},
 			check: func(t *testing.T, r *FunctionConfigReconciler) {

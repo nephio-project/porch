@@ -183,13 +183,13 @@ type PackageRevisionStatus struct {
 type PackageSource struct {
 	// Init creates a brand new package from scratch.
 	Init *PackageInitSpec `json:"init,omitempty"`
-	
+
 	// CloneFrom copies a package from an upstream source (first time).
 	CloneFrom *UpstreamPackage `json:"cloneFrom,omitempty"`
-	
+
 	// CopyFrom creates a new revision from an existing package in the same repository.
 	CopyFrom *PackageRevisionRef `json:"copyFrom,omitempty"`
-	
+
 	// Upgrade merges changes from a new upstream version into a local package.
 	Upgrade *PackageUpgradeSpec `json:"upgrade,omitempty"`
 }

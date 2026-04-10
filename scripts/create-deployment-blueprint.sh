@@ -28,17 +28,18 @@ function error() {
 Error: ${1}
 Usage: ${0} [flags]
 Supported Flags:
-  --destination DIRECTORY             ... directory in which to create the Porch deploymetn blueprint
+  --destination DIRECTORY             ... directory in which to create the Porch deployment blueprint
   --server-image IMAGE                ... address of the Porch server image
   --controllers-image IMAGE           ... address of the Porch controllers image
   --function-image IMAGE              ... address of the Porch function runtime image
   --wrapper-server-image IMAGE        ... address of the Porch function wrapper server image
-  --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in
+  --enabled-reconcilers RECONCILERS   ... comma-separated list of reconcilers that should be enabled in
                                           porch controller
-  --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
+  --ghcr-image-prefix PREFIX          ... GHCR image url prefix for running porch behind a proxy
   --fn-runner-warm-up-pod-cache BOOL  ... disable warm-up-pod-cache in function runner
   --porch-cache-type TYPE             ... porch cache type (CR or DB)
   --db-push-drafts-to-git BOOL        ... enable db-push-drafts-to-git flag for porch-server
+  --dockerhub-mirror REGISTRY         ... alternate registry to pull additional images from (postgres)
 EOF
   exit 1
 }
@@ -51,6 +52,7 @@ FUNCTION_IMAGE=""
 WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
+DOCKERHUB_MIRROR=""
 FN_RUNNER_WARM_UP_POD_CACHE="true"
 PORCH_CACHE_TYPE="DB"
 DB_PUSH_DRAFTS_TO_GIT="false"
@@ -62,27 +64,22 @@ while [[ $# -gt 0 ]]; do
       DESTINATION="${2}"
       shift 2
     ;;
-
     --server-image)
       SERVER_IMAGE="${2}"
       shift 2
     ;;
-
     --controllers-image)
       CONTROLLERS_IMAGE="${2}"
       shift 2
     ;;
-
     --function-image)
       FUNCTION_IMAGE="${2}"
       shift 2
     ;;
-
     --wrapper-server-image)
       WRAPPER_SERVER_IMAGE="${2}"
       shift 2
     ;;
-
     --enabled-reconcilers)
       ENABLED_RECONCILERS="${2}"
       shift 2
@@ -101,6 +98,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --db-push-drafts-to-git)
       DB_PUSH_DRAFTS_TO_GIT="${2}"
+      shift 2
+      ;;
+    --dockerhub-mirror)
+      DOCKERHUB_MIRROR="${2}"
       shift 2
       ;;
     *)
@@ -238,14 +239,6 @@ function configure_porch_cache() {
 for resource in ctx.resource_list['items']:
     podspec = resource['spec']['template']['spec']
     
-    # Remove wait-for-postgres initContainer
-    if 'initContainers' in podspec:
-        new_init = [c for c in podspec['initContainers'] if c.get('name') != 'wait-for-postgres']
-        if new_init:
-            podspec['initContainers'] = new_init
-        else:
-            podspec.pop('initContainers')
-    
     # Update containers
     for container in podspec.get('containers', []):
         if 'envFrom' in container:
@@ -343,7 +336,7 @@ function main() {
   done
 
   if [[ -n "${GHCR_IMAGE_PREFIX}" ]]; then
-          add_image_args_porch_server
+    add_image_args_porch_server
   fi
 
   if [[ "${FN_RUNNER_WARM_UP_POD_CACHE}" == "false" ]]; then
@@ -370,6 +363,12 @@ function main() {
   customize_image_in_env \
     "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
+
+  if [[ -n "${DOCKERHUB_MIRROR}" ]]; then
+    customize_image \
+    "docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4" \
+    "${DOCKERHUB_MIRROR}/bitnamilegacy/postgresql:17.6.0-debian-12-r4"
+  fi
 }
 
 validate

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
