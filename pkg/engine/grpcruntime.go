@@ -73,6 +73,7 @@ func (gr *grpcRuntime) GetRunner(ctx context.Context, fn *kptfilev1.Function) (f
 		ctx:    ctx,
 		client: gr.client,
 		image:  fn.Image,
+		tag:    fn.Tag,
 	}, nil
 }
 
@@ -91,6 +92,7 @@ type grpcRunner struct {
 	ctx    context.Context
 	client evaluator.FunctionEvaluatorClient
 	image  string
+	tag    string
 }
 
 var _ fn.FunctionRunner = &grpcRunner{}
@@ -104,6 +106,7 @@ func (gr *grpcRunner) Run(r io.Reader, w io.Writer) error {
 	res, err := gr.client.EvaluateFunction(gr.ctx, &evaluator.EvaluateFunctionRequest{
 		ResourceList: in,
 		Image:        gr.image,
+		Tag:          gr.tag,
 	})
 	if err != nil {
 		return fmt.Errorf("func eval %q failed: %w", gr.image, err)
