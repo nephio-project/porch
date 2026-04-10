@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	semver "github.com/Masterminds/semver/v3"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
@@ -86,7 +88,36 @@ func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
 }
 
 func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
-	binary, cached := e.cache[req.Image]
+
+	c, err := semver.NewConstraint(req.Tag)
+	if err != nil {
+		return nil, &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: req.Image},
+		}
+	}
+
+	// Filter the cache map by semver constraint validation
+	filteredCache := make(map[string]string)
+	for img, bin := range e.cache {
+		// Extract the version string after ":v" in the image name
+		idx := strings.LastIndex(img, ":v")
+		if idx == -1 {
+			continue
+		}
+		versionStr := img[idx+2:] // skip past ":v"
+		v, err := semver.NewVersion(versionStr)
+		if err != nil {
+			klog.Warningf("Failed to parse version %q from cached image %q: %v", versionStr, img, err)
+			continue
+		}
+		if ok, errs := c.Validate(v); ok {
+			filteredCache[img] = bin
+		} else {
+			klog.Infof("Cached image %q (version %s) does not satisfy constraint %q: %v", img, versionStr, req.Tag, errs)
+		}
+	}
+
+	binary, cached := filteredCache[req.Image]
 	if !cached {
 		return nil, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: req.Image},
