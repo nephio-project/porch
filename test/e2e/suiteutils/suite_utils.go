@@ -249,12 +249,12 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.CreateF(repo)
 
 	t.Cleanup(func() {
-		if IsPorchTestRepo(config.Repo) {
-			defer t.RecreateGiteaTestRepo()
-		}
 		t.DeleteE(repo)
-		t.WaitUntilRepositoryDeleted(name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		t.WaitUntilRepositoryDeleted(name, repo.Namespace)
+		t.WaitUntilAllPackagesDeleted(name, repo.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -560,12 +560,12 @@ func (t *TestSuite) WaitUntilAllPackageRevisionsDeleted(repoName string, namespa
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &pkgRevList, client.InNamespace(namespace)); err != nil {
 			t.Logf("error listing PackageRevisions: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
+			if pkgRev.Spec.RepositoryName == repoName {
 				t.Logf("Found PackageRevision %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
@@ -581,17 +581,20 @@ func (t *TestSuite) WaitUntilAllPackageRevsDeleted(repoName string, namespace st
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var internalPkgRevList internalapi.PackageRevList
-		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &internalPkgRevList, client.InNamespace(namespace), client.MatchingLabels{
+			"internal.porch.kpt.dev/repository": repoName,
+		}); err != nil {
 			t.Logf("error listing PackageRevs: %v", err)
 			return false, nil
 		}
-		for _, internalPkgRev := range internalPkgRevList.Items {
-			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+		if len(internalPkgRevList.Items) > 0 {
+			t.Logf("Found %d PackageRevs from repo %s", len(internalPkgRevList.Items), repoName)
+			for _, internalPkgRev := range internalPkgRevList.Items {
 				if len(internalPkgRev.Finalizers) > 0 {
 					t.removePkgRevFinalizers(ctx, &internalPkgRev)
 				}
-				return false, nil
 			}
+			return false, nil
 		}
 		return true, nil
 	})
@@ -991,21 +994,33 @@ func (t *TestSuite) TimingHelper(operationDescription string, toTime func(t *Tes
 
 func RunInParallel(functions ...func() any) []any {
 	var group sync.WaitGroup
-	var results []any
-	for _, eachFunction := range functions {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			if reflect.TypeOf(eachFunction).NumOut() == 0 {
-				results = append(results, nil)
-				eachFunction()
-			} else {
-				eachResult := eachFunction()
+	var mu sync.Mutex
+	results := make([]any, len(functions))
 
-				results = append(results, eachResult)
+	startSignal := make(chan struct{})
+
+	for i, eachFunction := range functions {
+		group.Add(1)
+		go func(index int, fn func() any) {
+			defer group.Done()
+
+			<-startSignal
+
+			var result any
+			if reflect.TypeOf(fn).NumOut() == 0 {
+				fn()
+				result = nil
+			} else {
+				result = fn()
 			}
-		}()
+
+			mu.Lock()
+			results[index] = result
+			mu.Unlock()
+		}(i, eachFunction)
 	}
+	close(startSignal)
+
 	group.Wait()
 	return results
 }

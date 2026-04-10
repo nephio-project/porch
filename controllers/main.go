@@ -1,4 +1,4 @@
-// Copyright 2022,2026 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,9 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,13 +49,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	porchinternal "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
+
+const errInitScheme = "error initializing scheme: %w"
 
 var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
+		"repositories":       &repository.RepositoryReconciler{},
 	}
 )
 
@@ -71,6 +78,9 @@ type Reconciler interface {
 
 	// SetupWithManager registers the reconciler to run under the specified manager
 	SetupWithManager(ctrl.Manager) error
+
+	// SetLogger sets the logger for the reconciler
+	SetLogger(name string)
 }
 
 // We include our lease / events permissions in the main RBAC role
@@ -117,11 +127,19 @@ func run(ctx context.Context) error {
 
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	if err := porchapi.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
+	}
+
+	if err := configapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
+	}
+
+	if err := porchinternal.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	managerOptions := ctrl.Options{
@@ -174,6 +192,8 @@ func run(ctx context.Context) error {
 		if !reconcilerIsEnabled(enabledReconcilers, name) {
 			continue
 		}
+		reconciler.SetLogger(name)
+		ctrl.Log.WithName(name).Info("setting up controller")
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("error creating %s reconciler: %w", name, err)
 		}
@@ -212,8 +232,12 @@ func reconcilerIsEnabled(reconcilers []string, reconciler string) bool {
 	if slices.Contains(reconcilers, reconciler) {
 		return true
 	}
-	if _, found := os.LookupEnv(fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))); found {
-		return true
+	// Check env var value (not just existence)
+	envVar := fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))
+	if val := os.Getenv(envVar); val != "" {
+		// Parse as boolean: "true", "1", "yes" = enabled
+		valLower := strings.ToLower(val)
+		return valLower == "true" || val == "1" || valLower == "yes"
 	}
 	return false
 }

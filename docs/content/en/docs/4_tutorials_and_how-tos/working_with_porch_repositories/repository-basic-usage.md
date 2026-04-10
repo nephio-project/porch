@@ -40,6 +40,15 @@ You can also use kubectl to list repositories:
 kubectl get repositories -n default
 ```
 
+{{% alert title="Note" color="primary" %}}
+You can use the shortname `repo` instead of `repositories`:
+
+```bash
+kubectl get repo -n default
+```
+
+{{% /alert %}}
+
 List repositories across all namespaces:
 
 ```bash
@@ -49,10 +58,10 @@ kubectl get repositories --all-namespaces
 **Example output:**
 
 ```bash
-NAME         TYPE   CONTENT   SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS
-porch-test   git    Package                                True    https://github.com/example-org/test-packages.git
-blueprints   git    Package   */10 * * * *                 True    https://github.com/example/blueprints.git
-infra        git    Package   */10 * * * *    true         True    https://github.com/nephio-project/catalog
+NAME         TYPE   CONTENT   SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS                                           BRANCH   AGE
+porch-test   git    Package                                True    https://github.com/example-org/test-packages.git  main     5d
+blueprints   git    Package   */10 * * * *                 True    https://github.com/example/blueprints.git         main     10d
+infra        git    Package   */10 * * * *    true         True    https://github.com/nephio-project/catalog         main     30d
 ```
 
 **Understanding the output:**
@@ -64,6 +73,8 @@ infra        git    Package   */10 * * * *    true         True    https://githu
 - **DEPLOYMENT**: Whether this is a deployment repository
 - **READY**: Repository health status
 - **ADDRESS**: Repository URL
+- **BRANCH**: Git branch for package storage (git repositories only)
+- **AGE**: Time since repository was registered
 
 ---
 
@@ -104,8 +115,14 @@ status:
   - type: Ready
     status: "True"
     reason: Ready
-    message: 'Repository Ready (next sync scheduled at: 2025-11-26T09:48:03Z)'
+    message: 'Repository Ready'
     lastTransitionTime: "2025-11-26T09:45:03Z"
+  packageCount: 42
+  gitCommitHash: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0
+  lastFullSyncTime: "2026-03-19T10:00:00Z"
+  nextFullSyncTime: "2026-03-19T10:10:00Z"
+  observedGeneration: 1
+  observedRunOnceAt: "2026-03-19T09:55:00Z"
 ```
 
 **Key fields to inspect:**
@@ -117,18 +134,37 @@ status:
   - **status**: `"True"` (healthy) or `"False"` (error)
   - **reason**: `Ready` or `Error`
   - **message**: Detailed error message when status is False
+- **status.packageCount**: Number of package revisions found in the repository
+- **status.gitCommitHash**: Current commit hash of the configured branch (git repositories only)
+- **status.lastFullSyncTime**: Timestamp of the last successful full repository sync
+- **status.nextFullSyncTime**: Timestamp when the next full sync is scheduled
+- **status.observedGeneration**: Generation of the Repository spec that was last reconciled
+- **status.observedRunOnceAt**: Last observed value of spec.sync.runOnceAt
 
 ---
 
 ### Update Repository Configuration
 
-The typical workflow for changing repository settings is to unregister and re-register the repository with new configuration. This is the recommended approach.
+{{% alert title="Critical" color="danger" %}}
+**Important: Key repository fields are IMMUTABLE after creation**
+
+The following fields cannot be changed after a Repository is created:
+- `spec.type`
+- `spec.git.repo`
+- `spec.git.branch`
+- `spec.git.directory`
+- `spec.oci.registry`
+
+To change any of these fields, you must delete and recreate the Repository.
+{{% /alert %}}
+
+The workflow for changing immutable repository settings is to unregister and re-register the repository with the new configuration.
 
 {{% alert title="Note" color="primary" %}}
 There is no `porchctl repo update` command. The standard approach is unregister/reregister.
 {{% /alert %}}
 
-**Recommended approach - Unregister and re-register:**
+**Unregister and re-register:**
 
 ```bash
 # Unregister the repository
@@ -142,33 +178,22 @@ porchctl repo register https://github.com/example/porch-test.git \
   --directory=/new-path
 ```
 
-**Alternative - Direct kubectl editing (NOT RECOMMENDED):**
+**Editing mutable fields with kubectl:**
 
-While you can edit the repository resource directly with kubectl, this is highly discouraged:
+Only a few fields can be safely changed after creation. These include:
+
+- `spec.sync.schedule`: Change the sync schedule
+- `spec.sync.runOnceAt`: Trigger a one-time sync
+- `spec.secretRef.name`: Change authentication credentials
+
+To edit these fields:
 
 ```bash
 kubectl edit repository porch-test -n default
 ```
 
 {{% alert title="Warning" color="warning" %}}
-Direct editing with kubectl is not recommended because:
-
-- Some values like `url`, `branch`, and `directory` are immutable or not designed to be changed this way
-- Changes to authentication secrets (like `secretRef`) are cached by Porch and won't take effect immediately
-- Secret changes only apply when authentication fails and Porch refreshes the cached credentials
-- This can lead to unpredictable behavior
+Do not attempt to edit immutable fields (listed above) with kubectl. The Kubernetes validating webhook will reject the change.
 {{% /alert %}}
-
-**If you must use kubectl editing:**
-
-Only modify fields that are safe to change, such as:
-
-- `secretRef.name`: Change authentication credentials (with caching caveats above)
-
-Avoid changing:
-
-- `url`: Repository URL
-- `branch`: Git branch
-- `directory`: Package directory path
 
 ---

@@ -20,7 +20,7 @@ The Porch API Server is responsible for:
 - **Validation and Admission**: Enforcing API validation rules and admission policies through strategies
 - **Authentication and Authorization**: Integrating with Kubernetes RBAC for access control
 - **Watch Stream Management**: Supporting real-time watch streams for resource changes
-- **Background Operations**: Running periodic repository synchronization and maintenance tasks
+- **Background Operations**: Running maintenance tasks such as resource cleanup
 
 ## Role in the Architecture
 
@@ -52,8 +52,8 @@ The Porch API Server sits at the top of the Porch architecture, serving as the i
 │  │   Strategies     │      │   Background     │            │
 │  │                  │      │   Jobs           │            │
 │  │  • Validation    │      │                  │            │
-│  │  • Admission     │      │  • Repo Sync     │            │
-│  │  • Table Conv    │      │  • Cleanup       │            │
+│  │  • Admission     │      │  • Cleanup       │            │
+│  │  • Table Conv    │      │                  │            │
 │  └──────────────────┘      └──────────────────┘            │
 └────────────────────────────────────────────────────────────┘
                     ↓
@@ -75,7 +75,11 @@ The Porch API Server sits at the top of the Porch architecture, serving as the i
 3. **Storage Abstraction**: Implements Kubernetes storage interface (REST storage) that delegates to Engine rather than etcd
 4. **Strategy Pattern**: Uses Kubernetes strategy pattern for validation, admission control, and table conversion
 5. **Watch Support**: Provides real-time watch streams by integrating with Engine's WatcherManager
-6. **Background Processing**: Runs periodic tasks for repository synchronization and resource cleanup
+6. **Background Processing**: Runs periodic tasks for resource cleanup
 7. **Multi-Tenancy**: Enforces namespace isolation and RBAC policies for secure multi-tenant operation
+
+{{% alert title="Note" color="primary" %}}
+Repository synchronization and lifecycle management are handled by the separate [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), not by the API Server. This separation improves scalability and allows the API Server to focus on serving API requests.
+{{% /alert %}}
 
 The API Server is instantiated once during Porch startup and configured with Engine, Cache, and client connections through dependency injection.

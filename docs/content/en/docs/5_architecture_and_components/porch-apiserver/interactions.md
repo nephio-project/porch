@@ -8,7 +8,7 @@ description: |
 
 ## Overview
 
-The Porch API Server acts as the integration point between Kubernetes clients and Porch's internal components. It translates Kubernetes API requests into Engine operations, manages watch streams, and coordinates background synchronization tasks.
+The Porch API Server acts as the integration point between Kubernetes clients and Porch's internal components. It translates Kubernetes API requests into Engine operations and manages watch streams for real-time event delivery.
 
 ### High-Level Architecture
 
@@ -128,13 +128,15 @@ API Request
 
 ### Background Synchronization
 
-See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#repository-synchronization" %}}) for detailed sync process and configuration.
+Repository synchronization is handled by the [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), a separate component that manages the Repository resource lifecycle.
 
 **Integration pattern:**
-- API Server starts background sync goroutines at startup
-- Discovers repositories via Kubernetes client
-- Delegates sync operations to Cache through Engine
-- Propagates watch notifications from Cache to clients
+- Repository Controller watches Repository CRs and triggers sync operations
+- Sync operations update the Cache directly
+- Cache propagates change notifications to the API Server
+- API Server delivers watch events to connected clients
+
+The API Server observes cache changes initiated by the Repository Controller rather than managing synchronization directly. See [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}) for details on sync scheduling and configuration.
 
 ## Kubernetes API Integration
 
@@ -228,41 +230,40 @@ Client Watch Request
 - Package revision creation (Added events)
 - Package revision updates (Modified events)
 - Package revision deletion (Deleted events)
-- Background sync changes (all event types)
+- Repository sync changes triggered by Repository Controller (all event types)
 
 ## Background Job Coordination
 
 See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#background-operations" %}}) for detailed background operation implementation.
 
-The API Server coordinates background operations across components:
+The API Server coordinates resource cleanup and other background operations. Repository synchronization is handled externally by the [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}), which runs as a separate component using the controller-runtime framework.
 
-### Repository Sync Coordination
+### Repository Sync Flow
 
 ```
-API Server Startup
+Repository Controller
         ↓
-  Start Background Goroutine
+  Watch Repository CRs
         ↓
-  For Each Repository:
+  Reconcile Loop
         ↓
-    Create SyncManager
+  Trigger Sync via Cache
         ↓
-    Start Periodic Sync
+  Cache Updates
         ↓
-    Sync Triggers Cache Update
+  Cache Sends Notifications
         ↓
-    Cache Sends Notifications
+  API Server WatcherManager
         ↓
-    WatcherManager Delivers Events
-        ↓
-    Clients Receive Updates
+  Clients Receive Events
 ```
 
 **Integration flow:**
-- API Server manages background goroutine lifecycle
-- Discovers repositories via Kubernetes API
-- Coordinates sync operations through Cache
-- Delivers notifications through WatcherManager to clients
+- Repository Controller manages the sync lifecycle independently
+- Controller watches Repository resources and reconciles based on sync schedules
+- Sync operations update the Cache directly
+- Cache notifications propagate through the API Server to clients
+- API Server observes and delivers events but does not initiate sync
 
 ### Cleanup Coordination
 
@@ -303,15 +304,14 @@ The API Server translates errors across component boundaries:
 ### Background Job Errors
 
 **Error types:**
-- Repository sync failures
 - Cache operation failures
 - Kubernetes API errors
+- Resource cleanup failures
 
 **Handling strategy:**
 - Errors logged with context
-- Sync retried on next cycle
-- Repository condition updated with error
-- Operations continue for other repositories
+- Operations continue for other resources
+- Repository sync errors are handled by the Repository Controller
 
 ## Concurrency and Safety
 
@@ -325,6 +325,5 @@ The API Server coordinates concurrent operations across components:
 - Request concurrency managed through Engine
 - Optimistic locking enforced at API Server and Engine boundary
 - Watch streams isolated per client
-- Background jobs coordinate through Cache
-
+- Repository sync operations coordinated by Repository Controller
 

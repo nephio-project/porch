@@ -26,56 +26,381 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestPushPR(t *testing.T) {
-	mockRepo := mockrepo.NewMockRepository(t)
-	mockPR := mockrepo.NewMockPackageRevision(t)
-	mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
-
+func TestPushPublishedPackageRevision_PushDraftsDisabled(t *testing.T) {
 	ctx := context.TODO()
 
-	mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
-	mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+	tests := []struct {
+		name        string
+		setupMocks  func(*mockrepo.MockRepository, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevisionDraft)
+		expectError bool
+	}{
+		{
+			name: "Lifecycle is not in Published state",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "GetPackageRevision fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "GetResources fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "CreatePackageRevisionDraft fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "UpdateResources fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "UpdateLifecycle fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "ClosePackageRevisionDraft fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "GetLock fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name: "Push Published Package Revision succeeds",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
+			},
+			expectError: false,
+		},
+	}
 
-	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft).Once()
-	_, err := PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := mockrepo.NewMockRepository(t)
+			mockPR := mockrepo.NewMockPackageRevision(t)
+			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
 
-	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Maybe()
-	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+			mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
+			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 
-	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Maybe()
-	mockPR.EXPECT().GetResources(mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+			tt.setupMocks(mockRepo, mockPR, mockPRD)
 
-	mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Maybe()
-	mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+			_, err := PushPackageRevision(ctx, mockRepo, mockPR, false, nil)
+			if tt.expectError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
 
-	mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Maybe()
-	mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
+	ctx := context.TODO()
 
-	mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+	tests := []struct {
+		name        string
+		setupMocks  func(*mockrepo.MockRepository, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevisionDraft)
+		gitPR       bool
+		expectError bool
+	}{
+		{
+			name:  "Update existing PR",
+			gitPR: true,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
+			},
+			expectError: false,
+		},
+		{
+			name:  "Existing PR found via list",
+			gitPR: false,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{mockGitPR}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
+			},
+			expectError: false,
+		},
+		{
+			name:  "UpdatePackageRevision fails when gitPR provided",
+			gitPR: true,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name:  "UpdatePackageRevision fails when gitPR found via list",
+			gitPR: false,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{mockGitPR}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(nil, assert.AnError).Once()
+			},
+			expectError: true,
+		},
+		{
+			name:  "ListPackageRevisions fails and falls back to creating package revision draft",
+			gitPR: false,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{Spec: porchapi.PackageRevisionSpec{Tasks: []porchapi.Task{{Type: porchapi.TaskTypePush}}}}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
+			},
+			expectError: false,
+		},
+		{
+			name:  "ListPackageRevisions returns empty and falls back to creating package revision draft",
+			gitPR: false,
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Once()
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
+				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
+				mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
+			},
+			expectError: false,
+		},
+	}
 
-	mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Maybe()
-	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := mockrepo.NewMockRepository(t)
+			mockPR := mockrepo.NewMockPackageRevision(t)
+			mockGitPR := mockrepo.NewMockPackageRevision(t)
+			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
 
-	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Maybe()
-	mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.NotNil(t, err)
+			mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
+			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 
-	mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Maybe()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
-	assert.Nil(t, err)
+			var gitPR repository.PackageRevision
+			if tt.gitPR {
+				gitPR = mockGitPR
+			}
+
+			tt.setupMocks(mockRepo, mockPR, mockGitPR, mockPRD)
+
+			_, err := PushPackageRevision(ctx, mockRepo, mockPR, true, gitPR)
+			if tt.expectError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+func TestGetOrCreateGitDraft(t *testing.T) {
+	ctx := context.TODO()
+
+	tests := []struct {
+		name               string
+		setupMocks         func(*mockrepo.MockRepository, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevisionDraft)
+		gitPR              bool
+		expectError        bool
+		expectUpdatedGitPR bool
+	}{
+		{
+			name: "UpdatePackageRevision succeeds",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
+			},
+			gitPR:              true,
+			expectError:        false,
+			expectUpdatedGitPR: true,
+		},
+		{
+			name: "UpdatePackageRevision fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(nil, assert.AnError).Once()
+			},
+			gitPR:              true,
+			expectError:        true,
+			expectUpdatedGitPR: false,
+		},
+		{
+			name: "Existing PRs found",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{mockGitPR}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
+			},
+			gitPR:              false,
+			expectError:        false,
+			expectUpdatedGitPR: true,
+		},
+		{
+			name: "UpdatePackageRevision fails with existing PRs found",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{mockGitPR}, nil).Once()
+				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(nil, assert.AnError).Once()
+			},
+			gitPR:              false,
+			expectError:        true,
+			expectUpdatedGitPR: false,
+		},
+		{
+			name: "ListPackageRevisions fails and new draft package revision is created",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+			},
+			gitPR:              false,
+			expectError:        false,
+			expectUpdatedGitPR: false,
+		},
+		{
+			name: "CreatePackageRevisionDraft succeeds",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Once()
+			},
+			gitPR:              false,
+			expectError:        false,
+			expectUpdatedGitPR: false,
+		},
+		{
+			name: "GetPackageRevision fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			gitPR:              false,
+			expectError:        true,
+			expectUpdatedGitPR: false,
+		},
+		{
+			name: "CreatePackageRevisionDraft fails",
+			setupMocks: func(mockRepo *mockrepo.MockRepository, mockPR *mockrepo.MockPackageRevision, mockGitPR *mockrepo.MockPackageRevision, mockPRD *mockrepo.MockPackageRevisionDraft) {
+				mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+				mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Once()
+				mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			gitPR:              false,
+			expectError:        true,
+			expectUpdatedGitPR: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := mockrepo.NewMockRepository(t)
+			mockPR := mockrepo.NewMockPackageRevision(t)
+			mockGitPR := mockrepo.NewMockPackageRevision(t)
+			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
+
+			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+
+			var gitPR repository.PackageRevision
+			if tt.gitPR {
+				gitPR = mockGitPR
+			}
+
+			tt.setupMocks(mockRepo, mockPR, mockGitPR, mockPRD)
+
+			draft, updatedGitPR, err := GetOrCreateGitDraft(ctx, mockRepo, mockPR, gitPR)
+
+			if tt.expectError {
+				assert.NotNil(t, err)
+				assert.Nil(t, draft)
+				assert.Nil(t, updatedGitPR)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, mockPRD, draft)
+				if tt.expectUpdatedGitPR {
+					assert.Equal(t, mockGitPR, updatedGitPR)
+				} else {
+					assert.Nil(t, updatedGitPR)
+				}
+			}
+		})
+	}
 }

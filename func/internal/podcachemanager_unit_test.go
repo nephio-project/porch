@@ -42,7 +42,6 @@ func makePodInfoWithLoad(load int32) functionPodInfo {
 	counter.Store(load)
 	return functionPodInfo{
 		concurrentEvaluations: counter,
-		fnEvaluationMutex:     &sync.Mutex{},
 		lastActivity:          time.Now(),
 		waitlist:              []chan<- *connectionResponse{},
 	}
@@ -60,7 +59,6 @@ func makeReadyPodInfo(image string, podKey, serviceKey client.ObjectKey, grpcCon
 			grpcConnection: grpcConn,
 		},
 		concurrentEvaluations: counter,
-		fnEvaluationMutex:     &sync.Mutex{},
 		lastActivity:          time.Now(),
 		waitlist:              []chan<- *connectionResponse{},
 	}
@@ -241,7 +239,6 @@ func TestNewPodInfo(t *testing.T) {
 		assert.Nil(t, pod.podData)
 		assert.Empty(t, pod.waitlist)
 		assert.Equal(t, int32(0), pod.concurrentEvaluations.Load())
-		assert.NotNil(t, pod.fnEvaluationMutex)
 	})
 
 	t.Run("non-nil channel adds to waitlist and increments counter", func(t *testing.T) {
@@ -258,7 +255,6 @@ func TestSendResponse(t *testing.T) {
 		pod := &functionPodInfo{
 			podData:               &podData{image: "test"},
 			concurrentEvaluations: &atomic.Int32{},
-			fnEvaluationMutex:     &sync.Mutex{},
 		}
 		ch := make(chan *connectionResponse, 1)
 		testErr := fmt.Errorf("test error")
@@ -274,7 +270,6 @@ func TestSendResponse(t *testing.T) {
 		pod := &functionPodInfo{
 			podData:               nil,
 			concurrentEvaluations: &atomic.Int32{},
-			fnEvaluationMutex:     &sync.Mutex{},
 		}
 		ch := make(chan *connectionResponse, 1)
 
@@ -299,7 +294,6 @@ func TestSendResponse(t *testing.T) {
 				serviceKey:     &serviceKey,
 			},
 			concurrentEvaluations: &atomic.Int32{},
-			fnEvaluationMutex:     &sync.Mutex{},
 		}
 		ch := make(chan *connectionResponse, 1)
 
@@ -309,7 +303,6 @@ func TestSendResponse(t *testing.T) {
 		assert.NoError(t, resp.err)
 		assert.Equal(t, "test-image", resp.podData.image)
 		assert.NotNil(t, resp.grpcConnection)
-		assert.NotNil(t, resp.fnEvaluationMutex)
 		assert.NotNil(t, resp.concurrentEvaluations)
 	})
 }
@@ -379,7 +372,6 @@ func TestRemoveUnhealthyPods(t *testing.T) {
 				{
 					podData:               nil, // under creation
 					concurrentEvaluations: &atomic.Int32{},
-					fnEvaluationMutex:     &sync.Mutex{},
 				},
 			},
 		}

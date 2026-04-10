@@ -63,6 +63,7 @@ type PorchServerOptions struct {
 	CacheType         string
 	DbCacheDriver     string
 	DbCacheDataSource string
+  DbPushDrafsToGit  bool
 
 	DefaultImagePrefix       string
 	FunctionRunnerAddress    string
@@ -73,8 +74,6 @@ type PorchServerOptions struct {
 	MaxRequestBodySize         int
 	RepoOperationRetryAttempts int
 	RetryableGitErrors         []string // Additional retryable git error patterns
-
-	RepoSyncFrequency time.Duration
 
 	SharedInformerFactory informers.SharedInformerFactory
 
@@ -180,6 +179,7 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
+
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {
 			return err
@@ -302,13 +302,13 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency:          o.RepoSyncFrequency,
 				RepoOperationRetryAttempts: o.RepoOperationRetryAttempts,
 				CacheType:                  cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
 					Driver:     o.DbCacheDriver,
 					DataSource: o.DbCacheDataSource,
 				},
+				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
@@ -346,10 +346,8 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	o.RecommendedOptions.AddFlags(fs)
 	utilfeature.DefaultMutableFeatureGate.AddFlag(fs)
 
-	// Add additional flags.
-
+	// Debugging flags
 	if os.Getenv("KUBERNETES_SERVICE_HOST") == "" && os.Getenv("KUBERNETES_SERVICE_PORT") == "" {
-		// Add this flag only when not running in k8s cluster.
 		fs.BoolVar(&o.LocalStandaloneDebugging, "standalone-debug-mode", false,
 			"Under the local-debug mode the apiserver will allow all access to its resources without "+
 				"authorizing the requests, this flag is only intended for debugging in your workstation.")
@@ -360,6 +358,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
+	fs.BoolVar(&o.DbPushDrafsToGit, "db-push-drafts-to-git", false, "If true, Porch will push draft package revisions to git when using the DB cache")
 
 	// Function runner configuration
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
@@ -371,7 +370,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
 }

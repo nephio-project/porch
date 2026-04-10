@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -178,6 +179,8 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 	t.CreateF(ns3)
 
 	t.Cleanup(func() {
+		// Wait for repository cleanup to complete before deleting namespaces
+		time.Sleep(2 * time.Second)
 		t.DeleteE(ns2)
 		t.DeleteE(ns3)
 	})
@@ -208,7 +211,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.Namespace + "-2",
+			Name: t.Namespace + "-4",
 		},
 	}
 	t.CreateF(ns2)
@@ -217,7 +220,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 	})
 
 	// Register the upstream repository2
-	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", suiteutils.GiteaUser, suiteutils.GiteaPassword,
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-4-blueprints", "", suiteutils.GiteaUser, suiteutils.GiteaPassword,
 		suiteutils.RepositoryOptions{RepOpts: suiteutils.InNamespace(ns2.Name), SecOpts: suiteutils.SecretInNamespace(ns2.Name)})
 
 	prList := porchapi.PackageRevisionList{}
