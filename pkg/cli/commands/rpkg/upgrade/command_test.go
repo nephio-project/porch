@@ -215,6 +215,14 @@ func TestUpgradeCommand(t *testing.T) {
 			}
 			return nil
 		},
+		List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if prList, ok := list.(*porchapi.PackageRevisionList); ok {
+				// Return all package revisions and let client-side filtering handle it
+				prList.Items = prs
+				return nil
+			}
+			return nil
+		},
 	}
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -295,7 +303,28 @@ func TestFindLatestPR(t *testing.T) {
 		*localRevision,
 	}
 
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, "ns", 0)
+	// Create fake client with custom List interceptor
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
+	interceptorFuncs := interceptor.Funcs{
+		List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if prList, ok := list.(*porchapi.PackageRevisionList); ok {
+				// Return all package revisions and let client-side filtering handle it
+				prList.Items = prs
+				return nil
+			}
+			return nil
+		},
+	}
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(origRevision, newUpstreamRevision, localRevision).
+		WithInterceptorFuncs(interceptorFuncs).
+		Build()
+
+	r := createRunner(context.Background(), client, prs, "ns", 0)
 
 	found := r.findLatestPackageRevisionForRef("orig", "repo")
 	assert.Equal(t, "repo.orig.v2", found.Name)
@@ -450,7 +479,6 @@ func TestDiscoverUpdates(t *testing.T) {
 func TestPreRunStrategyValidation(t *testing.T) {
 	ns := "ns"
 	dummyApiServer := "http://localhost:9999"
-	fakeClient := fake.NewClientBuilder().Build()
 	cfg := &genericclioptions.ConfigFlags{
 		APIServer: &dummyApiServer,
 		Namespace: &ns,
@@ -460,6 +488,7 @@ func TestPreRunStrategyValidation(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		strategy             string
+		discover             string
 		validationShouldPass bool
 		expectedErrorMsg     string
 	}{
@@ -467,19 +496,24 @@ func TestPreRunStrategyValidation(t *testing.T) {
 			name:                 "Valid strategy: copy-merge",
 			strategy:             string(porchapi.CopyMerge),
 			validationShouldPass: true,
-			// Will fail with connection error later, after validation passes
 		},
 		{
 			name:                 "Empty strategy is valid (uses default resource-merge)",
 			strategy:             "",
 			validationShouldPass: true,
-			// Will fail with connection error later, after validation passes
 		},
 		{
 			name:                 "Invalid strategy",
 			strategy:             "non-existent-strategy",
 			validationShouldPass: false,
 			expectedErrorMsg:     "invalid strategy \"non-existent-strategy\"; must be one of:",
+		},
+		{
+			name:                 "Valid strategy with discover mode fails connection",
+			strategy:             string(porchapi.ResourceMerge),
+			discover:             "upstream",
+			validationShouldPass: true,
+			expectedErrorMsg:     "connection refused",
 		},
 	}
 
@@ -488,24 +522,25 @@ func TestPreRunStrategyValidation(t *testing.T) {
 			r := &runner{
 				ctx:       ctx,
 				cfg:       cfg,
-				client:    fakeClient,
 				revision:  2,
 				workspace: "v2",
 				strategy:  tc.strategy,
+				discover:  tc.discover,
 			}
 			r.Command = NewCommand(r.ctx, r.cfg)
 
 			err := r.preRunE(r.Command, []string{"some-package-revision"})
 
 			if !tc.validationShouldPass {
-				// For invalid strategies, check specific validation error
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrorMsg)
+			} else if tc.discover != "" {
+				// For valid strategies in discover mode, validation passes but connection fails
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorMsg)
 			} else {
-				// For valid strategies, we expect a different error (connection error)
-				// since we provided an invalid API server
-				assert.Error(t, err)
-				assert.NotContains(t, err.Error(), "invalid strategy")
+				// For valid strategies in non-discover mode, preRunE should succeed
+				assert.NoError(t, err)
 			}
 		})
 	}

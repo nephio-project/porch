@@ -22,6 +22,7 @@ import (
 
 type dbSQLInterface interface {
 	Close() error
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	Exec(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Query(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
@@ -38,6 +39,14 @@ func (ds *dbSQL) Close() error {
 		return ds.db.Close()
 	} else {
 		return fmt.Errorf("cannot close database, database is not initialized")
+	}
+}
+
+func (ds *dbSQL) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	if ds.db != nil {
+		return ds.db.BeginTx(ctx, opts)
+	} else {
+		return nil, fmt.Errorf("cannot begin transaction, database is not initialized")
 	}
 }
 

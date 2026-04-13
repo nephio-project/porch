@@ -406,6 +406,7 @@ porchctl rpkg get [PACKAGE] [flags]
 | `--name string` | Filter by package name (substring match) | |
 | `--revision int` | Filter by revision number | `-2` (all) |
 | `--workspace string` | Filter by workspace name | |
+| `--show-kptfile` | Display the root Kptfile of the specified package revision. Requires exactly one package revision name. Cannot be combined with `--name`, `--revision`, `--workspace`, or `-A`. | |
 | `-A, --all-namespaces` | List across all namespaces | |
 | `-o, --output string` | Output format | |
 | `--no-headers` | Don't print headers | |
@@ -425,6 +426,9 @@ porchctl rpkg get --namespace=example-namespace
 
 # Get all with revision 0 (Draft/Proposed)
 porchctl rpkg get --revision=0
+
+# Display the root Kptfile of a specific package revision
+porchctl rpkg get example-repo.example-package-name.example-workspace --show-kptfile --namespace=example-namespace
 ```
 
 ---
