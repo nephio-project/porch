@@ -140,6 +140,47 @@ Use `jq` to extract specific fields: `porchctl rpkg get <name> -n default -o jso
 
 ---
 
+### Viewing the Root Kptfile
+
+Display the root Kptfile of a specific package revision without downloading the entire package
+
+```bash
+porchctl rpkg get porch-test.my-app.v1 --show-kptfile --namespace default
+```
+
+**What this does:**
+
+- Fetches the PackageRevisionResources for the specified package revision
+- Extracts and displays only the root `Kptfile`
+- Useful for quickly inspecting package metadata, pipeline configuration, and status
+
+**Example output:**
+
+```yaml
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: my-app
+info:
+  description: My application package
+pipeline:
+  mutators:
+  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.5
+    configMap:
+      namespace: production
+status:
+  conditions:
+  - type: Rendered
+    status: "True"
+    reason: RenderSuccess
+```
+
+{{% alert title="Note" color="primary" %}}
+`--show-kptfile` requires exactly one package revision name and cannot be combined with `--name`, `--revision`, `--workspace`, or `--all-namespaces`.
+{{% /alert %}}
+
+---
+
 ### Reading PackageRevision Resources
 
 Read the actual contents of a PackageRevision:
