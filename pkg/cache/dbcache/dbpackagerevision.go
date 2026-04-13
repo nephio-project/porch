@@ -341,7 +341,7 @@ func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
 		return kptfile.Upstream{}, kptfile.Locator{}, nil
 	}
-	return repository.KptUpstreamLock2KptUpstream(*pr.kptfileStatus.UpstreamLock), *pr.kptfileStatus.UpstreamLock, nil
+	return *kf.Upstream, *kf.UpstreamLock, nil
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
