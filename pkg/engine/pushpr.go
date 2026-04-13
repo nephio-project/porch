@@ -27,7 +27,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (kptfilev1.UpstreamLock, error) {
+func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (kptfilev1.Locator, error) {
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -46,17 +46,17 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 
 	prLifecycle := pr.Lifecycle(ctx)
 	if prLifecycle != porchapi.PackageRevisionLifecyclePublished {
-		return kptfilev1.UpstreamLock{}, fmt.Errorf("cannot push package revision %+v, package revision lifecycle is %q, it should be \"Published\"", pr.Key(), prLifecycle)
+		return kptfilev1.Locator{}, fmt.Errorf("cannot push package revision %+v, package revision lifecycle is %q, it should be \"Published\"", pr.Key(), prLifecycle)
 	}
 
 	apiPr, err := pr.GetPackageRevision(ctx)
 	if err != nil {
-		return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get API definition:", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get API definition:", pr.Key(), repo.Key())
 	}
 
 	resources, err := pr.GetResources(ctx)
 	if err != nil {
-		return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get package revision resources:", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get package revision resources:", pr.Key(), repo.Key())
 	}
 
 	var draft repository.PackageRevisionDraft
@@ -68,7 +68,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 				context1.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
 			draft, err = repo.UpdatePackageRevision(ctx, gitPR)
 			if err != nil {
-				return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update git PR:", pr.Key(), repo.Key())
+				return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update git PR:", pr.Key(), repo.Key())
 			}
 			foundExisting = true
 		} else {
@@ -86,7 +86,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 					context1.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
 				draft, err = repo.UpdatePackageRevision(ctx, existingPRs[0])
 				if err != nil {
-					return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
+					return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
 				}
 				foundExisting = true
 			}
@@ -96,7 +96,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 	if !foundExisting {
 		draft, err = repo.CreatePackageRevisionDraft(ctx, apiPr)
 		if err != nil {
-			return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
+			return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 		}
 	}
 
@@ -107,22 +107,22 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		}
 
 		if err = draft.UpdateResources(ctx, resources, commitTask); err != nil {
-			return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
+			return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
 		}
 	}
 
 	if err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
-		return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision draft lifecycle to \"Published\":", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision draft lifecycle to \"Published\":", pr.Key(), repo.Key())
 	}
 
 	pushedPR, err := repo.ClosePackageRevisionDraft(ctx, draft, pr.Key().Revision)
 	if err != nil {
-		return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not close package revision draft:", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not close package revision draft:", pr.Key(), repo.Key())
 	}
 
 	_, pushedPRUpstreamLock, err := pushedPR.GetLock(ctx)
 	if err != nil {
-		return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "read of upstream lock for package revision %+v pushed to repository %+v failed", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "read of upstream lock for package revision %+v pushed to repository %+v failed", pr.Key(), repo.Key())
 	}
 
 	return pushedPRUpstreamLock, nil

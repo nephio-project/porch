@@ -134,7 +134,7 @@ func (r *runner) validateNamespaceFlag(cmd *cobra.Command) error {
 // resolveNamespace ensures a namespace is set on ConfigFlags, falling back to
 // the kubeconfig default context namespace when none was explicitly provided.
 func (r *runner) resolveNamespace() error {
-	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+	if r.getFlags.Namespace == nil || *r.getFlags.Namespace == "" {
 		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
 		if err != nil {
 			return fmt.Errorf("error resolving namespace from kubeconfig: %w", err)
@@ -142,7 +142,7 @@ func (r *runner) resolveNamespace() error {
 		if namespace == "" {
 			return fmt.Errorf("namespace is not configured; please provide --namespace or set a default namespace in your kubeconfig")
 		}
-		r.getFlags.ConfigFlags.Namespace = &namespace
+		r.getFlags.Namespace = &namespace
 	}
 	return nil
 }
@@ -400,7 +400,7 @@ func (r *runner) showKptfileContent(cmd *cobra.Command, name string) error {
 
 	var resources porchapi.PackageRevisionResources
 	if err := r.client.Get(r.ctx, client.ObjectKey{
-		Namespace: *r.getFlags.ConfigFlags.Namespace,
+		Namespace: *r.getFlags.Namespace,
 		Name:      name,
 	}, &resources); err != nil {
 		return errors.E(op, err)

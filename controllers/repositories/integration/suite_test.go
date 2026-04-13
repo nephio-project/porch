@@ -96,32 +96,32 @@ func createTestRepository(name, namespace string) *configapi.Repository {
 func createReconcilerWithMockCache() (*repository.RepositoryReconciler, *mockcache.MockCache) {
 	mockCache := mockcache.NewMockCache(GinkgoT())
 	mockRepo := mockrepo.NewMockRepository(GinkgoT())
-	
+
 	// Setup default mock behaviors for successful sync operations
 	mockCache.EXPECT().OpenRepository(mock.Anything, mock.Anything).Return(mockRepo, nil).Maybe()
 	mockCache.EXPECT().CheckRepositoryConnectivity(mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockCache.EXPECT().UpdateRepository(mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockCache.EXPECT().CloseRepository(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	
+
 	// Mock repository operations for sync
 	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	mockRepo.EXPECT().BranchCommitHash(mock.Anything).Return("", nil).Maybe()
-	
+
 	reconciler := &repository.RepositoryReconciler{
-		Client:                    k8sClient,
-		Scheme:                    k8sClient.Scheme(),
-		Cache:                     mockCache,
-		HealthCheckFrequency:      2 * time.Second,
-		FullSyncFrequency:         5 * time.Second,
-		SyncStaleTimeout:          10 * time.Second,
-		MaxConcurrentReconciles:   1,
-		MaxConcurrentSyncs:        10,
+		Client:                  k8sClient,
+		Scheme:                  k8sClient.Scheme(),
+		Cache:                   mockCache,
+		HealthCheckFrequency:    2 * time.Second,
+		FullSyncFrequency:       5 * time.Second,
+		SyncStaleTimeout:        10 * time.Second,
+		MaxConcurrentReconciles: 1,
+		MaxConcurrentSyncs:      10,
 	}
-	
+
 	// Initialize sync limiter manually instead of calling SetupWithManager
 	reconciler.InitializeSyncLimiter()
-	
+
 	return reconciler, mockCache
 }
 
@@ -129,17 +129,17 @@ func createReconcilerWithMockCache() (*repository.RepositoryReconciler, *mockcac
 func createMockCacheWithSlowSync() *mockcache.MockCache {
 	mockCache := mockcache.NewMockCache(GinkgoT())
 	mockRepo := mockrepo.NewMockRepository(GinkgoT())
-	
+
 	// Setup slow sync operations
 	mockCache.EXPECT().OpenRepository(mock.Anything, mock.Anything).Return(mockRepo, nil).Maybe()
 	mockCache.EXPECT().CheckRepositoryConnectivity(mock.Anything, mock.Anything).Return(nil).Maybe()
-	
+
 	// Slow refresh operation
 	mockRepo.EXPECT().Refresh(mock.Anything).Run(func(ctx context.Context) {
 		time.Sleep(2 * time.Second) // Simulate slow operation
 	}).Return(nil).Maybe()
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	mockRepo.EXPECT().BranchCommitHash(mock.Anything).Return("", nil).Maybe()
-	
+
 	return mockCache
 }

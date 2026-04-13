@@ -257,7 +257,7 @@ func (t *PorchSuite) validateKptfileBasics(kptfile *kptfilev1.KptFile, expectedN
 func (t *PorchSuite) validateUpstreamLock(kptfile *kptfilev1.KptFile, testBlueprintsRepo string) {
 	got := kptfile.UpstreamLock
 	got.Git.Commit = ""
-	want := &kptfilev1.UpstreamLock{
+	want := &kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
 			Repo:      testBlueprintsRepo,

@@ -1617,24 +1617,24 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 
 func TestInitializeSyncLimiter(t *testing.T) {
 	tests := []struct {
-		name                string
-		maxConcurrentSyncs  int
-		expectedCapacity    int
+		name               string
+		maxConcurrentSyncs int
+		expectedCapacity   int
 	}{
 		{
-			name:                "uses custom value",
-			maxConcurrentSyncs:  50,
-			expectedCapacity:    50,
+			name:               "uses custom value",
+			maxConcurrentSyncs: 50,
+			expectedCapacity:   50,
 		},
 		{
-			name:                "uses default when zero",
-			maxConcurrentSyncs:  0,
-			expectedCapacity:    100,
+			name:               "uses default when zero",
+			maxConcurrentSyncs: 0,
+			expectedCapacity:   100,
 		},
 		{
-			name:                "uses default when negative",
-			maxConcurrentSyncs:  -1,
-			expectedCapacity:    100,
+			name:               "uses default when negative",
+			maxConcurrentSyncs: -1,
+			expectedCapacity:   100,
 		},
 	}
 
