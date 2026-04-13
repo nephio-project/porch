@@ -153,13 +153,9 @@ loop:
 				events = nil
 				watcher = nil
 				consecutiveFailures++
-
 				// Use exponential backoff for repeated failures
-				if consecutiveFailures == 1 {
-					reconnect.reset()
-				} else {
-					reconnect.backoff()
-				}
+				reconnect.backoff()
+
 			} else if event.Type == watch.Error {
 				// Handle watch error events
 				if status, ok := event.Object.(*v1.Status); ok {
