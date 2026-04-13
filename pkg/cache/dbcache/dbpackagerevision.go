@@ -44,8 +44,8 @@ var (
 )
 
 type kptfileStatus struct {
-	Conditions   []porchapi.Condition  `json:"conditions,omitempty"`
-	UpstreamLock *kptfile.UpstreamLock `json:"upstreamLock,omitempty"`
+	Conditions   []porchapi.Condition `json:"conditions,omitempty"`
+	UpstreamLock *kptfile.Locator     `json:"upstreamLock,omitempty"`
 }
 
 func extractKptfileStatus(resources map[string]string) kptfileStatus {
