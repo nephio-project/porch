@@ -130,13 +130,9 @@ loop:
 			if err != nil {
 				consecutiveFailures++
 				// Check for specific API server errors
-				if apierrors.IsResourceExpired(err) {
-					klog.Warningf("Watch start failed: expired resource version (bookmark: %q). Resetting bookmark to empty", bookmark)
+				if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) {
+					klog.Warningf("Watch start failed: %v (bookmark: %q). Resetting bookmark to empty.", err, bookmark)
 					bookmark = ""           // Clear stale bookmark immediately
-					consecutiveFailures = 0 // Reset since we're handling the root cause
-				} else if apierrors.IsGone(err) {
-					klog.Warningf("Watch start failed: gone resource (bookmark: %q). Resetting bookmark to empty: %v", bookmark, err)
-					bookmark = ""           // Clear bookmark for gone resources
 					consecutiveFailures = 0 // Reset since we're handling the root cause
 				} else {
 					klog.Errorf("Cannot start watch: %v; will retry", err)
