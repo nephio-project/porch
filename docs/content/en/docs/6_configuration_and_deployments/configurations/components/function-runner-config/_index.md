@@ -149,7 +149,7 @@ metadata:
   name: function-runner
   namespace: porch-system
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: function-runner
