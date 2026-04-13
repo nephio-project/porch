@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -50,9 +49,12 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 		return err
 	}
 
-	db.SetMaxOpenConns(50)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool limits
+	db.SetMaxOpenConns(opts.DBCacheOptions.MaxConnections)
+	db.SetMaxIdleConns(opts.DBCacheOptions.MaxIdleConnections)
+	db.SetConnMaxLifetime(opts.DBCacheOptions.MaxConnLifetime)
+	klog.Infof("OpenDB: configured connection pool - MaxOpenConns=%d, MaxIdleConns=%d, MaxConnLifetime=%v",
+		opts.DBCacheOptions.MaxConnections, opts.DBCacheOptions.MaxIdleConnections, opts.DBCacheOptions.MaxConnLifetime)
 
 	if err := db.Ping(); err != nil {
 		db.Close()

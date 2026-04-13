@@ -47,6 +47,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -194,7 +195,7 @@ func (c completedConfig) getRestConfig() (*rest.Config, error) {
 	}
 }
 
-func (c completedConfig) buildClient() (client.WithWatch, error) {
+func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, error) {
 	restConfig, err := c.getRestConfig()
 	if err != nil {
 		return nil, err
@@ -209,7 +210,48 @@ func (c completedConfig) buildClient() (client.WithWatch, error) {
 		return nil, err
 	}
 
-	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme})
+	informerCache, err := ctrlcache.New(restConfig, ctrlcache.Options{
+		Scheme: scheme,
+		ByObject: map[client.Object]ctrlcache.ByObject{
+			//The informer should pre-cache all the repositories at startup
+			&configapi.Repository{}: {},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache: %w", err)
+	}
+
+	go func() {
+		if err := informerCache.Start(ctx); err != nil {
+			klog.Errorf("informer cache stopped with error: %v", err)
+		}
+	}()
+
+	if !informerCache.WaitForCacheSync(ctx) {
+		return nil, fmt.Errorf("informer cache failed to sync")
+	}
+
+	// Register field index for metadata.name so that field selector queries on Repository work through the cache
+	if err := informerCache.IndexField(ctx, &configapi.Repository{}, "metadata.name", func(obj client.Object) []string {
+		return []string{obj.GetName()}
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create index for metadata.name: %w", err)
+	}
+
+	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme, Cache: &client.CacheOptions{
+		Reader: informerCache,
+		DisableFor: []client.Object{
+			//The caching client should not cache resources served by porch-server
+			&porchapi.PackageRevision{},
+			&porchapi.PackageRevisionResources{},
+			// PackageRev uses write-then-read patterns (Create then Get in
+			// ClosePackageRevisionDraft/SetMeta). Since writes bypass the
+			// informer cache, a subsequent Get can miss the just-created object.
+			// This is not ideal, but crcache doesn't support a level of resources where caching makes a difference
+			&internalapi.PackageRev{},
+		},
+	}})
 }
 
 func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
@@ -235,7 +277,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, err
 	}
 
-	coreClient, err := c.buildClient()
+	coreClient, err := c.buildClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build client for core apiserver: %w", err)
 	}

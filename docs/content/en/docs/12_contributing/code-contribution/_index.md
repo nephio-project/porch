@@ -149,6 +149,27 @@ git push origin feature-add-package-validation
 
 The EasyCLA bot will prompt you to sign the CLA if you haven't already (see [Before You Start]({{% relref "../" %}})).
 
+## Declare any use of AI
+
+{{% alert title="Warning" color="warning" %}}
+The use of AI in the creation of PRs is allowed but you must declare any use of AI and you
+must be able to explain the PR code independently of any AI tools.
+{{% /alert %}}
+
+
+Update the PR description to state whether you used AI to help you create this PR; if so, list the AI tools you have used and in what areas.
+
+For example:
+
+```
+I have used AI in the creation of this PR.
+
+I have used the following AI tools:
+- Microsoft Copilot to analyse the code
+- Claude code to generate the function someNewFunctionIAdded()
+- Amazon Q to generate unit tests
+```
+
 ## CI Checks on Your PR
 
 When you create a Pull Request, the Continuous Integration (CI) framework will run some checks on your PR. It will:
