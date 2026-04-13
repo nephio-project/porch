@@ -94,6 +94,7 @@ func (b *background) run(ctx context.Context) {
 	var events <-chan watch.Event
 	var watcher watch.Interface
 	var bookmark string
+	var consecutiveFailures int
 	defer func() {
 		if watcher != nil {
 			watcher.Stop()
@@ -112,6 +113,12 @@ loop:
 		select {
 		case <-reconnect.channel():
 			var err error
+			// Reset bookmark if too many consecutive failures (stale resource version)
+			if consecutiveFailures >= 3 {
+				klog.Warningf("Resetting bookmark after %d consecutive failures, was %q", consecutiveFailures, bookmark)
+				bookmark = ""
+				consecutiveFailures = 0
+			}
 			klog.Infof("Starting watch ... ")
 			var obj configapi.RepositoryList
 			watcher, err = b.coreClient.Watch(ctx, &obj, &client.ListOptions{
@@ -121,10 +128,21 @@ loop:
 				},
 			})
 			if err != nil {
-				klog.Errorf("Cannot start watch: %v; will retry", err)
+				consecutiveFailures++
+				// Check for specific API server errors
+				if apierrors.IsResourceExpired(err) {
+					klog.Warningf("Watch start failed: expired resource version (bookmark: %q). Resetting bookmark to empty", bookmark)
+					bookmark = ""           // Clear stale bookmark immediately
+					consecutiveFailures = 0 // Reset since we're handling the root cause
+				} else if apierrors.IsGone(err) {
+					klog.Warningf("Watch start failed: gone resource (bookmark: %q). Resetting bookmark to empty: %v", bookmark, err)
+					bookmark = ""           // Clear bookmark for gone resources
+					consecutiveFailures = 0 // Reset since we're handling the root cause
+				} else {
+					klog.Errorf("Cannot start watch: %v; will retry", err)
+				}
 				reconnect.backoff()
 			} else {
-				klog.Infof("Watch successfully started.")
 				events = watcher.ResultChan()
 			}
 
@@ -134,10 +152,34 @@ loop:
 				watcher.Stop()
 				events = nil
 				watcher = nil
+				consecutiveFailures++
 
-				// Initiate reconnect
-				reconnect.reset()
+				// Use exponential backoff for repeated failures
+				if consecutiveFailures == 1 {
+					reconnect.reset()
+				} else {
+					reconnect.backoff()
+				}
+			} else if event.Type == watch.Error {
+				// Handle watch error events
+				if status, ok := event.Object.(*v1.Status); ok {
+					if status.Reason == v1.StatusReasonExpired || status.Reason == v1.StatusReasonGone {
+						klog.Warningf("Watch error: %s (code: %d) - %s. Resetting stale bookmark from %q to empty", status.Reason, status.Code, status.Message, bookmark)
+						bookmark = ""           // Reset bookmark immediately for these errors
+						consecutiveFailures = 0 // Reset failure count since we're handling the root cause
+					} else {
+						klog.Errorf("Watch error: %s (code: %d) - %s", status.Reason, status.Code, status.Message)
+						consecutiveFailures++
+					}
+				} else {
+					klog.Errorf("Watch error event with unexpected object type: %T", event.Object)
+					consecutiveFailures++
+				}
+				reconnect.reset() // Restart quickly after error events
 			} else if repository, ok := event.Object.(*configapi.Repository); ok {
+				// Reset consecutive failures on successful event processing
+				klog.Infof("Watch started successfully")
+				consecutiveFailures = 0
 				if event.Type == watch.Bookmark {
 					bookmark = repository.ResourceVersion
 					klog.V(2).Infof("Bookmark: %q", bookmark)
@@ -342,6 +384,7 @@ func newBackoffTimer(min, max time.Duration) *backoffTimer {
 	return &backoffTimer{
 		min:   min,
 		max:   max,
+		curr:  min,
 		timer: time.NewTimer(min),
 	}
 }

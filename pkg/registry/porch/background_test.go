@@ -43,14 +43,21 @@ func TestBackgroundOptions(t *testing.T) {
 			expected: background{listTimeoutPerRepo: 10 * time.Second},
 		},
 		{
+			name:     "With repo operation retry attempts",
+			options:  []BackgroundOption{WithRepoOperationRetryAttempts(5)},
+			expected: background{repoOperationRetryAttempts: 5},
+		},
+		{
 			name: "With multiple options",
 			options: []BackgroundOption{
 				WithPeriodicRepoSyncFrequency(5 * time.Second),
 				WithListTimeoutPerRepo(10 * time.Second),
+				WithRepoOperationRetryAttempts(3),
 			},
 			expected: background{
-				periodicRepoSyncFrequency: 5 * time.Second,
-				listTimeoutPerRepo:        10 * time.Second,
+				periodicRepoSyncFrequency:  5 * time.Second,
+				listTimeoutPerRepo:         10 * time.Second,
+				repoOperationRetryAttempts: 3,
 			},
 		},
 	}
@@ -63,6 +70,7 @@ func TestBackgroundOptions(t *testing.T) {
 			}
 			assert.Equal(t, tt.expected.periodicRepoSyncFrequency, b.periodicRepoSyncFrequency)
 			assert.Equal(t, tt.expected.listTimeoutPerRepo, b.listTimeoutPerRepo)
+			assert.Equal(t, tt.expected.repoOperationRetryAttempts, b.repoOperationRetryAttempts)
 		})
 	}
 }
@@ -636,3 +644,45 @@ func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Rep
 		},
 	}
 }
+func TestBackoffTimer(t *testing.T) {
+	tests := []struct {
+		name     string
+		min      time.Duration
+		max      time.Duration
+		expected []time.Duration
+	}{
+		{
+			name:     "Basic backoff progression",
+			min:      100 * time.Millisecond,
+			max:      800 * time.Millisecond,
+			expected: []time.Duration{100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond, 800 * time.Millisecond},
+		},
+		{
+			name:     "Single step to max",
+			min:      1 * time.Second,
+			max:      2 * time.Second,
+			expected: []time.Duration{1 * time.Second, 2 * time.Second, 2 * time.Second},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			timer := newBackoffTimer(tt.min, tt.max)
+			defer timer.Stop()
+
+			// Test initial value
+			assert.Equal(t, tt.expected[0], timer.curr)
+
+			// Test backoff progression
+			for i := 1; i < len(tt.expected); i++ {
+				timer.backoff()
+				assert.Equal(t, tt.expected[i], timer.curr)
+			}
+
+			// Test reset
+			timer.reset()
+			assert.Equal(t, tt.min, timer.curr)
+		})
+	}
+}
+
