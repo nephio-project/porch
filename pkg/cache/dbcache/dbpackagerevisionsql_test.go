@@ -467,6 +467,68 @@ func (t *DbTestSuite) TestPackageRevisionFilter() {
 	t.Empty(t.readRepoPkgPRs(dbRepoPkgs))
 }
 
+func (t *DbTestSuite) TestPackageRevisionFilterByKptfileLabels() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := t.createTestRepo("label-ns", "label-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "label-pkg")
+
+	pr := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-1",
+			Revision:      1,
+		},
+		lifecycle: "Published",
+		spec: &porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{"app": "web", "env": "prod"},
+			},
+		},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
+
+	pr2 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-2",
+			Revision:      2,
+		},
+		lifecycle: "Published",
+		spec: &porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{"app": "api", "env": "prod"},
+			},
+		},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr2))
+
+	// Filter by matching label
+	filter := repository.ListPackageRevisionFilter{
+		KptfileLabels: map[string]string{"app": "web"},
+	}
+	results, err := pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 1)
+	t.Equal("ws-1", results[0].Key().WorkspaceName)
+
+	// Filter by shared label
+	filter.KptfileLabels = map[string]string{"env": "prod"}
+	results, err = pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Len(results, 2)
+
+	// Filter by non-existent label
+	filter.KptfileLabels = map[string]string{"app": "missing"}
+	results, err = pkgRevListPRsFromDB(t.Context(), filter)
+	t.Require().NoError(err)
+	t.Empty(results)
+
+	t.deleteTestRepo(dbRepo.Key())
+}
+
 func (t *DbTestSuite) TestMultiPackageRevisionList() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
