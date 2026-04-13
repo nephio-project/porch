@@ -48,8 +48,11 @@ type CacheOptions struct {
 const DefaultDBCacheDriver string = "pgx"
 
 type DBCacheOptions struct {
-	Driver     string
-	DataSource string
+	Driver             string
+	DataSource         string
+	MaxConnections     int
+	MaxIdleConnections int
+	MaxConnLifetime    time.Duration
 }
 
 type Cache interface {
