@@ -16,7 +16,6 @@ package server
 
 import (
 	"os"
-	"strings"
 	"testing"
 	"time"
 
