@@ -437,13 +437,19 @@ The evaluation system employs several performance strategies.
 - Multiple requests can execute concurrently
 - Each request gets own gRPC connection
 - Pod cache manager coordinates access
-- Waitlist prevents duplicate pod creation
+- Round-robin load balancing across equal-load pods
 
 **Concurrency characteristics:**
-- Same function, same pod: Sequential (one at a time)
+- Same function, same pod: Parallel execution supported
 - Same function, different pods: Concurrent
 - Different functions: Fully concurrent
 - No artificial concurrency limits
+
+**Load balancing:**
+- Requests distributed to least-loaded pods
+- Round-robin among pods with equal load
+- Ensures even work distribution
+- Prevents hotspotting on single pod
 
 ### Resource Limits
 
