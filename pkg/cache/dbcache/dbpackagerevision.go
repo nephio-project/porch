@@ -333,15 +333,10 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 }
 
 func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.Locator, error) {
-	kf, err := pr.GetKptfile(ctx)
-	if err != nil {
-		return kptfile.Upstream{}, kptfile.Locator{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
-	}
-
-	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
+	if pr.kptfileStatus.UpstreamLock == nil || pr.kptfileStatus.UpstreamLock.Git == nil {
 		return kptfile.Upstream{}, kptfile.Locator{}, nil
 	}
-	return *kf.Upstream, *kf.UpstreamLock, nil
+	return repository.KptUpstreamLock2KptUpstream(*pr.kptfileStatus.UpstreamLock), *pr.kptfileStatus.UpstreamLock, nil
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
