@@ -22,7 +22,6 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
-	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -99,14 +98,6 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	}
 
 	r.name = args[0]
-	pkgExists, err := util.PackageAlreadyExists(r.ctx, r.client, r.repository, r.name, *r.cfg.Namespace)
-	if err != nil {
-		return err
-	}
-	if pkgExists {
-		return fmt.Errorf("`init` cannot create a new revision for package %q that already exists in repo %q; make subsequent revisions using `copy`",
-			r.name, r.repository)
-	}
 	return nil
 }
 

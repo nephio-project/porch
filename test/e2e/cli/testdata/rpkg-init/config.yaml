@@ -92,5 +92,5 @@ commands:
       - --workspace=init-2
       - init-package
     stderr: |
-      error: `init` cannot create a new revision for package "init-package" that already exists in repo "git"; make subsequent revisions using `copy`
+      Error: Internal error occurred: package "init-package" already exists in repository "git" 
     exitCode: 1
