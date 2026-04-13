@@ -18,6 +18,7 @@ package cachetypes
 import (
 	"context"
 	"strings"
+	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -47,8 +48,11 @@ type CacheOptions struct {
 const DefaultDBCacheDriver string = "pgx"
 
 type DBCacheOptions struct {
-	Driver     string
-	DataSource string
+	Driver             string
+	DataSource         string
+	MaxConnections     int
+	MaxIdleConnections int
+	MaxConnLifetime    time.Duration
 }
 
 type Cache interface {
