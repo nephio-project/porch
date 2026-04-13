@@ -1557,7 +1557,7 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 	return ec.Join()
 }
 
-func (r *gitRepository) GetResource(hash plumbing.Hash, filePath string) (string, error) {
+func (r *gitRepository) getResource(hash plumbing.Hash, filePath string) (string, error) {
 	var content string
 	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		tree, err := repo.TreeObject(hash)
@@ -1576,7 +1576,7 @@ func (r *gitRepository) GetResource(hash plumbing.Hash, filePath string) (string
 	return content, err
 }
 
-func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
+func (r *gitRepository) getResources(hash plumbing.Hash) (map[string]string, error) {
 	resources := map[string]string{}
 
 	err := r.sharedDir.withLock(func(repo *git.Repository) error {
