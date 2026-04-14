@@ -122,7 +122,7 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.Locator {
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.Locator) *porchapi.Locator {
 	porchLock := &porchapi.Locator{}
 
 	porchLock.Type = porchapi.OriginType(kptLock.Type)
@@ -138,7 +138,7 @@ func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.L
 	return porchLock
 }
 
-func KptUpstreamLock2KptUpstream(kptLock kptfilev1.UpstreamLock) kptfilev1.Upstream {
+func KptUpstreamLock2KptUpstream(kptLock kptfilev1.Locator) kptfilev1.Upstream {
 	kptUpstream := kptfilev1.Upstream{}
 
 	kptUpstream.Type = kptLock.Type

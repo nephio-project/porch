@@ -20,7 +20,7 @@ import (
 
 type commitOperation struct {
 	opType string
-	data interface{}
+	data   interface{}
 }
 
 type commitOperationBuilder struct {
@@ -36,14 +36,14 @@ func newCommitOperationBuilder() *commitOperationBuilder {
 func (c *commitOperationBuilder) addPackageApproval(draft interface{}, tag plumbing.ReferenceName) {
 	c.operations = append(c.operations, commitOperation{
 		opType: "approval",
-		data: map[string]interface{}{"draft": draft, "tag": tag},
+		data:   map[string]interface{}{"draft": draft, "tag": tag},
 	})
 }
 
 func (c *commitOperationBuilder) addPackageDeletion(branch plumbing.ReferenceName, prKey interface{}) {
 	c.operations = append(c.operations, commitOperation{
 		opType: "deletion",
-		data: map[string]interface{}{"branch": branch, "prKey": prKey},
+		data:   map[string]interface{}{"branch": branch, "prKey": prKey},
 	})
 }
 
