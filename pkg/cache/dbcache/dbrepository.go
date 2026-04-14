@@ -160,10 +160,7 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 			klog.V(4).Infof("ListPackageRevisions: skipping package revision %+v with nil repository", pkgRev.Key())
 			continue
 		}
-		genericPkgRev := repository.PackageRevision(pkgRev)
-		if filter.MatchesLabels(ctx, genericPkgRev) {
-			genericPkgRevs[i] = genericPkgRev
-		}
+		genericPkgRevs[i] = pkgRev
 	}
 	genericPkgRevs = slices.DeleteFunc(genericPkgRevs, func(rev repository.PackageRevision) bool {
 		return rev == nil

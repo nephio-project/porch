@@ -25,6 +25,8 @@ import (
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
@@ -753,4 +755,397 @@ func (t *DbTestSuite) TestFindUpstreamReference() {
 	t.NoError(err)
 	err = repoDeleteFromDB(t.Context(), downstreamRepo.Key())
 	t.NoError(err)
+}
+
+func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func()) {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := t.createTestRepo("label-ns", "label-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "label-pkg")
+
+	// PR with labels app=web, env=prod
+	pr1 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-1",
+			Revision:      1,
+		},
+		meta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "web", "env": "prod"},
+		},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr1))
+
+	// PR with labels app=api, env=staging
+	pr2 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-2",
+			Revision:      2,
+		},
+		meta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "api", "env": "staging"},
+		},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr2))
+
+	pr3 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws-3",
+			Revision:      3,
+		},
+		meta:      metav1.ObjectMeta{},
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr3))
+
+	return dbRepo.Key(), func() {
+		t.deleteTestRepo(dbRepo.Key())
+	}
+}
+
+func (t *DbTestSuite) TestPrLabelFilter() {
+	repoKey, cleanup := t.setupLabelFilterTestData()
+	defer cleanup()
+
+	t.Run("Equals", func() {
+		req, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-1", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("DoubleEquals", func() {
+		req, err := labels.NewRequirement("env", selection.DoubleEquals, []string{"staging"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-2", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("NotEquals", func() {
+		req, err := labels.NewRequirement("app", selection.NotEquals, []string{"web"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+	})
+
+	t.Run("In", func() {
+		req, err := labels.NewRequirement("app", selection.In, []string{"web", "api"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+	})
+
+	t.Run("NotIn", func() {
+		req, err := labels.NewRequirement("app", selection.NotIn, []string{"web"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		// pr2 (app=api) and pr3 (no app label, IS NULL matches)
+		t.Len(results, 2)
+	})
+
+	t.Run("Exists", func() {
+		req, err := labels.NewRequirement("app", selection.Exists, []string{})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		// pr1 and pr2 have the "app" label
+		t.Len(results, 2)
+	})
+
+	t.Run("DoesNotExist", func() {
+		req, err := labels.NewRequirement("env", selection.DoesNotExist, []string{})
+		t.Require().NoError(err)
+
+		reqExists, err := labels.NewRequirement("app", selection.Exists, []string{})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req, *reqExists),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		// No PRs have "app" label but lack "env" label — both pr1 and pr2 have both
+		t.Empty(results)
+	})
+
+	t.Run("MultipleRequirements", func() {
+		reqApp, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+		t.Require().NoError(err)
+		reqEnv, err := labels.NewRequirement("env", selection.Equals, []string{"prod"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*reqApp, *reqEnv),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-1", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("NilSelector", func() {
+		filter := repository.ListPackageRevisionFilter{
+			Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 3)
+	})
+
+	t.Run("NoMatch", func() {
+		req, err := labels.NewRequirement("app", selection.Equals, []string{"nonexistent"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Empty(results)
+	})
+
+	t.Run("LatestRevisionEquals", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.Equals, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionNotEquals", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.NotEquals, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+		for _, r := range results {
+			t.NotEqual("ws-3", r.Key().WorkspaceName)
+		}
+	})
+
+	t.Run("LatestRevisionDoesNotExist", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.DoesNotExist, []string{})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+		for _, r := range results {
+			t.NotEqual("ws-3", r.Key().WorkspaceName)
+		}
+	})
+
+	t.Run("LatestRevisionCombinedWithRegularLabel", func() {
+		latestReq, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.Equals, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+		// ws-3 has no labels, so combining latest=true with any app label should return nothing
+		appReq, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*latestReq, *appReq),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Empty(results)
+	})
+
+	t.Run("NotLatestWithRegularLabel", func() {
+		notLatestReq, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.NotEquals, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+		appReq, err := labels.NewRequirement("app", selection.Equals, []string{"web"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*notLatestReq, *appReq),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-1", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionDoubleEquals", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.DoubleEquals, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionIn", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.In, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionNotIn", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.NotIn, []string{porchapi.LatestPackageRevisionValue})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+		for _, r := range results {
+			t.NotEqual("ws-3", r.Key().WorkspaceName)
+		}
+	})
+
+	t.Run("LatestRevisionExists", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.Exists, []string{})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionEqualsFalse", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.Equals, []string{"false"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+		for _, r := range results {
+			t.NotEqual("ws-3", r.Key().WorkspaceName)
+		}
+	})
+
+	t.Run("LatestRevisionNotEqualsFalse", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.NotEquals, []string{"false"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
+
+	t.Run("LatestRevisionInWithoutTrue", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.In, []string{"false", "other"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 2)
+		for _, r := range results {
+			t.NotEqual("ws-3", r.Key().WorkspaceName)
+		}
+	})
+
+	t.Run("LatestRevisionNotInWithoutTrue", func() {
+		req, err := labels.NewRequirement(porchapi.LatestPackageRevisionKey, selection.NotIn, []string{"false"})
+		t.Require().NoError(err)
+
+		filter := repository.ListPackageRevisionFilter{
+			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Label: labels.NewSelector().Add(*req),
+		}
+		results, err := pkgRevListPRsFromDB(t.Context(), filter)
+		t.Require().NoError(err)
+		t.Len(results, 1)
+		t.Equal("ws-3", results[0].Key().WorkspaceName)
+	})
 }
