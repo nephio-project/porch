@@ -23,6 +23,9 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -32,6 +35,8 @@ import (
 	"k8s.io/klog/v2"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/regclient/regclient"
+	regclientconfig "github.com/regclient/regclient/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -994,6 +999,332 @@ func TestMultipleEndpointsWithStuckPod(t *testing.T) {
 		assert.Len(t, finalEndpoint.Subsets[0].Addresses, 1, "Expected endpoint to have exactly 1 address")
 		assert.Equal(t, newPodIP, finalEndpoint.Subsets[0].Addresses[0].IP, "Expected endpoint IP to match new pod IP")
 	}
+}
+
+func TestListRepositoryTags(t *testing.T) {
+	t.Run("custom listRepositoryTagsFunc usage", func(t *testing.T) {
+		ctx := context.Background()
+		podManager := &podManager{
+			// Passing a listRepositoryTagsFunc will return the tags based
+			// on the custom function logic instead of trying to access a registry
+			listRepositoryTagsFunc: func(ctx context.Context, imageName string) ([]string, error) {
+				if imageName == defaultImageName {
+					return []string{"tag1", "tag2"}, nil
+				}
+				return nil, fmt.Errorf("unexpected image name: %s", imageName)
+			},
+		}
+		tags, err := podManager.listRepositoryTags(ctx, defaultImageName)
+		assert.Nil(t, err)
+		assert.Equal(t, []string{"tag1", "tag2"}, tags)
+	})
+	t.Run("failed to parse repository", func(t *testing.T) {
+		ctx := context.Background()
+		podManager := &podManager{}
+		// Passing an empty image name should cause a parsing error
+		_, err := podManager.listRepositoryTags(ctx, "")
+		assert.ErrorContains(t, err, "failed to parse repository")
+	})
+	t.Run("private registry - ensureCustomAuthSecret fails", func(t *testing.T) {
+		// API server failure simulation for authentication secret handling when pulling
+		// images from private registries
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, []byte(`{"auths":{}}`), 0600)
+		require.NoError(t, err, "failed to write auth file")
+
+		kubeClient := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				return apierrors.NewInternalError(fmt.Errorf("simulated API server error"))
+			},
+		}).Build()
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries: true,
+			registryAuthSecretPath:  authPath,
+			registryAuthSecretName:  "authsecret",
+			namespace:               defaultNamespace,
+			kubeClient:              kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "simulated API server error")
+	})
+	t.Run("private registry - error reading authentication file", func(t *testing.T) {
+		// registryAuthSecretPath points to a file that does not exist.
+		// -> The secret used for pulling images from private registry cannot be created
+		// because the code cannot read the auth file to populate the secret data.
+
+		kubeClient := fake.NewClientBuilder().Build()
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries: true,
+			registryAuthSecretPath:  filepath.Join(t.TempDir(), "nonexistent"),
+			registryAuthSecretName:  "authsecret",
+			namespace:               defaultNamespace,
+			kubeClient:              kubeClient,
+		}
+		_, err := pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "no such file or directory")
+	})
+	t.Run("private registry - error unmarshaling authentication file", func(t *testing.T) {
+		// Auth file contains invalid JSON -> The code fails to unmarshal the auth
+		// file content when trying to create the secret for private registry authentication.
+		invalidJSON := []byte(`not valid json`)
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, invalidJSON, 0600)
+		require.NoError(t, err, "failed to write auth file")
+
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "authsecret",
+				Namespace: defaultNamespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": invalidJSON,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		kubeClient := fake.NewClientBuilder().WithObjects(existingSecret).Build()
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries: true,
+			registryAuthSecretPath:  authPath,
+			registryAuthSecretName:  "authsecret",
+			namespace:               defaultNamespace,
+			kubeClient:              kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "error unmarshaling authentication file")
+	})
+	t.Run("private registry - TLS certs not found", func(t *testing.T) {
+		// Both ca.crt and ca.pem are missing from tlsSecretPath, which causes
+		// loadTLSConfig to fail when trying to pull images from private registry with TLS.
+		authData := []byte(`{"auths":{"myregistry.io":{"username":"u","password":"p"}}}`)
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, authData, 0600)
+		require.NoError(t, err, "failed to write auth file")
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "authsecret",
+				Namespace: defaultNamespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": authData,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		kubeClient := fake.NewClientBuilder().WithObjects(existingSecret).Build()
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries:    true,
+			enablePrivateRegistriesTls: true,
+			registryAuthSecretPath:     authPath,
+			registryAuthSecretName:     "authsecret",
+			tlsSecretPath:              t.TempDir(),
+			namespace:                  defaultNamespace,
+			kubeClient:                 kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "ca.crt not found")
+		assert.ErrorContains(t, err, "ca.pem also not found")
+	})
+	t.Run("private registry - TLS ca.crt invalid PEM", func(t *testing.T) {
+		// ca.crt exists in tlsSecretPath, but its content is not valid PEM.
+		// Cannot be parsed any certificates from the data.
+		authData := []byte(`{"auths":{"myregistry.io":{"username":"u","password":"p"}}}`)
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, authData, 0600)
+		require.NoError(t, err, "failed to write auth file")
+
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "authsecret",
+				Namespace: defaultNamespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": authData,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		kubeClient := fake.NewClientBuilder().WithObjects(existingSecret).Build()
+
+		tlsDir := t.TempDir()
+		err = os.WriteFile(filepath.Join(tlsDir, "ca.crt"), []byte("not a valid cert"), 0600)
+		require.NoError(t, err, "failed to write ca.crt")
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries:    true,
+			enablePrivateRegistriesTls: true,
+			registryAuthSecretPath:     authPath,
+			registryAuthSecretName:     "authsecret",
+			tlsSecretPath:              tlsDir,
+			namespace:                  defaultNamespace,
+			kubeClient:                 kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "failed to load TLS config")
+	})
+	t.Run("private registry - TLS ca.pem fallback invalid PEM", func(t *testing.T) {
+		// ca.crt is missing, so the code falls back to ca.pem. ca.pem exists
+		// but contains invalid PEM data, causing loadTLSConfig to fail.
+		authData := []byte(`{"auths":{"myregistry.io":{"username":"u","password":"p"}}}`)
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, authData, 0600)
+		require.NoError(t, err, "failed to write auth file")
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "authsecret",
+				Namespace: defaultNamespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": authData,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		kubeClient := fake.NewClientBuilder().WithObjects(existingSecret).Build()
+
+		tlsDir := t.TempDir()
+		err = os.WriteFile(filepath.Join(tlsDir, "ca.pem"), []byte("not a valid cert"), 0600)
+		require.NoError(t, err, "failed to write ca.crt")
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries:    true,
+			enablePrivateRegistriesTls: true,
+			registryAuthSecretPath:     authPath,
+			registryAuthSecretName:     "authsecret",
+			tlsSecretPath:              tlsDir,
+			namespace:                  defaultNamespace,
+			kubeClient:                 kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.ErrorContains(t, err, "failed to load TLS config")
+	})
+	t.Run("private registry - valid auth without TLS", func(t *testing.T) {
+		// Valid auth file with proper Docker config JSON. However, still we face with error
+		// as there is no real registry to connect to. The error should NOT come from auth
+		// resolution or file parsing.
+		authData := []byte(`{"auths":{"myregistry.io":{"username":"u","password":"p"}}}`)
+
+		authDir := t.TempDir()
+		authPath := filepath.Join(authDir, ".dockerconfigjson")
+		err := os.WriteFile(authPath, authData, 0600)
+		require.NoError(t, err, "failed to write auth file")
+
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "authsecret",
+				Namespace: defaultNamespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": authData,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		kubeClient := fake.NewClientBuilder().WithObjects(existingSecret).Build()
+
+		ctx := context.Background()
+		pm := &podManager{
+			enablePrivateRegistries: true,
+			registryAuthSecretPath:  authPath,
+			registryAuthSecretName:  "authsecret",
+			namespace:               defaultNamespace,
+			kubeClient:              kubeClient,
+		}
+		_, err = pm.listRepositoryTags(ctx, testImageName)
+		assert.Error(t, err)
+		assert.NotContains(t, err.Error(), "error resolving default keychain")
+		assert.NotContains(t, err.Error(), "error reading authentication file")
+		assert.NotContains(t, err.Error(), "error unmarshaling authentication file")
+	})
+	t.Run("authentication issue during tag listing", func(t *testing.T) {
+		// A local HTTP server simulates a Docker v2 registry that requires
+		// authentication. All requests return 401 Unauthorized so that
+		// regclient must attempt credential resolution.
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+			w.Header().Set("WWW-Authenticate", `Basic realm="test-registry"`)
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer ts.Close()
+
+		registryAddr := strings.TrimPrefix(ts.URL, "http://")
+
+		ctx := context.Background()
+		pm := &podManager{
+			regclientExtraOpts: []regclient.Opt{
+				regclient.WithConfigHost(regclientconfig.Host{
+					Name:     registryAddr,
+					Hostname: registryAddr,
+					// disabling TLS for the local host so regclient
+					// connects over plain HTTP instead of HTTPS, avoiding DNS resolution
+					TLS: regclientconfig.TLSDisabled,
+				}),
+			},
+		}
+		_, err := pm.listRepositoryTags(ctx, registryAddr+"/"+testImageName)
+		assert.ErrorContains(t, err, "unauthorized")
+	})
+	t.Run("successful execution", func(t *testing.T) {
+		// A local HTTP server simulates a Docker v2 registry
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+			w.Header().Set("WWW-Authenticate", `Basic realm="test-registry"`)
+			//w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer ts.Close()
+
+		registryAddr := strings.TrimPrefix(ts.URL, "http://")
+
+		ctx := context.Background()
+		pm := &podManager{
+			regclientExtraOpts: []regclient.Opt{
+				regclient.WithConfigHost(regclientconfig.Host{
+					Name:     registryAddr,
+					Hostname: registryAddr,
+					TLS:      regclientconfig.TLSDisabled,
+				}),
+			},
+		}
+		_, err := pm.listRepositoryTags(ctx, registryAddr+"/"+testImageName)
+		assert.NoError(t, err)
+	})
+}
+
+// Fake client handles pod patches incorrectly in case the pod doesn't exist
+//
+//nolint:unused
+func fakeClientPatchFixInterceptor(ctx context.Context, kubeClient client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
+		var canary corev1.Pod
+		err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				err = kubeClient.Create(ctx, obj)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func marshalToYamlOrPanic(obj interface{}) []byte {

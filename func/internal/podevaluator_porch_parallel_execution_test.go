@@ -24,6 +24,7 @@ import (
 	"time"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/utils/ptr"
@@ -33,7 +34,8 @@ import (
 // fakeFnEvalServer delays every EvaluateFunction call.
 type fakeFnEvalServer struct {
 	pb.UnimplementedFunctionEvaluatorServer
-	delay time.Duration
+	delay   time.Duration
+	evalErr error
 }
 
 func (s *fakeFnEvalServer) EvaluateFunction(_ context.Context, _ *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
@@ -41,16 +43,13 @@ func (s *fakeFnEvalServer) EvaluateFunction(_ context.Context, _ *pb.EvaluateFun
 	return &pb.EvaluateFunctionResponse{ResourceList: []byte("ok"), Log: []byte("log")}, nil
 }
 
-func startFakeServer(ctx context.Context, t *testing.T, delay time.Duration) (string, error) {
+func startFakeServer(ctx context.Context, t *testing.T, delay time.Duration, evalErr error) (string, error) {
 	lis, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
-		return "", err
-	}
+	require.NoError(t, err, "failed to listen")
 
 	addr := lis.Addr().String()
 	server := grpc.NewServer()
-	pb.RegisterFunctionEvaluatorServer(server, &fakeFnEvalServer{delay: delay})
+	pb.RegisterFunctionEvaluatorServer(server, &fakeFnEvalServer{delay: delay, evalErr: evalErr})
 	go func() {
 		err := server.Serve(lis)
 		if err != nil {
@@ -73,7 +72,7 @@ func TestPodEvaluatorExecutionParallel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	addr, err := startFakeServer(ctx, t, sleep)
+	addr, err := startFakeServer(ctx, t, sleep, nil)
 	if err != nil {
 		t.Fatalf("failed to start fake server: %v", err)
 	}

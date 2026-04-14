@@ -33,6 +33,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/regclient/regclient"
+	regclientconfig "github.com/regclient/regclient/config"
+	regclientref "github.com/regclient/regclient/types/ref"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -94,6 +97,10 @@ type podManager struct {
 	enablePrivateRegistriesTls bool
 	// The path of the secret used in tls configuration
 	tlsSecretPath string
+	// Optional override for listRepositoryTags, used in tests
+	listRepositoryTagsFunc func(ctx context.Context, image string) ([]string, error)
+	// Optional additional regclient options, used in tests for host-level settings (e.g. TLS)
+	regclientExtraOpts []regclient.Opt
 }
 
 type digestAndEntrypoint struct {
@@ -386,6 +393,76 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 	return &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
+}
+
+// listRepositoryTags lists all tags for the given OCI image repository using the OCI Distribution API.
+func (pm *podManager) listRepositoryTags(ctx context.Context, image string) ([]string, error) {
+	if pm.listRepositoryTagsFunc != nil {
+		return pm.listRepositoryTagsFunc(ctx, image)
+	}
+
+	r, err := regclientref.New(image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository %q: %w", image, err)
+	}
+
+	var rcOpts []regclient.Opt
+
+	if pm.enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) {
+		if err := pm.ensureCustomAuthSecret(ctx, pm.registryAuthSecretPath, pm.registryAuthSecretName); err != nil {
+			return nil, err
+		}
+		dockerConfigBytes, err := os.ReadFile(pm.registryAuthSecretPath)
+		if err != nil {
+			return nil, fmt.Errorf("error reading authentication file: %w", err)
+		}
+		var dockerConfig DockerConfig
+		if err := json.Unmarshal(dockerConfigBytes, &dockerConfig); err != nil {
+			return nil, fmt.Errorf("error unmarshaling authentication file: %w", err)
+		}
+		authConfig := dockerConfig.Auths[r.Registry]
+		host := regclientconfig.Host{
+			Name:     r.Registry,
+			Hostname: r.Registry,
+			User:     authConfig.Username,
+			Pass:     authConfig.Password,
+		}
+
+		if pm.enablePrivateRegistriesTls {
+			tlsFile := "ca.crt"
+			if _, errCRT := os.Stat(filepath.Join(pm.tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
+				if _, errPEM := os.Stat(filepath.Join(pm.tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
+					return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
+				}
+				tlsFile = "ca.pem"
+			}
+			caCert, err := os.ReadFile(filepath.Join(pm.tlsSecretPath, tlsFile))
+			if err != nil {
+				return nil, fmt.Errorf("failed to load TLS config: %w", err)
+			}
+			pool := x509.NewCertPool()
+			if !pool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to load TLS config: failed to append certificates from PEM")
+			}
+			host.RegCert = string(caCert)
+		}
+
+		rcOpts = append(rcOpts, regclient.WithConfigHost(host))
+	} else {
+		rcOpts = append(rcOpts, regclient.WithDockerCreds())
+	}
+
+	rcOpts = append(rcOpts, pm.regclientExtraOpts...)
+	rc := regclient.New(rcOpts...)
+	defer func() { _ = rc.Close(ctx, r) }()
+
+	tl, err := rc.TagList(ctx, r)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return tl.GetTags()
 }
 
 // CreatePod creates a pod for an image.

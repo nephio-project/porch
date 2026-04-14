@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,18 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
+	regclientref "github.com/regclient/regclient/types/ref"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -198,11 +205,83 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 	return pe, nil
 }
 
+func (pe *podEvaluator) filterByConstraint(ctx context.Context, req *evaluator.EvaluateFunctionRequest) (string, error) {
+	c, err := semver.NewConstraint(req.Tag)
+	if err != nil {
+		return "", pkgerrors.Wrapf(err, "tag %q is not a valid semver constraint", req.Tag)
+	}
+
+	tags, err := pe.podCacheManager.podManager.listRepositoryTags(ctx, req.Image)
+	if err != nil {
+		return "", pkgerrors.Wrapf(err, "failed to list tags for image %q", req.Image)
+	}
+
+	type candidate struct {
+		tag     string
+		version *semver.Version
+	}
+
+	var candidates []candidate
+	for _, tag := range tags {
+		if !strings.HasPrefix(tag, "v") {
+			continue
+		}
+		v, err := semver.NewVersion(tag)
+		if err != nil {
+			klog.V(3).Infof("Failed to parse version %q from tag of image %q: %v", tag, req.Image, err)
+			continue
+		}
+		if c.Check(v) {
+			candidates = append(candidates, candidate{tag: tag, version: v})
+		}
+	}
+
+	if len(candidates) == 0 {
+		return "", &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: req.Image},
+		}
+	}
+
+	slices.SortFunc(candidates, func(a, b candidate) int {
+		return a.version.Compare(b.version)
+	})
+
+	selected := candidates[len(candidates)-1]
+
+	return selected.tag, nil
+}
+
 func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.EvaluateFunctionRequest) (*evaluator.EvaluateFunctionResponse, error) {
 	starttime := time.Now()
+	var tag string
 	defer func() {
 		klog.Infof("evaluating %v in pod took %v", req.Image, time.Since(starttime))
 	}()
+
+	if req.Tag != "" {
+		ref, err := regclientref.New(req.Image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse image %q as reference: %w", req.Image, err)
+		}
+		// If the image already carries an inline tag, strip it
+		// so filterByConstraint gets a bare repository name, and
+		// we don't produce a double-tag
+		if ref.Tag != "" {
+			if stripped := strings.TrimSuffix(req.Image, ":"+ref.Tag); stripped != req.Image {
+				klog.Infof("Image %q already contains tag %q; stripping it in favor of Tag constraint %q", req.Image, ref.Tag, req.Tag)
+				req.Image = stripped
+			}
+		}
+		tag, err = pe.filterByConstraint(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		req.Image = fmt.Sprintf("%s:%s", req.Image, tag)
+		klog.Infof("Resolved image tag: %q (constraint %q)", req.Image, tag)
+	} else {
+		klog.Infof("Image tag is empty, using the image with explicit tag: %q", req.Image)
+	}
+
 	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting goroutine in batch.
 	responseChannel := make(chan *connectionResponse, 1)
 	// Send a request to request a grpc client.
