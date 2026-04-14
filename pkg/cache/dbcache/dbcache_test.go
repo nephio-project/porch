@@ -51,7 +51,7 @@ func Test_DbTestSuite(t *testing.T) {
 	if u, err := user.Current(); err == nil && u.Username == "root" {
 		t.Fatalf("This test cannot run as %q user", u.Username)
 	}
-	
+
 	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: t.Context()})
 }
 

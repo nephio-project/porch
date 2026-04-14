@@ -81,9 +81,9 @@ type TestSuite struct {
 	// Strongly-typed client handy for reading e.g. pod logs
 	KubeClient kubernetes.Interface
 
-	Namespace            string // K8s namespace for this test run
-	TestRunnerIsLocal    bool   // Tests running against local dev porch
-	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
+	Namespace               string // K8s namespace for this test run
+	TestRunnerIsLocal       bool   // Tests running against local dev porch
+	porchServerInCluster    *bool  // Cached result of IsPorchServerInCluster check
 	repoControllerInCluster *bool  // Cached result of IsRepoControllerInCluster check
 }
 

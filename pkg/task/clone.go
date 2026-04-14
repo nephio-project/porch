@@ -187,7 +187,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *por
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, kptfilev1.UpstreamLock{
+	}, kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {

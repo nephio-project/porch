@@ -26,7 +26,7 @@ import (
 )
 
 func TestDirectoryPool_GetOrCreateSharedRepository(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -34,20 +34,20 @@ func TestDirectoryPool_GetOrCreateSharedRepository(t *testing.T) {
 	repoDir := filepath.Join(tempDir, "test-repo")
 
 	// First call should create new shared directory
-	shared1, err := pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	shared1, err := pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	require.NoError(t, err)
 	require.NotNil(t, shared1)
 	assert.Equal(t, 1, shared1.refCount)
 
 	// Second call should reuse existing directory
-	shared2, err := pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	shared2, err := pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	require.NoError(t, err)
 	assert.Same(t, shared1, shared2)
 	assert.Equal(t, 2, shared2.refCount)
 }
 
 func TestDirectoryPool_ReleaseSharedRepository(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -55,19 +55,19 @@ func TestDirectoryPool_ReleaseSharedRepository(t *testing.T) {
 	repoDir := filepath.Join(tempDir, "test-repo")
 
 	// Create shared repository
-	shared, err := pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	shared, err := pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	require.NoError(t, err)
 
 	// Add another reference
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	require.NoError(t, err)
 
 	// First release should decrement refCount
-	pool.ReleaseSharedRepository(repoDir, "test-repo")
+	pool.releaseSharedRepository(repoDir, "test-repo")
 	assert.Equal(t, 1, shared.refCount)
 
 	// Second release should remove from pool and cleanup directory
-	pool.ReleaseSharedRepository(repoDir, "test-repo")
+	pool.releaseSharedRepository(repoDir, "test-repo")
 	_, exists := pool.directories.Load(repoDir)
 	assert.False(t, exists)
 	_, err = os.Stat(repoDir)
@@ -79,13 +79,13 @@ func TestSharedDirectory_WithLock(t *testing.T) {
 	repo, err := initEmptyRepository(tempDir)
 	require.NoError(t, err)
 
-	shared := &SharedDirectory{
+	shared := &sharedDirectory{
 		repo:     repo,
 		refCount: 1,
 	}
 
 	called := false
-	err = shared.WithLock(func(r *git.Repository) error {
+	err = shared.withLock(func(r *git.Repository) error {
 		called = true
 		assert.Same(t, repo, r)
 		return nil
@@ -100,13 +100,13 @@ func TestSharedDirectory_WithRLock(t *testing.T) {
 	repo, err := initEmptyRepository(tempDir)
 	require.NoError(t, err)
 
-	shared := &SharedDirectory{
+	shared := &sharedDirectory{
 		repo:     repo,
 		refCount: 1,
 	}
 
 	called := false
-	err = shared.WithRLock(func(r *git.Repository) error {
+	err = shared.withRLock(func(r *git.Repository) error {
 		called = true
 		assert.Same(t, repo, r)
 		return nil
@@ -117,7 +117,7 @@ func TestSharedDirectory_WithRLock(t *testing.T) {
 }
 
 func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -132,7 +132,7 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			_, err := pool.GetOrCreateSharedRepository(repoDir, "concurrent-repo")
+			_, err := pool.getOrCreateSharedRepository(repoDir, "concurrent-repo")
 			assert.NoError(t, err)
 		}(i)
 	}
@@ -140,7 +140,7 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 
 	// Check final refCount
 	sharedDir, _ := pool.directories.Load(repoDir)
-	shared := sharedDir.(*SharedDirectory)
+	shared := sharedDir.(*sharedDirectory)
 
 	assert.Equal(t, numGoroutines, shared.refCount)
 
@@ -149,7 +149,7 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pool.ReleaseSharedRepository(repoDir, "concurrent-repo")
+			pool.releaseSharedRepository(repoDir, "concurrent-repo")
 		}()
 	}
 	wg.Wait()
@@ -160,7 +160,7 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 }
 
 func TestDirectoryPool_InitEmptyRepositoryFailure(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -174,7 +174,7 @@ func TestDirectoryPool_InitEmptyRepositoryFailure(t *testing.T) {
 	repoDir := filepath.Join(filePath, "subdir") // This will fail because parent is a file
 
 	// Should fail to create repository
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	assert.Error(t, err)
 
 	// Should not be in pool
@@ -183,12 +183,12 @@ func TestDirectoryPool_InitEmptyRepositoryFailure(t *testing.T) {
 
 	// Retry should work if we fix the issue
 	os.Remove(filePath)
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	assert.NoError(t, err)
 }
 
 func TestDirectoryPool_OpenRepositoryFailure(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -203,7 +203,7 @@ func TestDirectoryPool_OpenRepositoryFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should fail to open corrupted repository
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "corrupted cache was removed")
 
@@ -216,12 +216,12 @@ func TestDirectoryPool_OpenRepositoryFailure(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 
 	// Retry should work now that corrupted dir is removed
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	assert.NoError(t, err)
 }
 
 func TestDirectoryPool_OpenRepositoryCleanupFailure(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -242,7 +242,7 @@ func TestDirectoryPool_OpenRepositoryCleanupFailure(t *testing.T) {
 	defer os.Chmod(repoDir, 0755)
 
 	// Should fail to open and also fail to cleanup
-	_, err = pool.GetOrCreateSharedRepository(repoDir, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(repoDir, "test-repo")
 	assert.Error(t, err)
 	// When cleanup fails, error message should mention checking local cache
 	assert.Contains(t, err.Error(), "check the local git cache")
@@ -257,7 +257,7 @@ func TestDirectoryPool_OpenRepositoryCleanupFailure(t *testing.T) {
 }
 
 func TestDirectoryPool_PathIsFile(t *testing.T) {
-	pool := &DirectoryPool{
+	pool := &directoryPool{
 		directories: sync.Map{},
 	}
 
@@ -269,7 +269,7 @@ func TestDirectoryPool_PathIsFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should fail because path is a file, not a directory
-	_, err = pool.GetOrCreateSharedRepository(filePath, "test-repo")
+	_, err = pool.getOrCreateSharedRepository(filePath, "test-repo")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not a directory")
 

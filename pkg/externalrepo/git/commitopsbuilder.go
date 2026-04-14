@@ -18,35 +18,35 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
-type CommitOperation struct {
-	Type string
-	Data interface{}
+type commitOperation struct {
+	opType string
+	data interface{}
 }
 
-type CommitOperationBuilder struct {
-	operations []CommitOperation
+type commitOperationBuilder struct {
+	operations []commitOperation
 }
 
-func NewCommitOperationBuilder() *CommitOperationBuilder {
-	return &CommitOperationBuilder{
-		operations: []CommitOperation{},
+func newCommitOperationBuilder() *commitOperationBuilder {
+	return &commitOperationBuilder{
+		operations: []commitOperation{},
 	}
 }
 
-func (c *CommitOperationBuilder) AddPackageApproval(draft interface{}, tag plumbing.ReferenceName) {
-	c.operations = append(c.operations, CommitOperation{
-		Type: "approval",
-		Data: map[string]interface{}{"draft": draft, "tag": tag},
+func (c *commitOperationBuilder) addPackageApproval(draft interface{}, tag plumbing.ReferenceName) {
+	c.operations = append(c.operations, commitOperation{
+		opType: "approval",
+		data: map[string]interface{}{"draft": draft, "tag": tag},
 	})
 }
 
-func (c *CommitOperationBuilder) AddPackageDeletion(branch plumbing.ReferenceName, prKey interface{}) {
-	c.operations = append(c.operations, CommitOperation{
-		Type: "deletion",
-		Data: map[string]interface{}{"branch": branch, "prKey": prKey},
+func (c *commitOperationBuilder) addPackageDeletion(branch plumbing.ReferenceName, prKey interface{}) {
+	c.operations = append(c.operations, commitOperation{
+		opType: "deletion",
+		data: map[string]interface{}{"branch": branch, "prKey": prKey},
 	})
 }
 
-func (c *CommitOperationBuilder) GetOperations() []CommitOperation {
+func (c *commitOperationBuilder) getOperations() []commitOperation {
 	return c.operations
 }

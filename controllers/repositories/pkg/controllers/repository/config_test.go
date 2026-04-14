@@ -34,9 +34,9 @@ func TestInitDefaults(t *testing.T) {
 func TestBindFlags(t *testing.T) {
 	r := &RepositoryReconciler{}
 	flags := flag.NewFlagSet("test", flag.ContinueOnError)
-	
+
 	r.BindFlags("repo-", flags)
-	
+
 	// Parse test flags
 	err := flags.Parse([]string{
 		"--repo-max-concurrent-reconciles=100",
@@ -56,9 +56,9 @@ func (m *mockLogger) Info(msg string, keysAndValues ...interface{}) {
 
 func TestLogConfig(t *testing.T) {
 	tests := []struct {
-		name              string
-		reconciler        *RepositoryReconciler
-		expectWarnings    int
+		name           string
+		reconciler     *RepositoryReconciler
+		expectWarnings int
 	}{
 		{
 			name: "default config - no warnings",

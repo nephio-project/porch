@@ -45,7 +45,7 @@ var (
 
 type kptfileStatus struct {
 	Conditions   []porchapi.Condition `json:"conditions,omitempty"`
-	UpstreamLock *kptfile.UpstreamLock `json:"upstreamLock,omitempty"`
+	UpstreamLock *kptfile.Locator     `json:"upstreamLock,omitempty"`
 }
 
 func extractKptfileStatus(resources map[string]string) kptfileStatus {
@@ -75,18 +75,17 @@ func extractFromKptfile(resources map[string]string) (kptfileStatus, []porchapi.
 }
 
 type dbPackageRevision struct {
-	repo        *dbRepository
-	pkgRevKey   repository.PackageRevisionKey
-	meta        metav1.ObjectMeta
-	spec        *porchapi.PackageRevisionSpec
-	updated     time.Time
-	updatedBy   string
-	lifecycle   porchapi.PackageRevisionLifecycle
-	extPRID     kptfile.UpstreamLock
-	latest      bool
-	deployment  bool
-	tasks       []porchapi.Task
-	resources   map[string]string
+	repo          *dbRepository
+	pkgRevKey     repository.PackageRevisionKey
+	meta          metav1.ObjectMeta
+	spec          *porchapi.PackageRevisionSpec
+	updated       time.Time
+	updatedBy     string
+	lifecycle     porchapi.PackageRevisionLifecycle
+	extPRID       kptfile.Locator
+	latest        bool
+	tasks         []porchapi.Task
+	resources     map[string]string
 	kptfileStatus kptfileStatus
 
 	// gitDraftPR maintains the draft in the external git repository during editing (when pushDraftsToGit is true)
@@ -328,9 +327,9 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 	}, nil
 }
 
-func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.Locator, error) {
 	if pr.kptfileStatus.UpstreamLock == nil || pr.kptfileStatus.UpstreamLock.Git == nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+		return kptfile.Upstream{}, kptfile.Locator{}, nil
 	}
 	return repository.KptUpstreamLock2KptUpstream(*pr.kptfileStatus.UpstreamLock), *pr.kptfileStatus.UpstreamLock, nil
 }
@@ -402,7 +401,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 	return *kf, nil
 }
 
-func (pr *dbPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.Locator, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
 	return repository.KptUpstreamLock2KptUpstream(pr.extPRID), pr.extPRID, nil

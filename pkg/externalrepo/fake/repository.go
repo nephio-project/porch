@@ -81,7 +81,7 @@ func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd reposito
 		PrKey: prd.Key(),
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}, nil
 }
