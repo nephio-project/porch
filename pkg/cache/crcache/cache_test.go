@@ -30,9 +30,9 @@ import (
 	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
-	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	gitserver "github.com/nephio-project/porch/test/git/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -246,7 +246,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 
 	tempdir := t.TempDir()
 	tarfile := filepath.Join(testPath, fmt.Sprintf("%s-repository.tar", name))
-	_, address := git.ServeGitRepository(t, tarfile, tempdir)
+	_, address := gitserver.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
 	apiRepo := &v1alpha1.Repository{

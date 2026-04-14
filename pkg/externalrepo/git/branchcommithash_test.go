@@ -104,7 +104,7 @@ func TestBranchCommitHash(t *testing.T) {
 				// Validate commit exists if requested
 				if tc.validateCommit {
 					gitRepo := repo.(*gitRepository)
-					err := gitRepo.sharedDir.WithRLock(func(r *gogit.Repository) error {
+					err := gitRepo.sharedDir.withRLock(func(r *gogit.Repository) error {
 						_, err := r.CommitObject(plumbing.NewHash(hash))
 						return err
 					})

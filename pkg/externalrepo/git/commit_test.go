@@ -92,7 +92,7 @@ func TestPackageCommitToMain(t *testing.T) {
 
 	// Commit `bucket`` package from drafts/bucket/v1 into main
 
-	main := resolveReference(t, gitRepo, DefaultMainReferenceName)
+	main := resolveReference(t, gitRepo, defaultMainReferenceName)
 	packagePath := "bucket"
 
 	// Confirm no 'bucket' package in main
@@ -143,7 +143,7 @@ func TestCommitWithUser(t *testing.T) {
 	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "trivial-repository.tar"), tempdir)
 
 	ctx := context.Background()
-	main := resolveReference(t, gitRepo, DefaultMainReferenceName)
+	main := resolveReference(t, gitRepo, defaultMainReferenceName)
 
 	{
 		const testEmail = "porch-test@porch-domain.com"

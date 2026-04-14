@@ -36,8 +36,8 @@ import (
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"github.com/nephio-project/porch/pkg/repository"
+	gitserver "github.com/nephio-project/porch/test/git/pkg"
 )
 
 func createRepoWithContents(t *testing.T, contentDir string) *gogit.Repository {
@@ -116,14 +116,14 @@ func createRepoWithContents(t *testing.T, contentDir string) *gogit.Repository {
 	return repo
 }
 
-func startGitServer(t *testing.T, repo *git.Repo, _ ...git.GitServerOption) string {
+func startGitServer(t *testing.T, repo *gitserver.Repo, _ ...gitserver.GitServerOption) string {
 	key := "default"
-	repos := git.NewStaticRepos()
+	repos := gitserver.NewStaticRepos()
 	if err := repos.Add(key, repo); err != nil {
 		t.Fatalf("repos.Add failed: %v", err)
 	}
 
-	server, err := git.NewGitServer(repos)
+	server, err := gitserver.NewGitServer(repos)
 	if err != nil {
 		t.Fatalf("Failed to create git server: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	auth := randomCredentials()
 	gogitRepo := createRepoWithContents(t, testdata)
 
-	repo, err := git.NewRepo(gogitRepo, git.WithBasicAuth(auth.username, auth.password))
+	repo, err := gitserver.NewRepo(gogitRepo, gitserver.WithBasicAuth(auth.username, auth.password))
 	if err != nil {
 		t.Fatalf("NewRepo failed: %+v", err)
 	}
