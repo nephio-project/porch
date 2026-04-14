@@ -129,7 +129,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 }
 
 func (p *gitPackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
-	resources, err := p.repo.GetResources(p.tree)
+	resources, err := p.repo.getResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
@@ -170,7 +170,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 
-	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
+	mainBranchRef := plumbing.NewHashReference(p.repo.branch.refInLocal(), p.commit)
 	mainPr := &gitPackageRevision{
 		repo:      p.repo,
 		prKey:     p.prKey,
@@ -188,7 +188,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 }
 
 func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
-	kfString, err := p.repo.GetResource(p.tree, kptfilev1.KptFileName)
+	kfString, err := p.repo.getResource(p.tree, kptfilev1.KptFileName)
 	if err != nil {
 		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfilev1.KptFileName)
 	}
