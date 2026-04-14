@@ -86,8 +86,8 @@ type fakePackageRevision struct {
 	key          repository.PackageRevisionKey
 	lifecycle    porchv1alpha1.PackageRevisionLifecycle
 	kptfile      kptfilev1.KptFile
-	upstreamLock kptfilev1.UpstreamLock
-	selfLock     kptfilev1.UpstreamLock
+	upstreamLock kptfilev1.Locator
+	selfLock     kptfilev1.Locator
 	commitTime   time.Time
 	commitAuthor string
 	isLatest     bool
@@ -112,13 +112,13 @@ func (f *fakePackageRevision) GetPackageRevision(_ context.Context) (*porchv1alp
 func (f *fakePackageRevision) GetResources(_ context.Context) (*porchv1alpha1.PackageRevisionResources, error) {
 	return nil, nil
 }
-func (f *fakePackageRevision) GetUpstreamLock(_ context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (f *fakePackageRevision) GetUpstreamLock(_ context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	return kptfilev1.Upstream{}, f.upstreamLock, nil
 }
 func (f *fakePackageRevision) GetKptfile(_ context.Context) (kptfilev1.KptFile, error) {
 	return f.kptfile, nil
 }
-func (f *fakePackageRevision) GetLock(_ context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (f *fakePackageRevision) GetLock(_ context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	return kptfilev1.Upstream{}, f.selfLock, nil
 }
 func (f *fakePackageRevision) ToMainPackageRevision(_ context.Context) repository.PackageRevision {
@@ -151,11 +151,11 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 				},
 			},
 		}
-		pkgRev.upstreamLock = kptfilev1.UpstreamLock{
+		pkgRev.upstreamLock = kptfilev1.Locator{
 			Type: kptfilev1.GitOrigin,
 			Git:  &kptfilev1.GitLock{Repo: "https://github.com/upstream.git", Ref: "v1.0", Directory: "/", Commit: "abc"},
 		}
-		pkgRev.selfLock = kptfilev1.UpstreamLock{
+		pkgRev.selfLock = kptfilev1.Locator{
 			Type: kptfilev1.GitOrigin,
 			Git:  &kptfilev1.GitLock{Repo: "https://github.com/self.git", Ref: "main", Directory: "path/to/my-pkg", Commit: "def"},
 		}

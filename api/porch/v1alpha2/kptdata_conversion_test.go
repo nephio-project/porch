@@ -90,12 +90,12 @@ func TestKptfileToPackageMetadata(t *testing.T) {
 	assert.Equal(t, "bar", meta.Annotations["note"])
 }
 
-func TestKptUpstreamLockToLocator(t *testing.T) {
+func TestKptLocatorToLocator(t *testing.T) {
 	// nil git
-	assert.Nil(t, KptUpstreamLockToLocator(kptfilev1.UpstreamLock{}))
+	assert.Nil(t, KptLocatorToLocator(kptfilev1.Locator{}))
 
 	// populated
-	lock := kptfilev1.UpstreamLock{
+	lock := kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
 			Repo:      "https://github.com/example/repo.git",
@@ -104,7 +104,7 @@ func TestKptUpstreamLockToLocator(t *testing.T) {
 			Commit:    "abc123",
 		},
 	}
-	loc := KptUpstreamLockToLocator(lock)
+	loc := KptLocatorToLocator(lock)
 	assert.Equal(t, OriginType(kptfilev1.GitOrigin), loc.Type)
 	assert.Equal(t, "https://github.com/example/repo.git", loc.Git.Repo)
 	assert.Equal(t, "pkg/foo", loc.Git.Directory)

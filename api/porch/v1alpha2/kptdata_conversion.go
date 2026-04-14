@@ -58,8 +58,9 @@ func KptfileToPackageMetadata(kf kptfilev1.KptFile) *PackageMetadata {
 	}
 }
 
-// KptUpstreamLockToLocator converts a kpt UpstreamLock to a v1alpha2 Locator.
-func KptUpstreamLockToLocator(lock kptfilev1.UpstreamLock) *Locator {
+// KptLocatorToLocator converts a kpt Locator to a v1alpha2 Locator.
+// The two types are structurally identical but live in different packages.
+func KptLocatorToLocator(lock kptfilev1.Locator) *Locator {
 	if lock.Git == nil {
 		return nil
 	}

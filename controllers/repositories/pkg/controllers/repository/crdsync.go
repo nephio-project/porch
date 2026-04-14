@@ -213,8 +213,8 @@ func buildPackageRevisionCRDForUpdate(ctx context.Context, repo *configapi.Repos
 	_, selfLock, _ := pkgRev.GetLock(ctx)
 
 	status := porchv1alpha2.PackageRevisionStatus{
-		UpstreamLock: porchv1alpha2.KptUpstreamLockToLocator(upstreamLock),
-		SelfLock:     porchv1alpha2.KptUpstreamLockToLocator(selfLock),
+		UpstreamLock: porchv1alpha2.KptLocatorToLocator(upstreamLock),
+		SelfLock:     porchv1alpha2.KptLocatorToLocator(selfLock),
 		Deployment:   repo.Spec.Deployment,
 		// PackageConditions omitted — PR controller owns after first render.
 	}

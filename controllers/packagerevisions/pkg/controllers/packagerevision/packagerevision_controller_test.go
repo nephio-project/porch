@@ -28,8 +28,8 @@ import (
 func setupMockContentDefaults(m *mockrepository.MockPackageContent) {
 	m.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 	m.EXPECT().GetCommitInfo().Return(time.Time{}, "").Maybe()
-	m.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Maybe()
-	m.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Maybe()
+	m.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil).Maybe()
+	m.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil).Maybe()
 }
 
 func newTestReconciler(mockClient *mockclient.MockClient, cache *mockrepository.MockContentCache) *PackageRevisionReconciler {

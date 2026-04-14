@@ -29,8 +29,8 @@ type PackageContent interface {
 	Lifecycle(ctx context.Context) string
 	GetResourceContents(ctx context.Context) (map[string]string, error)
 	GetKptfile(ctx context.Context) (kptfilev1.KptFile, error)
-	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
-	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
+	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
+	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
 	GetCommitInfo() (commitTime time.Time, commitAuthor string)
 }
 

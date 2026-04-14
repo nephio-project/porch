@@ -313,7 +313,7 @@ func TestApplySourceCloneUpstreamRef(t *testing.T) {
 	}, nil)
 	mockContent.EXPECT().GetLock(ctx).Return(
 		kptfilev1.Upstream{Type: kptfilev1.GitOrigin, Git: &kptfilev1.Git{Repo: "https://example.com/repo.git", Directory: "/upstream-pkg", Ref: "v1"}},
-		kptfilev1.UpstreamLock{Type: kptfilev1.GitOrigin, Git: &kptfilev1.GitLock{Repo: "https://example.com/repo.git", Directory: "/upstream-pkg", Ref: "v1", Commit: "abc123"}},
+		kptfilev1.Locator{Type: kptfilev1.GitOrigin, Git: &kptfilev1.GitLock{Repo: "https://example.com/repo.git", Directory: "/upstream-pkg", Ref: "v1", Commit: "abc123"}},
 		nil,
 	)
 
@@ -515,7 +515,7 @@ func TestApplySourceCloneUpstreamRefGetLockError(t *testing.T) {
 
 	mockContent := mockrepository.NewMockPackageContent(t)
 	mockContent.EXPECT().GetResourceContents(ctx).Return(map[string]string{"Kptfile": "test"}, nil)
-	mockContent.EXPECT().GetLock(ctx).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, assert.AnError)
+	mockContent.EXPECT().GetLock(ctx).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, assert.AnError)
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
@@ -692,7 +692,7 @@ func TestApplySourceUpgrade(t *testing.T) {
 	}, nil)
 	newContent.EXPECT().GetLock(ctx).Return(
 		kptfilev1.Upstream{Type: kptfilev1.GitOrigin, Git: &kptfilev1.Git{Repo: "https://example.com/upstream.git", Directory: "/pkg", Ref: "v2"}},
-		kptfilev1.UpstreamLock{Type: kptfilev1.GitOrigin, Git: &kptfilev1.GitLock{Repo: "https://example.com/upstream.git", Directory: "/pkg", Ref: "v2", Commit: "def456"}},
+		kptfilev1.Locator{Type: kptfilev1.GitOrigin, Git: &kptfilev1.GitLock{Repo: "https://example.com/upstream.git", Directory: "/pkg", Ref: "v2", Commit: "def456"}},
 		nil,
 	)
 
@@ -928,7 +928,7 @@ func TestApplySourceUpgradeGetLockError(t *testing.T) {
 	// newUpstream content — GetResourceContents succeeds, GetLock fails.
 	newContent := mockrepository.NewMockPackageContent(t)
 	newContent.EXPECT().GetResourceContents(ctx).Return(map[string]string{"Kptfile": kptfileContent}, nil)
-	newContent.EXPECT().GetLock(ctx).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, assert.AnError)
+	newContent.EXPECT().GetLock(ctx).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, assert.AnError)
 
 	currentContent := mockrepository.NewMockPackageContent(t)
 	currentContent.EXPECT().GetResourceContents(ctx).Return(map[string]string{"Kptfile": kptfileContent}, nil)

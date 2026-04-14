@@ -86,8 +86,8 @@ func TestUpdateStatusWithPublishedContent(t *testing.T) {
 	})
 	commitTime := time.Date(2025, 7, 1, 12, 0, 0, 0, time.UTC)
 	content.EXPECT().GetCommitInfo().Return(commitTime, "user@example.com")
-	content.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
-	content.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
+	content.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
+	content.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
 
 	r := &PackageRevisionReconciler{Client: mockClient}
 	pr := basePR()
@@ -107,8 +107,8 @@ func TestUpdateStatusWithDraftContent(t *testing.T) {
 
 	content := mockrepository.NewMockPackageContent(t)
 	content.EXPECT().Lifecycle(mock.Anything).Return("Draft")
-	content.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
-	content.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
+	content.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
+	content.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
 
 	r := &PackageRevisionReconciler{Client: mockClient}
 	pr := basePR()

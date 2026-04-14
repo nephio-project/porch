@@ -184,7 +184,7 @@ func (r *PackageRevisionReconciler) cloneFromGit(ctx context.Context, pr *porchv
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, kptfilev1.UpstreamLock{
+	}, kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {

@@ -81,7 +81,7 @@ func TestPackageContentWrapper_GetUpstreamLock(t *testing.T) {
 	mockPkgRev := mockrepository.NewMockPackageRevision(t)
 	mockPkgRev.EXPECT().GetUpstreamLock(mock.Anything).Return(
 		kptfilev1.Upstream{Type: kptfilev1.GitOrigin},
-		kptfilev1.UpstreamLock{Type: kptfilev1.GitOrigin},
+		kptfilev1.Locator{Type: kptfilev1.GitOrigin},
 		nil,
 	)
 
@@ -96,7 +96,7 @@ func TestPackageContentWrapper_GetLock(t *testing.T) {
 	mockPkgRev := mockrepository.NewMockPackageRevision(t)
 	mockPkgRev.EXPECT().GetLock(mock.Anything).Return(
 		kptfilev1.Upstream{Type: kptfilev1.GitOrigin},
-		kptfilev1.UpstreamLock{Type: kptfilev1.GitOrigin},
+		kptfilev1.Locator{Type: kptfilev1.GitOrigin},
 		nil,
 	)
 

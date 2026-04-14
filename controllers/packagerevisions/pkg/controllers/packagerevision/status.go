@@ -56,10 +56,10 @@ func (r *PackageRevisionReconciler) updateStatus(ctx context.Context, pr *porchv
 			}
 		}
 		if _, selfLock, err := content.GetLock(ctx); err == nil {
-			status.SelfLock = porchv1alpha2.KptUpstreamLockToLocator(selfLock)
+			status.SelfLock = porchv1alpha2.KptLocatorToLocator(selfLock)
 		}
 		if _, upstreamLock, err := content.GetUpstreamLock(ctx); err == nil {
-			status.UpstreamLock = porchv1alpha2.KptUpstreamLockToLocator(upstreamLock)
+			status.UpstreamLock = porchv1alpha2.KptLocatorToLocator(upstreamLock)
 		}
 	}
 

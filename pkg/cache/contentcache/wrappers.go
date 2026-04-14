@@ -78,11 +78,11 @@ func (p *packageContentWrapper) GetKptfile(ctx context.Context) (kptfilev1.KptFi
 	return p.inner.GetKptfile(ctx)
 }
 
-func (p *packageContentWrapper) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (p *packageContentWrapper) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	return p.inner.GetUpstreamLock(ctx)
 }
 
-func (p *packageContentWrapper) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (p *packageContentWrapper) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	return p.inner.GetLock(ctx)
 }
 
