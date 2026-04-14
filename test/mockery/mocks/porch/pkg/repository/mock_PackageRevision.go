@@ -500,50 +500,6 @@ func (_c *MockPackageRevision_IsLatestRevision_Call) RunAndReturn(run func() boo
 	return _c
 }
 
-// IsLatestRevision provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) IsLatestRevision() bool {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsLatestRevision")
-	}
-
-	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func() bool); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	return r0
-}
-
-// MockPackageRevision_IsLatestRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsLatestRevision'
-type MockPackageRevision_IsLatestRevision_Call struct {
-	*mock.Call
-}
-
-// IsLatestRevision is a helper method to define mock.On call
-func (_e *MockPackageRevision_Expecter) IsLatestRevision() *MockPackageRevision_IsLatestRevision_Call {
-	return &MockPackageRevision_IsLatestRevision_Call{Call: _e.mock.On("IsLatestRevision")}
-}
-
-func (_c *MockPackageRevision_IsLatestRevision_Call) Run(run func()) *MockPackageRevision_IsLatestRevision_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockPackageRevision_IsLatestRevision_Call) Return(b bool) *MockPackageRevision_IsLatestRevision_Call {
-	_c.Call.Return(b)
-	return _c
-}
-
-func (_c *MockPackageRevision_IsLatestRevision_Call) RunAndReturn(run func() bool) *MockPackageRevision_IsLatestRevision_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Key provides a mock function for the type MockPackageRevision
 func (_mock *MockPackageRevision) Key() repository.PackageRevisionKey {
 	ret := _mock.Called()
