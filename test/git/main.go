@@ -23,7 +23,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	"github.com/nephio-project/porch/test/git/pkg"
 	"k8s.io/klog/v2"
 )
 
@@ -59,10 +59,10 @@ func run(dirs []string) error {
 		return fmt.Errorf("can serve only one git repository, not %d", len(dirs))
 	}
 
-	var gitRepoOptions []git.GitRepoOption
-	repos := git.NewDynamicRepos(baseDir, gitRepoOptions)
+	var gitRepoOptions []gitserver.GitRepoOption
+	repos := gitserver.NewDynamicRepos(baseDir, gitRepoOptions)
 
-	server, err := git.NewGitServer(repos)
+	server, err := gitserver.NewGitServer(repos)
 	if err != nil {
 		return fmt.Errorf("filed to initialize git server: %w", err)
 	}
