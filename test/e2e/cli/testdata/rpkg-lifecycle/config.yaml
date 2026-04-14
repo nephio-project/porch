@@ -110,7 +110,7 @@ commands:
       - delete
       - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "git.lifecycle-package.lifecycle failed (admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git.lifecycle-package.lifecycle\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)\nError: errors:\n  admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git.lifecycle-package.lifecycle\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion \n"
+    stderr: "git.lifecycle-package.lifecycle failed (packagerevisions.porch.kpt.dev \"git.lifecycle-package.lifecycle\" is forbidden: published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)\nError: errors:\n  packagerevisions.porch.kpt.dev \"git.lifecycle-package.lifecycle\" is forbidden: published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion \n"
     exitCode: 1
   - args:
       - porchctl
