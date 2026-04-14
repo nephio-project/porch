@@ -286,6 +286,22 @@ func (t *DbTestSuite) createTestPkg(repoKey repository.RepositoryKey, name strin
 	return dbPkg
 }
 
+func (t *DbTestSuite) createTestPkgWithPath(repoKey repository.RepositoryKey, name, path string) dbPackage {
+	dbPkg := dbPackage{
+		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
+		pkgKey: repository.PackageKey{
+			RepoKey: repoKey,
+			Package: name,
+			Path:    path,
+		},
+	}
+
+	err := pkgWriteToDB(t.Context(), &dbPkg)
+	t.NoError(err)
+
+	return dbPkg
+}
+
 func (t *DbTestSuite) createTestPkgs(repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
 	var testPkgs []dbPackage
 
