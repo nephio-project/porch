@@ -112,7 +112,6 @@ loop:
 	for {
 		select {
 		case <-reconnect.channel():
-			var err error
 			// Reset bookmark if too many consecutive failures (stale resource version)
 			if consecutiveFailures >= 3 {
 				klog.Warningf("Resetting bookmark after %d consecutive failures, was %q", consecutiveFailures, bookmark)
@@ -121,6 +120,7 @@ loop:
 			}
 			klog.Infof("Starting watch ... ")
 			var obj configapi.RepositoryList
+			var err error
 			watcher, err = b.coreClient.Watch(ctx, &obj, &client.ListOptions{
 				Raw: &v1.ListOptions{
 					AllowWatchBookmarks: true,
@@ -131,7 +131,7 @@ loop:
 				consecutiveFailures++
 				// Check for specific API server errors
 				if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) {
-					klog.Warningf("Watch start failed: %v (bookmark: %q). Resetting bookmark to empty.", err, bookmark)
+					klog.Warningf("Watch start failed: %v (bookmark: %q). Resetting bookmark.", err, bookmark)
 					bookmark = ""           // Clear stale bookmark immediately
 					consecutiveFailures = 0 // Reset since we're handling the root cause
 				} else {
@@ -139,11 +139,14 @@ loop:
 				}
 				reconnect.backoff()
 			} else {
+				klog.Infof("Watch successfully started.")
 				events = watcher.ResultChan()
 			}
 
 		case event, eventOk := <-events:
-			if !eventOk {
+			if eventOk {
+				b.handleWatchEvent(ctx, event, &bookmark, &consecutiveFailures, reconnect)
+			} else {
 				klog.Errorf("Watch event stream closed. Will restart watch from bookmark %q", bookmark)
 				watcher.Stop()
 				events = nil
@@ -151,37 +154,6 @@ loop:
 				consecutiveFailures++
 				// Use exponential backoff for repeated failures
 				reconnect.backoff()
-
-			} else if event.Type == watch.Error {
-				// Handle watch error events
-				if status, ok := event.Object.(*v1.Status); ok {
-					if status.Reason == v1.StatusReasonExpired || status.Reason == v1.StatusReasonGone {
-						klog.Warningf("Watch error: %s (code: %d) - %s. Resetting stale bookmark from %q to empty", status.Reason, status.Code, status.Message, bookmark)
-						bookmark = ""           // Reset bookmark immediately for these errors
-						consecutiveFailures = 0 // Reset failure count since we're handling the root cause
-					} else {
-						klog.Errorf("Watch error: %s (code: %d) - %s", status.Reason, status.Code, status.Message)
-						consecutiveFailures++
-					}
-				} else {
-					klog.Errorf("Watch error event with unexpected object type: %T", event.Object)
-					consecutiveFailures++
-				}
-				reconnect.reset() // Restart quickly after error events
-			} else if repository, ok := event.Object.(*configapi.Repository); ok {
-				// Reset consecutive failures on successful event processing
-				klog.Infof("Watch started successfully")
-				consecutiveFailures = 0
-				if event.Type == watch.Bookmark {
-					bookmark = repository.ResourceVersion
-					klog.V(2).Infof("Bookmark: %q", bookmark)
-				} else {
-					if err := b.updateCache(ctx, event.Type, repository); err != nil {
-						klog.Warningf("error updating cache: %v", err)
-					}
-				}
-			} else {
-				klog.V(5).Infof("Received unexpected watch event Object: %T", event.Object)
 			}
 
 		case t := <-ticker.C:
@@ -197,6 +169,43 @@ loop:
 				klog.Infof("Background routine exiting; context done")
 			}
 			break loop
+		}
+	}
+}
+
+// handleWatchEvent processes individual watch events
+func (b *background) handleWatchEvent(ctx context.Context, event watch.Event, bookmark *string, consecutiveFailures *int, reconnect *backoffTimer) {
+	switch event.Type {
+	case watch.Bookmark: // BOOKMARK events indicate watch stream health
+		if repository, ok := event.Object.(*configapi.Repository); ok {
+			*consecutiveFailures = 0
+			*bookmark = repository.ResourceVersion
+			klog.V(2).Infof("Bookmark: %q", *bookmark)
+		}
+	case watch.Error: // ERROR events indicate watch stream issues
+		// Handle watch error events
+		if status, ok := event.Object.(*v1.Status); ok {
+			if status.Reason == v1.StatusReasonExpired || status.Reason == v1.StatusReasonGone {
+				klog.Warningf("Watch error: %s (code: %d) - %s. Resetting bookmark and restarting watch", status.Reason, status.Code, status.Message)
+				*bookmark = ""           // Reset bookmark immediately for these errors
+				*consecutiveFailures = 0 // Reset failure count since we're handling the root cause
+			} else {
+				klog.Errorf("Watch error: %s (code: %d) - %s", status.Reason, status.Code, status.Message)
+				(*consecutiveFailures)++
+			}
+		} else {
+			klog.Errorf("Watch error event with unexpected object type: %T", event.Object)
+			(*consecutiveFailures)++
+		}
+		reconnect.reset() // Restart quickly after error events
+	default: // ADDED, MODIFIED, DELETED events for repository operations
+		if repository, ok := event.Object.(*configapi.Repository); ok {
+			*consecutiveFailures = 0
+			if err := b.updateCache(ctx, event.Type, repository); err != nil {
+				klog.Warningf("error updating cache: %v", err)
+			}
+		} else {
+			klog.V(5).Infof("Received unexpected watch event Object: %T", event.Object)
 		}
 	}
 }

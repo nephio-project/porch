@@ -100,6 +100,141 @@ func TestBackgroundUpdateCache(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestBackgroundHandleWatchEvent(t *testing.T) {
+	tests := []struct {
+		name                        string
+		event                       watch.Event
+		initialBookmark             string
+		initialConsecutiveFailures  int
+		expectedBookmark            string
+		expectedConsecutiveFailures int
+		expectedReconnectReset      bool
+	}{
+		{
+			name: "Repository bookmark event",
+			event: watch.Event{
+				Type: watch.Bookmark,
+				Object: &configapi.Repository{
+					ObjectMeta: v1.ObjectMeta{
+						ResourceVersion: "12345",
+					},
+				},
+			},
+			initialBookmark:             "old-bookmark",
+			initialConsecutiveFailures:  3,
+			expectedBookmark:            "12345",
+			expectedConsecutiveFailures: 0,
+			expectedReconnectReset:      false,
+		},
+		{
+			name: "Watch error - expired status",
+			event: watch.Event{
+				Type: watch.Error,
+				Object: &v1.Status{
+					Reason:  v1.StatusReasonExpired,
+					Code:    410,
+					Message: "Resource version expired",
+				},
+			},
+			initialBookmark:             "old-bookmark",
+			initialConsecutiveFailures:  2,
+			expectedBookmark:            "",
+			expectedConsecutiveFailures: 0,
+			expectedReconnectReset:      true,
+		},
+		{
+			name: "Watch error - gone status",
+			event: watch.Event{
+				Type: watch.Error,
+				Object: &v1.Status{
+					Reason:  v1.StatusReasonGone,
+					Code:    410,
+					Message: "Resource gone",
+				},
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  1,
+			expectedBookmark:            "",
+			expectedConsecutiveFailures: 0,
+			expectedReconnectReset:      true,
+		},
+		{
+			name: "Watch error - other status",
+			event: watch.Event{
+				Type: watch.Error,
+				Object: &v1.Status{
+					Reason:  "InternalError",
+					Code:    500,
+					Message: "Internal server error",
+				},
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  1,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 2,
+			expectedReconnectReset:      true,
+		},
+		{
+			name: "Watch error - unexpected object type",
+			event: watch.Event{
+				Type:   watch.Error,
+				Object: &configapi.Repository{}, // Wrong object type for error event
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  1,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 2,    // consecutiveFailures incremented because it's an error event with unexpected object type
+			expectedReconnectReset:      true, // reconnect.reset() called because it's an error event
+		},
+		{
+			name: "Unexpected event object type",
+			event: watch.Event{
+				Type:   watch.Added,
+				Object: &v1.Status{}, // Wrong object type for non-error event
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  1,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 1,
+			expectedReconnectReset:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mockclient.MockWithWatch{}
+			mockCache := &mockcache.MockCache{}
+
+			b := &background{
+				coreClient:                 mockClient,
+				cache:                      mockCache,
+				repoOperationRetryAttempts: 3,
+			}
+
+			// Initialize test variables
+			bookmark := tt.initialBookmark
+			consecutiveFailures := tt.initialConsecutiveFailures
+			reconnect := newBackoffTimer(minReconnectDelay, maxReconnectDelay)
+			defer reconnect.Stop()
+
+			// Track if reconnect.reset() was called
+			initialCurr := reconnect.curr
+			reconnect.backoff() // Change current value to detect reset
+
+			// Call the function under test
+			b.handleWatchEvent(context.Background(), tt.event, &bookmark, &consecutiveFailures, reconnect)
+
+			// Verify results
+			assert.Equal(t, tt.expectedBookmark, bookmark)
+			assert.Equal(t, tt.expectedConsecutiveFailures, consecutiveFailures)
+
+			if tt.expectedReconnectReset {
+				assert.Equal(t, initialCurr, reconnect.curr, "Expected reconnect timer to be reset")
+			}
+		})
+	}
+}
+
 func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -685,4 +820,3 @@ func TestBackoffTimer(t *testing.T) {
 		})
 	}
 }
-
