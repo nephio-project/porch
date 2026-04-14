@@ -151,10 +151,6 @@ func renderTrigger(pr *porchv1alpha2.PackageRevision) (requested string, annotat
 	return
 }
 
-// isRenderInProgress returns true if we're already rendering the requested version.
-func isRenderInProgress(pr *porchv1alpha2.PackageRevision, requested string) bool {
-	return requested != "" && requested == pr.Status.RenderingPrrResourceVersion
-}
 
 // isRenderStale returns true if the annotation changed during render.
 func isRenderStale(currentAnnotation, rendered string) bool {
@@ -263,7 +259,7 @@ func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Conte
 
 func (r *PackageRevisionReconciler) checkRenderStale(ctx context.Context, pr *porchv1alpha2.PackageRevision, rendered string) (*ctrl.Result, error) {
 	var current porchv1alpha2.PackageRevision
-	if err := r.Get(ctx, client.ObjectKeyFromObject(pr), &current); err != nil {
+	if err := r.apiReader.Get(ctx, client.ObjectKeyFromObject(pr), &current); err != nil {
 		return nil, fmt.Errorf("re-read PR after render: %w", err)
 	}
 	if isRenderStale(current.Annotations[porchv1alpha2.AnnotationRenderRequest], rendered) {

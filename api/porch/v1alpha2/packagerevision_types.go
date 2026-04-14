@@ -67,6 +67,9 @@ const (
 // AnnotationRenderRequest triggers async rendering when patched by the PRR handler.
 const AnnotationRenderRequest = "porch.kpt.dev/render-request"
 
+// PackageRevisionFinalizer prevents deletion of packages that have not been through DeletionProposed.
+const PackageRevisionFinalizer = "porch.kpt.dev/packagerevisions"
+
 const (
 	// PushOnFnRenderFailureKey controls whether resources are written back
 	// to storage when the render pipeline fails.

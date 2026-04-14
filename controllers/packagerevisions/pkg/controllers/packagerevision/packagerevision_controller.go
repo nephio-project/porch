@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -33,6 +34,7 @@ import (
 
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/finalizers,verbs=update
 
 // PackageRevisionReconciler reconciles v1alpha2 PackageRevision CRDs.
 // It handles lifecycle transitions (draft/proposed/published) by executing
@@ -48,15 +50,18 @@ type PackageRevisionReconciler struct {
 	MaxConcurrentRenders       int
 	RepoOperationRetryAttempts int
 	loggerName                 string
-	renderLimiter              chan struct{} // bounds concurrent fn-runner calls
+	renderLimiter              chan struct{}    // bounds concurrent fn-runner calls
+	apiReader                  client.Reader   // bypasses informer cache for direct etcd reads
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
 	var pr porchv1alpha2.PackageRevision
 	if err := r.Get(ctx, req.NamespacedName, &pr); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if result, err := r.reconcileFinalizer(ctx, &pr); err != nil || result != nil {
+		return resultOrDefault(result), err
 	}
 
 	desired := string(pr.Spec.Lifecycle)
@@ -69,25 +74,46 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		Name:      pr.Spec.RepositoryName,
 	}
 
+	// TODO: Errors from sub-reconciles are swallowed (returned as nil to controller-runtime),
+	// so the work queue doesn't apply exponential backoff on persistent failures.
+	// Consider returning errors to enable backoff, but note the side effects:
+	// double logging, error metrics, and inconsistency with reconcileLifecycle.
 	if result, err := r.reconcileSource(ctx, &pr, repoKey); err != nil || result != nil {
-		if err != nil {
-			log.Error(err, "source execution failed")
-			r.updateStatus(ctx, &pr, nil, "",
-				readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()),
-				renderedCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()),
-			)
-		}
 		return resultOrDefault(result), nil
 	}
 
 	if result, err := r.reconcileRender(ctx, &pr, repoKey); err != nil || result != nil {
-		if err != nil {
-			log.Error(err, "render failed")
-		}
 		return resultOrDefault(result), nil
 	}
 
 	return r.reconcileLifecycle(ctx, &pr, repoKey)
+}
+
+// reconcileFinalizer ensures the finalizer is present and handles deletion gating.
+// Returns (nil, nil) when reconciliation should continue.
+func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
+	if !pr.DeletionTimestamp.IsZero() {
+		if pr.Spec.Lifecycle != porchv1alpha2.PackageRevisionLifecycleDeletionProposed {
+			log.FromContext(ctx).Info("blocking deletion: lifecycle is not DeletionProposed", "lifecycle", pr.Spec.Lifecycle)
+			return &ctrl.Result{}, nil
+		}
+		patch := client.MergeFrom(pr.DeepCopy())
+		if controllerutil.RemoveFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
+			if err := r.Patch(ctx, pr, patch); err != nil {
+				return nil, fmt.Errorf("failed to remove finalizer: %w", err)
+			}
+		}
+		return &ctrl.Result{}, nil
+	}
+
+	patch := client.MergeFrom(pr.DeepCopy())
+	if controllerutil.AddFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
+		if err := r.Patch(ctx, pr, patch); err != nil {
+			return nil, fmt.Errorf("failed to add finalizer: %w", err)
+		}
+	}
+
+	return nil, nil
 }
 
 func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (ctrl.Result, error) {
@@ -144,7 +170,7 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
 	resources, creationSource, err := r.applySource(ctx, pr)
 	if err != nil {
-		return nil, err
+		return nil, r.setSourceFailed(ctx, pr, err)
 	}
 	if resources == nil {
 		return nil, nil
@@ -153,17 +179,18 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 	log := log.FromContext(ctx)
 	log.Info("applying source", "type", creationSource, "name", pr.Name)
 
+	// TODO: CreateNewDraft always receives lifecycle=Draft — consider removing the lifecycle parameter from the interface.
 	draft, err := r.ContentCache.CreateNewDraft(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, string(porchv1alpha2.PackageRevisionLifecycleDraft))
 	if err != nil {
-		return nil, fmt.Errorf("create draft: %w", err)
+		return nil, r.setSourceFailed(ctx, pr, fmt.Errorf("create draft: %w", err))
 	}
 
 	if err := draft.UpdateResources(ctx, resources, creationSource); err != nil {
-		return nil, fmt.Errorf("update resources: %w", err)
+		return nil, r.setSourceFailed(ctx, pr, fmt.Errorf("update resources: %w", err))
 	}
 
 	if err := r.ContentCache.CloseDraft(ctx, repoKey, draft, 0); err != nil {
-		return nil, fmt.Errorf("close draft: %w", err)
+		return nil, r.setSourceFailed(ctx, pr, fmt.Errorf("close draft: %w", err))
 	}
 
 	// Read back the created package to get lock info for status.
@@ -191,6 +218,9 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 //   - Source was executed but Rendered != True (source execution path)
 //
 // Returns (nil, nil) if no render is needed.
+// TODO: Consider centralising all ctrl.Result creation in packagerevision_controller.go
+// so requeue decisions are visible in one place. Sub-functions would return signals
+// and the controller translates them into ctrl.Result.
 func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
 	if r.Renderer == nil {
 		return nil, nil
@@ -198,10 +228,6 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 
 	requested, annotationTrigger, sourceTrigger := renderTrigger(pr)
 	if !annotationTrigger && !sourceTrigger {
-		return nil, nil
-	}
-	if annotationTrigger && isRenderInProgress(pr, requested) {
-		log.FromContext(ctx).V(1).Info("render already in progress", "version", requested)
 		return nil, nil
 	}
 
@@ -234,6 +260,7 @@ func (r *PackageRevisionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log := ctrl.Log.WithName(r.loggerName)
 
 	r.Client = mgr.GetClient()
+	r.apiReader = mgr.GetAPIReader()
 
 	if r.MaxConcurrentRenders > 0 {
 		r.renderLimiter = make(chan struct{}, r.MaxConcurrentRenders)

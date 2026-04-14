@@ -110,6 +110,18 @@ func (r *PackageRevisionReconciler) updateRenderStatus(ctx context.Context, pr *
 	}
 }
 
+// setSourceFailed logs the error and sets Ready=False and Rendered=False.
+// Rendered is set even though rendering was never attempted — the package
+// content didn't land successfully, so "not rendered" is accurate.
+func (r *PackageRevisionReconciler) setSourceFailed(ctx context.Context, pr *porchv1alpha2.PackageRevision, err error) error {
+	log.FromContext(ctx).Error(err, "source execution failed")
+	r.updateStatus(ctx, pr, nil, "",
+		readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()),
+		renderedCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()),
+	)
+	return err
+}
+
 func (r *PackageRevisionReconciler) setRenderFailed(ctx context.Context, pr *porchv1alpha2.PackageRevision, err error) {
 	r.updateRenderStatus(ctx, pr, "", "",
 		renderedCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonRenderFailed, err.Error()),

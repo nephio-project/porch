@@ -40,7 +40,7 @@ type grpcRuntime struct {
 	client evaluator.FunctionEvaluatorClient
 }
 
-func NewGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
+func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
 	if options.FunctionRunnerAddress == "" {
 		return nil, fmt.Errorf("address is required to instantiate gRPC function runtime")
 	}
@@ -117,13 +117,13 @@ func (gr *grpcRunner) Run(r io.Reader, w io.Writer) error {
 // NewMultiFunctionRuntime creates a FunctionRuntime that tries builtin functions
 // first, then falls back to the gRPC fn-runner.
 func NewMultiFunctionRuntime(grpcAddress string, maxGrpcMessageSize int, defaultImagePrefix string) (fn.FunctionRuntime, error) {
-	builtin := NewBuiltinRuntime(defaultImagePrefix)
+	builtin := newBuiltinRuntime(defaultImagePrefix)
 
 	if grpcAddress == "" {
 		return builtin, nil
 	}
 
-	grpc, err := NewGRPCFunctionRuntime(GRPCRuntimeOptions{
+	grpc, err := newGRPCFunctionRuntime(GRPCRuntimeOptions{
 		FunctionRunnerAddress: grpcAddress,
 		MaxGrpcMessageSize:    maxGrpcMessageSize,
 		DefaultImagePrefix:    defaultImagePrefix,

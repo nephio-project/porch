@@ -43,7 +43,7 @@ func TestNewGRPCFunctionRuntimeSuccess(t *testing.T) {
 		DefaultImagePrefix:    "gcr.io/",
 	}
 
-	runtime, err := NewGRPCFunctionRuntime(options)
+	runtime, err := newGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 	require.NotNil(t, runtime)
 	assert.NotNil(t, runtime.cc)
@@ -55,7 +55,7 @@ func TestNewGRPCFunctionRuntimeEmptyAddress(t *testing.T) {
 	options := GRPCRuntimeOptions{
 		MaxGrpcMessageSize: 1024,
 	}
-	runtime, err := NewGRPCFunctionRuntime(options)
+	runtime, err := newGRPCFunctionRuntime(options)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "address is required")
 	if runtime != nil {
@@ -72,7 +72,7 @@ func TestGRPCRuntimeGetRunner(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := NewGRPCFunctionRuntime(options)
+	runtime, err := newGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 	defer runtime.Close()
 
@@ -100,7 +100,7 @@ func TestGRPCRuntimeCloseWithConnection(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := NewGRPCFunctionRuntime(options)
+	runtime, err := newGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 
 	err = runtime.Close()
@@ -117,7 +117,7 @@ func TestGRPCRuntimeCloseMultipleCalls(t *testing.T) {
 		MaxGrpcMessageSize:    1024,
 	}
 
-	runtime, err := NewGRPCFunctionRuntime(options)
+	runtime, err := newGRPCFunctionRuntime(options)
 	require.NoError(t, err)
 
 	err = runtime.Close()

@@ -109,11 +109,6 @@ func TestRenderTrigger(t *testing.T) {
 	}
 }
 
-func TestIsRenderInProgress(t *testing.T) {
-	assert.True(t, isRenderInProgress(prWithRenderState("v1", "", "v1", "", ""), "v1"))
-	assert.False(t, isRenderInProgress(prWithRenderState("v2", "", "v1", "", ""), "v2"))
-	assert.False(t, isRenderInProgress(prWithRenderState("", "", "", "", ""), ""))
-}
 
 func TestIsRenderStale(t *testing.T) {
 	assert.True(t, isRenderStale("v2", "v1"))

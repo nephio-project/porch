@@ -240,15 +240,14 @@ func (r *PackageRevisionReconciler) upgradePackage(ctx context.Context, pr *porc
 	// UpstreamLock but not Status, so the Rendered condition written by kpt
 	// render is treated as a local modification. Only strip for fast-forward
 	// since other strategies need status for the 3-way merge.
-	mergeResources := currentResources
 	if strategy == string(porchv1alpha2.FastForward) {
-		mergeResources = copyResources(currentResources)
-		stripKptfileStatus(mergeResources)
+		currentResources = copyResources(currentResources)
+		stripKptfileStatus(currentResources)
 	}
 
 	// 3-way merge.
 	updated, err := (&repository.DefaultPackageUpdater{}).Update(ctx,
-		repository.PackageResources{Contents: mergeResources},
+		repository.PackageResources{Contents: currentResources},
 		repository.PackageResources{Contents: oldUpstreamResources},
 		repository.PackageResources{Contents: newUpstreamResources},
 		strategy,
