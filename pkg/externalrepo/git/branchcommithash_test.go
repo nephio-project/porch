@@ -44,11 +44,11 @@ func TestBranchCommitHash(t *testing.T) {
 			validateCommit: true,
 		},
 		{
-			name:           "empty repository",
-			tarfile:        "empty-repository.tar",
-			branch:         "main",
-			expectHash:     false, // Empty repo has no commits
-			expectError:    false,
+			name:        "empty repository",
+			tarfile:     "empty-repository.tar",
+			branch:      "main",
+			expectHash:  false, // Empty repo has no commits
+			expectError: false,
 		},
 		{
 			name:        "non-existent branch",

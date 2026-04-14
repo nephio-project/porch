@@ -494,14 +494,14 @@ func (f *fakePackageRevision) GetResources(context.Context) (*porchapi.PackageRe
 func (f *fakePackageRevision) UpdateLifecycle(context.Context, porchapi.PackageRevisionLifecycle) error {
 	return nil
 }
-func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
+func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
+	return kptfilev1.Upstream{}, kptfilev1.Locator{}, nil
 }
 func (f *fakePackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
 	return kptfilev1.KptFile{}, nil
 }
-func (f *fakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
+func (f *fakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
+	return kptfilev1.Upstream{}, kptfilev1.Locator{}, nil
 }
 func (f *fakePackageRevision) ToMainPackageRevision(context.Context) PackageRevision {
 	return f

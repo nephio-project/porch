@@ -22,7 +22,6 @@ func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
 }
 
-
 // PackageRevisionIsReady checks if the package has met all readiness gates
 func PackageRevisionIsReady(readinessGates []ReadinessGate, packageConditions []PackageCondition) bool {
 	// Index our package conditions

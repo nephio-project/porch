@@ -246,7 +246,7 @@ func (t *PorchSuite) setupFunctionTestPackage(repoName, packageName, workspace s
 
 	// Wait for Repository Controller to sync
 	t.WaitUntilRepositoryReady(repoName, t.Namespace)
-	
+
 	// Always create new package with clone
 	pr := t.CreatePackageCloneF(repoName, packageName, workspace, upstreamRef, upstreamDir)
 

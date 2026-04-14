@@ -112,7 +112,7 @@ func (s *CliTestSuite) RunTests(t *testing.T) {
 // RunTestCase runs a single test case.
 func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	KubectlCreateNamespace(t, tc.TestCase)
-	
+
 	// Setup signal handler for Ctrl-C cleanup
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -125,7 +125,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		}
 		os.Exit(1)
 	}()
-	
+
 	t.Cleanup(func() {
 		signal.Stop(sigChan)
 		KubectlDeleteNamespace(t, tc.TestCase)
@@ -391,8 +391,6 @@ func exitCode(exit error) int {
 	}
 	return 0
 }
-
-
 
 func getRepoName(args []string) (string, bool) {
 	for _, arg := range args {

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package repository
 
 import (
@@ -311,7 +310,7 @@ func TestBuildCacheOptions(t *testing.T) {
 func TestCreateCredentialResolvers(t *testing.T) {
 	// Use the existing mockery client
 	mockClient := mockclient.NewMockClient(t)
-	
+
 	r := &RepositoryReconciler{}
 	credResolver, caResolver := r.createCredentialResolvers(mockClient)
 
