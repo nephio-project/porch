@@ -84,6 +84,7 @@ type dbPackageRevision struct {
 	lifecycle     porchapi.PackageRevisionLifecycle
 	extPRID       kptfile.Locator
 	latest        bool
+	deployment    bool
 	tasks         []porchapi.Task
 	resources     map[string]string
 	kptfileStatus kptfileStatus
