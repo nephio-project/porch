@@ -93,7 +93,6 @@ require (
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
-	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 )
 
 require (
@@ -227,7 +226,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
