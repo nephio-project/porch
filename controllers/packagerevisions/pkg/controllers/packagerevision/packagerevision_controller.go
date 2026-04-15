@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -35,6 +34,7 @@ import (
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/finalizers,verbs=update
+//+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories,verbs=get
 
 // PackageRevisionReconciler reconciles v1alpha2 PackageRevision CRDs.
 // It handles lifecycle transitions (draft/proposed/published) by executing
@@ -89,33 +89,16 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return r.reconcileLifecycle(ctx, &pr, repoKey)
 }
 
-// reconcileFinalizer ensures the finalizer is present and handles deletion gating.
-// Only Published packages require DeletionProposed before deletion.
-// Draft and Proposed packages can be deleted directly.
+// reconcileFinalizer ensures the finalizer and ownerReference are present,
+// and handles deletion gating.
+// Published packages require DeletionProposed before deletion, unless the
+// owner Repository has been deleted (GC cascade).
 // Returns (nil, nil) when reconciliation should continue.
 func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
 	if !pr.DeletionTimestamp.IsZero() {
-		if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished {
-			log.FromContext(ctx).Info("blocking deletion: published package must be DeletionProposed first", "lifecycle", pr.Spec.Lifecycle)
-			return &ctrl.Result{}, nil
-		}
-		patch := client.MergeFrom(pr.DeepCopy())
-		if controllerutil.RemoveFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
-			if err := r.Patch(ctx, pr, patch); err != nil {
-				return nil, fmt.Errorf("failed to remove finalizer: %w", err)
-			}
-		}
-		return &ctrl.Result{}, nil
+		return r.handleDeletion(ctx, pr)
 	}
-
-	patch := client.MergeFrom(pr.DeepCopy())
-	if controllerutil.AddFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
-		if err := r.Patch(ctx, pr, patch); err != nil {
-			return nil, fmt.Errorf("failed to add finalizer: %w", err)
-		}
-	}
-
-	return nil, nil
+	return nil, r.ensureFinalizerAndOwner(ctx, pr)
 }
 
 func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (ctrl.Result, error) {

@@ -154,7 +154,7 @@ func (_c *MockPackageContent_GetKptfile_Call) RunAndReturn(run func(ctx context.
 }
 
 // GetLock provides a mock function for the type MockPackageContent
-func (_mock *MockPackageContent) GetLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+func (_mock *MockPackageContent) GetLock(ctx context.Context) (v1.Upstream, v1.Locator, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
@@ -162,9 +162,9 @@ func (_mock *MockPackageContent) GetLock(ctx context.Context) (v1.Upstream, v1.U
 	}
 
 	var r0 v1.Upstream
-	var r1 v1.UpstreamLock
+	var r1 v1.Locator
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.Locator, error)); ok {
 		return returnFunc(ctx)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
@@ -172,10 +172,10 @@ func (_mock *MockPackageContent) GetLock(ctx context.Context) (v1.Upstream, v1.U
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.Locator); ok {
 		r1 = returnFunc(ctx)
 	} else {
-		r1 = ret.Get(1).(v1.UpstreamLock)
+		r1 = ret.Get(1).(v1.Locator)
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
 		r2 = returnFunc(ctx)
@@ -209,12 +209,12 @@ func (_c *MockPackageContent_GetLock_Call) Run(run func(ctx context.Context)) *M
 	return _c
 }
 
-func (_c *MockPackageContent_GetLock_Call) Return(upstream v1.Upstream, v v1.UpstreamLock, err error) *MockPackageContent_GetLock_Call {
-	_c.Call.Return(upstream, v, err)
+func (_c *MockPackageContent_GetLock_Call) Return(upstream v1.Upstream, locator v1.Locator, err error) *MockPackageContent_GetLock_Call {
+	_c.Call.Return(upstream, locator, err)
 	return _c
 }
 
-func (_c *MockPackageContent_GetLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error)) *MockPackageContent_GetLock_Call {
+func (_c *MockPackageContent_GetLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.Locator, error)) *MockPackageContent_GetLock_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -282,7 +282,7 @@ func (_c *MockPackageContent_GetResourceContents_Call) RunAndReturn(run func(ctx
 }
 
 // GetUpstreamLock provides a mock function for the type MockPackageContent
-func (_mock *MockPackageContent) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+func (_mock *MockPackageContent) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.Locator, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
@@ -290,9 +290,9 @@ func (_mock *MockPackageContent) GetUpstreamLock(ctx context.Context) (v1.Upstre
 	}
 
 	var r0 v1.Upstream
-	var r1 v1.UpstreamLock
+	var r1 v1.Locator
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.Locator, error)); ok {
 		return returnFunc(ctx)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
@@ -300,10 +300,10 @@ func (_mock *MockPackageContent) GetUpstreamLock(ctx context.Context) (v1.Upstre
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.Locator); ok {
 		r1 = returnFunc(ctx)
 	} else {
-		r1 = ret.Get(1).(v1.UpstreamLock)
+		r1 = ret.Get(1).(v1.Locator)
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
 		r2 = returnFunc(ctx)
@@ -337,12 +337,12 @@ func (_c *MockPackageContent_GetUpstreamLock_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *MockPackageContent_GetUpstreamLock_Call) Return(upstream v1.Upstream, v v1.UpstreamLock, err error) *MockPackageContent_GetUpstreamLock_Call {
-	_c.Call.Return(upstream, v, err)
+func (_c *MockPackageContent_GetUpstreamLock_Call) Return(upstream v1.Upstream, locator v1.Locator, err error) *MockPackageContent_GetUpstreamLock_Call {
+	_c.Call.Return(upstream, locator, err)
 	return _c
 }
 
-func (_c *MockPackageContent_GetUpstreamLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error)) *MockPackageContent_GetUpstreamLock_Call {
+func (_c *MockPackageContent_GetUpstreamLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.Locator, error)) *MockPackageContent_GetUpstreamLock_Call {
 	_c.Call.Return(run)
 	return _c
 }

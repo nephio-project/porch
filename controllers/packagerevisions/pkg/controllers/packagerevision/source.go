@@ -314,8 +314,6 @@ func (r *PackageRevisionReconciler) getPackageContentAndResources(ctx context.Co
 // Workaround for kpt bug: hasKfDiff in fastforward.go strips Upstream and
 // UpstreamLock but not Status, so the Rendered condition written by kpt render
 // is treated as a local modification and fast-forward rejects the upgrade.
-// See .local/docs/KPT_FASTFORWARD_STATUS_BUG.md for details.
-// Remove this once the kpt fix is released.
 func stripKptfileStatus(resources map[string]string) {
 	kfStr, ok := resources[kptfilev1.KptFileName]
 	if !ok {

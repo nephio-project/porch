@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -36,6 +37,22 @@ func newTestReconciler(mockClient *mockclient.MockClient, cache *mockrepository.
 	return &PackageRevisionReconciler{
 		Client:       mockClient,
 		ContentCache: cache,
+	}
+}
+
+// readyObjectMeta returns a standard ObjectMeta with finalizer and ownerReference already set,
+// representing a PR that has already been reconciled at least once.
+func readyObjectMeta(name, namespace, repoName string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:       name,
+		Namespace:  namespace,
+		Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer},
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: configapi.GroupVersion.Identifier(),
+			Kind:       configapi.TypeRepository.Kind,
+			Name:       repoName,
+			UID:        "repo-uid",
+		}},
 	}
 }
 
@@ -74,7 +91,13 @@ func TestReconcileFinalizerAddedWhenMissing(t *testing.T) {
 
 	pr := &porchv1alpha2.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default"},
-		Spec:       porchv1alpha2.PackageRevisionSpec{},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default", UID: "repo-uid-123"},
 	}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -82,9 +105,18 @@ func TestReconcileFinalizerAddedWhenMissing(t *testing.T) {
 		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
 			*obj.(*porchv1alpha2.PackageRevision) = *pr
 		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
+		}).Return(nil)
 	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
 		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
-			assert.Contains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+			pr := obj.(*porchv1alpha2.PackageRevision)
+			assert.Contains(t, pr.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+			require.Len(t, pr.OwnerReferences, 1)
+			assert.Equal(t, "my-repo", pr.OwnerReferences[0].Name)
+			assert.Equal(t, types.UID("repo-uid-123"), pr.OwnerReferences[0].UID)
+			assert.Equal(t, configapi.TypeRepository.Kind, pr.OwnerReferences[0].Kind)
 		}).Return(nil)
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
@@ -101,8 +133,13 @@ func TestReconcileFinalizerAddPatchFails(t *testing.T) {
 	pr := &porchv1alpha2.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default"},
 		Spec: porchv1alpha2.PackageRevisionSpec{
-			Lifecycle: porchv1alpha2.PackageRevisionLifecycleDraft,
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecycleDraft,
+			RepositoryName: "my-repo",
 		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default", UID: "repo-uid-123"},
 	}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -110,16 +147,20 @@ func TestReconcileFinalizerAddPatchFails(t *testing.T) {
 		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
 			*obj.(*porchv1alpha2.PackageRevision) = *pr
 		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
+		}).Return(nil)
 	mockClient.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("conflict"))
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
 	_, err := r.Reconcile(ctx, req)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to add finalizer")
+	assert.Contains(t, err.Error(), "failed to patch finalizer/ownerReference")
 }
 
-func TestReconcileDeletionBlockedWhenNotDeletionProposed(t *testing.T) {
+func TestReconcileDeletionBlockedWhenPublishedAndRepoExists(t *testing.T) {
 	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
@@ -132,14 +173,23 @@ func TestReconcileDeletionBlockedWhenNotDeletionProposed(t *testing.T) {
 			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
 		},
 		Spec: porchv1alpha2.PackageRevisionSpec{
-			Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecyclePublished,
+			RepositoryName: "my-repo",
 		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default", UID: "repo-uid-123"},
 	}
 
 	mockClient := mockclient.NewMockClient(t)
 	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
 		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
 			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
 		}).Return(nil)
 	// No Patch expected — finalizer must NOT be removed.
 
@@ -148,6 +198,46 @@ func TestReconcileDeletionBlockedWhenNotDeletionProposed(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, ctrl.Result{}, result)
+}
+
+func TestReconcileDeletionAllowedWhenPublishedButRepoGone(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecyclePublished,
+			RepositoryName: "deleted-repo",
+		},
+	}
+
+	var patched bool
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "deleted-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Return(apierrors.NewNotFound(schema.GroupResource{}, "deleted-repo"))
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			patched = true
+			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+		}).Return(nil)
+
+	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.True(t, patched, "finalizer should be removed when repo is gone")
 }
 
 func TestReconcileDeletionAllowedForDraft(t *testing.T) {
@@ -286,13 +376,86 @@ func TestReconcileDeletionProposedNoFinalizer(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, result)
 }
 
+func TestReconcileOwnerRefAlreadySet(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-pr",
+			Namespace:  "default",
+			Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: configapi.GroupVersion.Identifier(),
+				Kind:       configapi.TypeRepository.Kind,
+				Name:       "my-repo",
+				UID:        "repo-uid-123",
+			}},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{RepositoryName: "my-repo"},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	// No Patch, no repo Get — both finalizer and ownerRef already present.
+
+	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+}
+
+func TestReconcileOwnerRefRepoLookupFails(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{RepositoryName: "missing-repo"},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "missing-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Return(apierrors.NewNotFound(schema.GroupResource{}, "missing-repo"))
+	// Finalizer still needs to be added even if ownerRef lookup fails.
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			pr := obj.(*porchv1alpha2.PackageRevision)
+			assert.Contains(t, pr.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+			assert.Empty(t, pr.OwnerReferences, "ownerRef should not be set when repo lookup fails")
+		}).Return(nil)
+
+	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+}
+
 func TestReconcileEmptyLifecycle(t *testing.T) {
 	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
-		Spec:       porchv1alpha2.PackageRevisionSpec{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pr", Namespace: "default",
+			Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: configapi.GroupVersion.Identifier(),
+				Kind:       configapi.TypeRepository.Kind,
+				Name:       "my-repo",
+				UID:        "repo-uid",
+			}},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{RepositoryName: "my-repo"},
 	}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -313,7 +476,7 @@ func TestReconcileNoChange(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -365,7 +528,7 @@ func TestReconcileLifecycleTransition(t *testing.T) {
 			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 			pr := &porchv1alpha2.PackageRevision{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+				ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 				Spec: porchv1alpha2.PackageRevisionSpec{
 					PackageName:    "my-pkg",
 					RepositoryName: "my-repo",
@@ -413,7 +576,7 @@ func TestReconcileLifecycleTransitionFailure(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -460,7 +623,7 @@ func TestReconcileGetPackageContentFailure(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -534,7 +697,7 @@ func TestReconcileInitSource(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -619,7 +782,7 @@ func TestReconcileInitSourceAlreadyCreated(t *testing.T) {
 
 	// CreationSource already set — source execution should be skipped
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -664,7 +827,7 @@ func TestReconcileInitSourceCreateDraftFails(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -714,7 +877,7 @@ func TestReconcileNoSource(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -1013,7 +1176,7 @@ func TestReconcileSourceUpdateResourcesFails(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -1049,7 +1212,7 @@ func TestReconcileSourceCloseDraftFails(t *testing.T) {
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
 	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default", Finalizers: []string{porchv1alpha2.PackageRevisionFinalizer}},
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    "my-pkg",
 			RepositoryName: "my-repo",
@@ -1090,7 +1253,14 @@ func TestReconcileRenderErrorSetsStatus(t *testing.T) {
 
 	pr := renderTestPR("", "", "", "init", metav1.ConditionUnknown)
 	pr.Spec.Lifecycle = porchv1alpha2.PackageRevisionLifecycleDraft
+	pr.Spec.RepositoryName = "my-repo"
 	pr.Finalizers = []string{porchv1alpha2.PackageRevisionFinalizer}
+	pr.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: configapi.GroupVersion.Identifier(),
+		Kind:       configapi.TypeRepository.Kind,
+		Name:       "my-repo",
+		UID:        "repo-uid",
+	}}
 
 	mockClient := mockclient.NewMockClient(t)
 	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
