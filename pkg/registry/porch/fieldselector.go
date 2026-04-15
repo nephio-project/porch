@@ -207,7 +207,7 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions,
 			filter.KptfileLabels[labelKey] = requirement.Value
 
 			// skip the upcoming requirement.Field check
-			return filter, nil
+			continue
 		}
 
 		filteredField := porchapi.PkgRevFieldSelector(requirement.Field)
