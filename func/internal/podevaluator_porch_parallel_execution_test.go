@@ -40,6 +40,9 @@ type fakeFnEvalServer struct {
 
 func (s *fakeFnEvalServer) EvaluateFunction(_ context.Context, _ *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 	time.Sleep(s.delay)
+	if s.evalErr != nil {
+		return nil, s.evalErr
+	}
 	return &pb.EvaluateFunctionResponse{ResourceList: []byte("ok"), Log: []byte("log")}, nil
 }
 

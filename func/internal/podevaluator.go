@@ -263,15 +263,10 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse image %q as reference: %w", req.Image, err)
 		}
-		// If the image already carries an inline tag, strip it
-		// so filterByConstraint gets a bare repository name, and
-		// we don't produce a double-tag
-		if ref.Tag != "" {
-			if stripped := strings.TrimSuffix(req.Image, ":"+ref.Tag); stripped != req.Image {
-				klog.Infof("Image %q already contains tag %q; stripping it in favor of Tag constraint %q", req.Image, ref.Tag, req.Tag)
-				req.Image = stripped
-			}
-		}
+		ref.Tag = ""
+		ref.Digest = ""
+		req.Image = ref.CommonName()
+
 		tag, err = pe.filterByConstraint(ctx, req)
 		if err != nil {
 			return nil, err
@@ -302,11 +297,11 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 		resp, err := evaluator.NewFunctionEvaluatorClient(pod.grpcConnection).EvaluateFunction(ctx, req)
 		if err != nil {
 			klog.V(4).Infof("Resource List: %s", req.ResourceList)
-			return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
+			return nil, fmt.Errorf("unable to evaluate %q with pod evaluator: %w", req.Image, err)
 		}
 		// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.
 		if len(resp.Log) > 0 {
-			klog.Warningf("evaluating %v succeeded, but stderr is: %v", req.Image, string(resp.Log))
+			klog.Warningf("evaluating %q succeeded, but stderr is: %v", req.Image, string(resp.Log))
 		}
 		return resp, nil
 	case <-ctx.Done():

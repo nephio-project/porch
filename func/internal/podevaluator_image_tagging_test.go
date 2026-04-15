@@ -1,3 +1,17 @@
+// Copyright 2026 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package internal
 
 import (
@@ -30,8 +44,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 	t.Run("invalid semver constraint syntax", func(t *testing.T) {
 		const sleep = 2 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -59,13 +72,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 			}
 		}()
 
-		pcm := &podCacheManager{
-			podManager: &podManager{
-				listRepositoryTagsFunc: func(ctx context.Context, image string) ([]string, error) {
-					return []string{"v0.3.0", "v0.4.0", "v0.4.1", "v0.4.2", "v0.5.0"}, nil
-				},
-			},
-		}
+		pcm := &podCacheManager{podManager: &podManager{}}
 
 		pe := &podEvaluator{
 			requestCh:       reqCh,
@@ -74,7 +81,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			Image:        testImageName,
+			Image:        defaultKRMImagePrefix + testImageName,
 			// Invalid semver constraint, '>>' is not a valid operator
 			// -> will cause a function not found error
 			Tag: ">> 0.4.0 < 0.5.0",
@@ -83,7 +90,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 		assert.Contains(t, err.Error(), fmt.Sprintf("tag %q is not a valid semver constraint", req.Tag))
 	})
 	t.Run("failed to list tags for the image", func(t *testing.T) {
-		// Override DOCKER_CONFIG so authn.DefaultKeychain.Resolve() reads a minimal,
+		// Override DOCKER_CONFIG in order to read a minimal,
 		// empty config instead of the host's ~/.docker/config.json.
 		dockerCfgDir := t.TempDir()
 		// Creating an empty config.json (without the credsStore field) so that
@@ -92,11 +99,11 @@ func TestPodEvaluatorExecution(t *testing.T) {
 		err := os.WriteFile(filepath.Join(dockerCfgDir, "config.json"), []byte(`{}`), 0600)
 		require.NoError(t, err, "failed to write temp docker config")
 		t.Setenv("DOCKER_CONFIG", dockerCfgDir)
+		defer os.Unsetenv("DOCKER_CONFIG")
 
 		const sleep = 2 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -136,9 +143,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			// The image name doesn't contain the default prefix -> authn.DefaultKeychain.Resolve() will be called.
-			// The parent-level DOCKER_CONFIG override ensures this resolves to anonymous auth deterministically.
-			Image: testImageName,
+			Image:        defaultKRMImagePrefix + testImageName,
 			// The semver constraint is valid
 			Tag: ">= 0.4.0 < 0.5.0",
 		}
@@ -148,8 +153,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 	t.Run("function does not match the semantic version constraints", func(t *testing.T) {
 		const sleep = 2 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -192,7 +196,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			Image:        testImageName,
+			Image:        defaultKRMImagePrefix + testImageName,
 			// This constraint won't match any of the available tags returned by
 			// listRepositoryTagsFunc -> will cause a function not found error
 			Tag: "> 0.5.0 < 0.6.0",
@@ -205,8 +209,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 	t.Run("function execution error", func(t *testing.T) {
 		const sleep = 0 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		evalErr := fmt.Errorf("simulated evaluation failure")
 		addr, err := startFakeServer(ctx, t, sleep, evalErr)
@@ -250,17 +253,16 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			Image:        testImageName,
+			Image:        defaultKRMImagePrefix + testImageName,
 			Tag:          ">= 0.4.0 < 0.5.0",
 		}
 		_, err = pe.EvaluateFunction(ctx, req)
-		assert.Contains(t, err.Error(), "unable to evaluate test-image:v0.4.2 with pod evaluator")
+		assert.Contains(t, err.Error(), fmt.Sprintf("unable to evaluate %q with pod evaluator", defaultKRMImagePrefix+testImageName+":v0.4.2"))
 	})
 	t.Run("successful execution with semantic versioning", func(t *testing.T) {
 		const sleep = 0 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -303,7 +305,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			Image:        testImageName,
+			Image:        defaultKRMImagePrefix + testImageName,
 			Tag:          ">= 0.4.0 < 0.5.0",
 		}
 
@@ -328,14 +330,13 @@ func TestPodEvaluatorExecution(t *testing.T) {
 		logOutput := logBuffer.String()
 
 		// Verify the klog message contains the expected version selection
-		assert.Contains(t, logOutput, `Resolved image tag: "test-image:v0.4.2" (constraint "v0.4.2")`)
-		assert.Contains(t, logOutput, `evaluating test-image:v0.4.2 succeeded`)
+		assert.Contains(t, logOutput, fmt.Sprintf(`Resolved image tag: %q (constraint "v0.4.2")`, defaultKRMImagePrefix+testImageName+":v0.4.2"))
+		assert.Contains(t, logOutput, fmt.Sprintf(`evaluating %q succeeded`, defaultKRMImagePrefix+testImageName+":v0.4.2"))
 	})
 	t.Run("successful execution with explicit tagging", func(t *testing.T) {
 		const sleep = 0 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -363,9 +364,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 			}
 		}()
 
-		pcm := &podCacheManager{
-			podManager: &podManager{},
-		}
+		pcm := &podCacheManager{podManager: &podManager{}}
 
 		pe := &podEvaluator{
 			requestCh:       reqCh,
@@ -374,7 +373,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 
 		req := &pb.EvaluateFunctionRequest{
 			ResourceList: []byte(`{}`),
-			Image:        "test-image:v0.4.5",
+			Image:        defaultKRMImagePrefix + testImageName + ":v0.4.5",
 		}
 
 		// Capture klog output by redirecting stderr
@@ -398,14 +397,13 @@ func TestPodEvaluatorExecution(t *testing.T) {
 		logOutput := logBuffer.String()
 
 		// Verify the klog message contains the expected version selection
-		assert.Contains(t, logOutput, `Image tag is empty, using the image with explicit tag: "test-image:v0.4.5"`)
-		assert.Contains(t, logOutput, `evaluating test-image:v0.4.5 succeeded`)
+		assert.Contains(t, logOutput, fmt.Sprintf(`Image tag is empty, using the image with explicit tag: %q`, defaultKRMImagePrefix+testImageName+":v0.4.5"))
+		assert.Contains(t, logOutput, fmt.Sprintf(`evaluating %q succeeded`, defaultKRMImagePrefix+testImageName+":v0.4.5"))
 	})
 	t.Run("successful execution with image tag and Tag field set", func(t *testing.T) {
 		const sleep = 0 * time.Second
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		addr, err := startFakeServer(ctx, t, sleep, nil)
 		require.NoError(t, err, "failed to start fake server")
@@ -451,7 +449,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 			// Both the Image and Tag fields are set. Since , the Tag field
 			// is not empty, it will take precedence, and the image name tag will be ignored,
 			// and will be replaced by the resolved tag based on the semver constraint in the Tag field.
-			Image: "test-image:v0.3.1",
+			Image: defaultKRMImagePrefix + testImageName + ":v0.3.1",
 			Tag:   ">= 0.4.0 < 0.5.0",
 		}
 
@@ -476,8 +474,7 @@ func TestPodEvaluatorExecution(t *testing.T) {
 		logOutput := logBuffer.String()
 
 		// Verify the klog message contains the expected version selection
-		assert.Contains(t, logOutput, `Image "test-image:v0.3.1" already contains tag "v0.3.1"; stripping it in favor of Tag constraint ">= 0.4.0 < 0.5.0"`)
-		assert.Contains(t, logOutput, `Resolved image tag: "test-image:v0.4.2" (constraint "v0.4.2")`)
-		assert.Contains(t, logOutput, `evaluating test-image:v0.4.2 succeeded`)
+		assert.Contains(t, logOutput, fmt.Sprintf(`Resolved image tag: %q (constraint "v0.4.2")`, defaultKRMImagePrefix+testImageName+":v0.4.2"))
+		assert.Contains(t, logOutput, fmt.Sprintf(`evaluating %q succeeded`, defaultKRMImagePrefix+testImageName+":v0.4.2"))
 	})
 }

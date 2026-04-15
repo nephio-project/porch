@@ -1,4 +1,4 @@
-// Copyright 2022,2025-2026 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
+	regclientref "github.com/regclient/regclient/types/ref"
 	"k8s.io/klog/v2"
 )
 
@@ -82,7 +83,7 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 
 var _ kptops.FunctionRuntime = &builtinRuntime{}
 
-func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
+func (br *builtinRuntime) getRunnerByConstraint(funct *kptfilev1.Function) (fnsdk.ResourceListProcessor, error) {
 	c, err := semver.NewConstraint(funct.Tag)
 	if err != nil {
 		return nil, &fn.NotFoundError{
@@ -130,6 +131,7 @@ func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Functi
 
 	// Check if any matching image was found
 	if len(filteredCache) == 0 {
+		klog.Infof("Image %q with constraint %q is not found in the cache", funct.Image, funct.Tag)
 		return nil, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: funct.Image},
 		}
@@ -145,10 +147,45 @@ func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Functi
 	klog.Infof("Selected image \"%s:%s\" (version %s) for request %q",
 		selected.baseName, selected.version.Original(), selected.version, funct.Image)
 
-	return &builtinRunner{
-		ctx:       ctx,
-		processor: selected.processor,
-	}, nil
+	return selected.processor, nil
+}
+
+func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
+	builtinRunner := &builtinRunner{
+		ctx: ctx,
+	}
+
+	if funct.Tag != "" {
+		ref, err := regclientref.New(funct.Image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse image %q as reference: %w", funct.Image, err)
+		}
+		// If the image already carries an inline tag, strip it
+		// so filterByConstraint gets a bare repository name, and
+		// we don't produce a double-tag
+		if ref.Tag != "" {
+			if stripped := strings.TrimSuffix(funct.Image, ":"+ref.Tag); stripped != funct.Image {
+				klog.Infof("Image %q already contains tag %q; stripping it in favor of Tag constraint %q", funct.Image, ref.Tag, funct.Tag)
+				funct.Image = stripped
+			}
+		}
+		runner, err := br.getRunnerByConstraint(funct)
+		if err != nil {
+			return nil, err
+		}
+		builtinRunner.processor = runner
+	} else {
+		klog.Infof("Image tag is empty, using the image with explicit tag: %q", funct.Image)
+
+		processor, found := br.fnMapping[funct.Image]
+		if !found {
+			klog.Infof("Image %q is not found in the cache", funct.Image)
+			return nil, &fn.NotFoundError{Function: *funct}
+		}
+		builtinRunner.processor = processor
+	}
+
+	return builtinRunner, nil
 }
 
 func (br *builtinRuntime) Close() error {

@@ -1,4 +1,4 @@
-// Copyright 2022,2025-2026 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@ package engine
 
 import (
 	"bytes"
-	"context"
 	"os"
-	"strings"
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -82,6 +80,7 @@ func TestNewBuiltinRuntime(t *testing.T) {
 
 func TestBuiltinRuntime(t *testing.T) {
 	t.Run("invalid semver constraint syntax", func(t *testing.T) {
+		ctx := t.Context()
 		br := newBuiltinRuntime(gcrImagePrefix)
 		funct := &kptfilev1.Function{
 			Image: defaultKRMImagePrefix + testImageName,
@@ -89,12 +88,13 @@ func TestBuiltinRuntime(t *testing.T) {
 			// -> will cause a function not found error
 			Tag: ">> 0.4.0 < 0.5.0",
 		}
-		_, err := br.GetRunner(context.Background(), funct)
+		_, err := br.GetRunner(ctx, funct)
 		assert.Equal(t, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: funct.Image},
 		}, err)
 	})
 	t.Run("builtinrutime not found", func(t *testing.T) {
+		ctx := t.Context()
 		br := newBuiltinRuntime(gcrImagePrefix)
 		funct := &kptfilev1.Function{
 			Image: defaultKRMImagePrefix + testImageName,
@@ -103,12 +103,13 @@ func TestBuiltinRuntime(t *testing.T) {
 			// -> will cause a function not found error
 			Tag: ">= 0.4.0 < 0.5.0",
 		}
-		_, err := br.GetRunner(context.Background(), funct)
+		_, err := br.GetRunner(ctx, funct)
 		assert.Equal(t, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: funct.Image},
 		}, err)
 	})
 	t.Run("function does not match the semantic version constraints", func(t *testing.T) {
+		ctx := t.Context()
 		br := newBuiltinRuntime(gcrImagePrefix)
 		funct := &kptfilev1.Function{
 			Image: defaultKRMImagePrefix + setNamespaceImageName,
@@ -117,12 +118,26 @@ func TestBuiltinRuntime(t *testing.T) {
 			// -> will cause a function not found error
 			Tag: "> 0.2.0 < 0.3.0",
 		}
-		_, err := br.GetRunner(context.Background(), funct)
+		_, err := br.GetRunner(ctx, funct)
+		assert.Equal(t, &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: funct.Image},
+		}, err)
+	})
+	t.Run("function not found using explicit tagging", func(t *testing.T) {
+		ctx := t.Context()
+		br := newBuiltinRuntime(gcrImagePrefix)
+		funct := &kptfilev1.Function{
+			Image: defaultKRMImagePrefix + setNamespaceImageName + ":v0.4.2",
+			// Image is explicitly tagged with v0.4.2, however,
+			// there is no function with this explicit tag in the cache
+		}
+		_, err := br.GetRunner(ctx, funct)
 		assert.Equal(t, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: funct.Image},
 		}, err)
 	})
 	t.Run("function execution error", func(t *testing.T) {
+		ctx := t.Context()
 		br := newBuiltinRuntime(gcrImagePrefix)
 		fn := &kptfilev1.Function{
 			// Wrong function is specified for namespace setting,
@@ -130,7 +145,7 @@ func TestBuiltinRuntime(t *testing.T) {
 			Image: defaultKRMImagePrefix + "apply-replacements",
 			Tag:   ">= 0.1.0 < 0.2.0",
 		}
-		fr, err := br.GetRunner(context.Background(), fn)
+		fr, err := br.GetRunner(ctx, fn)
 		assert.Nil(t, err)
 		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1
 kind: ResourceList
@@ -152,7 +167,8 @@ functionConfig:
 		err = fr.Run(reader, &buf)
 		assert.Equal(t, "error: function failure", err.Error())
 	})
-	t.Run("successful execution", func(t *testing.T) {
+	t.Run("successful execution with semantic versioning", func(t *testing.T) {
+		ctx := t.Context()
 		br := newBuiltinRuntime(gcrImagePrefix)
 		fn := &kptfilev1.Function{
 			Image: defaultKRMImagePrefix + setNamespaceImageName,
@@ -166,7 +182,7 @@ functionConfig:
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		fr, err := br.GetRunner(context.Background(), fn)
+		fr, err := br.GetRunner(ctx, fn)
 		assert.Nil(t, err)
 
 		// Flush klog and restore stderr
@@ -184,18 +200,117 @@ functionConfig:
 		assert.Contains(t, logOutput, `(version 0.4.1)`)
 		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-namespace"`)
 
-		// Ensure v0.4 is not in the selection message (only v0.4.1 should be selected)
-		// We check that if "Selected image" appears, it's followed by v0.4.1, not v0.4
-		if strings.Contains(logOutput, "Selected image") {
-			selectedLine := ""
-			for _, line := range strings.Split(logOutput, "\n") {
-				if strings.Contains(line, "Selected image") {
-					selectedLine = line
-					break
-				}
-			}
-			assert.Contains(t, selectedLine, "0.4.1", "Expected v0.4.1 to be selected as it's the greatest version")
+		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1
+kind: ResourceList
+items:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: my-cm
+      namespace: old
+    data:
+      foo: bar
+functionConfig:
+  apiVersion: v1
+  kind: ConfigMap
+  data:
+    namespace: test-ns
+`))
+
+		var buf bytes.Buffer
+		err = fr.Run(reader, &buf)
+		assert.Nil(t, err)
+		rl, err := fnsdk.ParseResourceList(buf.Bytes())
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(rl.Items))
+		ns := rl.Items[0].GetNamespace()
+		assert.Equal(t, "test-ns", ns)
+	})
+	t.Run("successful execution with explicit tagging", func(t *testing.T) {
+		ctx := t.Context()
+		br := newBuiltinRuntime(gcrImagePrefix)
+		fn := &kptfilev1.Function{
+			Image: defaultKRMImagePrefix + setNamespaceImageName + ":v0.4.1",
 		}
+
+		// Capture klog output by redirecting stderr
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		fr, err := br.GetRunner(ctx, fn)
+		assert.Nil(t, err)
+
+		// Flush klog and restore stderr
+		klog.Flush()
+		w.Close()
+		os.Stderr = oldStderr
+
+		// Read captured output
+		var logBuffer bytes.Buffer
+		logBuffer.ReadFrom(r)
+		logOutput := logBuffer.String()
+
+		// Verify the klog message contains the expected version selection
+		assert.Contains(t, logOutput, `Image tag is empty, using the image with explicit tag: "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1"`)
+
+		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1
+kind: ResourceList
+items:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: my-cm
+      namespace: old
+    data:
+      foo: bar
+functionConfig:
+  apiVersion: v1
+  kind: ConfigMap
+  data:
+    namespace: test-ns
+`))
+
+		var buf bytes.Buffer
+		err = fr.Run(reader, &buf)
+		assert.Nil(t, err)
+		rl, err := fnsdk.ParseResourceList(buf.Bytes())
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(rl.Items))
+		ns := rl.Items[0].GetNamespace()
+		assert.Equal(t, "test-ns", ns)
+	})
+	t.Run("successful execution with explicit tagging + Tag field set", func(t *testing.T) {
+		ctx := t.Context()
+		br := newBuiltinRuntime(gcrImagePrefix)
+		fn := &kptfilev1.Function{
+			Image: defaultKRMImagePrefix + setNamespaceImageName + ":v0.3.0",
+			Tag:   ">= 0.4.0 < 0.5.0",
+		}
+
+		// Capture klog output by redirecting stderr
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		fr, err := br.GetRunner(ctx, fn)
+		assert.Nil(t, err)
+
+		// Flush klog and restore stderr
+		klog.Flush()
+		w.Close()
+		os.Stderr = oldStderr
+
+		// Read captured output
+		var logBuffer bytes.Buffer
+		logBuffer.ReadFrom(r)
+		logOutput := logBuffer.String()
+
+		// Verify the klog message contains the expected version selection
+		assert.Contains(t, logOutput, `Image "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.3.0" already contains tag "v0.3.0"; stripping it in favor of Tag constraint ">= 0.4.0 < 0.5.0"`)
+		assert.Contains(t, logOutput, `Selected image "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1"`)
+		assert.Contains(t, logOutput, `(version 0.4.1)`)
+		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-namespace"`)
 
 		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1
 kind: ResourceList
