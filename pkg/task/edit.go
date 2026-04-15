@@ -19,10 +19,8 @@ import (
 	"fmt"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/klog/v2"
 )
 
 type editPackageMutation struct {
@@ -50,25 +48,19 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)
 	}
 
-	sourceRevisionKey := sourceRevision.Key()
-	repoName := sourceRevisionKey.RKey().Name
-
 	// We only allow edit to create new revision from the same package.
-	if sourceRevisionKey.PkgKey.ToPkgPathname() != m.packageName ||
-		repoName != m.repositoryName {
+	if sourceRevision.Key().PkgKey.ToPkgPathname() != m.packageName ||
+		sourceRevision.Key().RKey().Name != m.repositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
 	}
 
-	var sourceRepo configapi.Repository
-	err = m.referenceResolver.ResolveReference(ctx, m.namespace, repoName, &sourceRepo)
-	if err == nil {
-		if sourceRevisionKey.Revision == -1 &&
-			sourceRepo.Spec.Git != nil && sourceRevisionKey.WorkspaceName == sourceRepo.Spec.Git.Branch {
-			// We only allow edit to create new revisions from non-placeholder package revisions
-			return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", repoName, sourceRevision.KubeObjectName())
-		}
-	} else {
-		klog.Warningf("failed to resolve repository reference for %q when checking placeholder revision: %v", repoName, err)
+	sourceIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, sourceRevision)
+	if sourceIsPlaceholder {
+		// We only allow edit to create new revisions from non-placeholder package revisions
+		return repository.PackageResources{}, nil, fmt.Errorf("source revision %s", err)
+	}
+	if err != nil {
+		return repository.PackageResources{}, nil, err
 	}
 
 	// We only allow edit to create new revisions from published package revisions.
