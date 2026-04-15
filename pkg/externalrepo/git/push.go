@@ -34,16 +34,16 @@ func newPushRefSpecBuilder() *pushRefSpecBuilder {
 	}
 }
 
-func (b *pushRefSpecBuilder) AddRefToPush(hash plumbing.Hash, to plumbing.ReferenceName) {
+func (b *pushRefSpecBuilder) addRefToPush(hash plumbing.Hash, to plumbing.ReferenceName) {
 	b.pushRefs[to] = hash
 }
 
-func (b *pushRefSpecBuilder) AddRefToDelete(ref *plumbing.Reference) {
-	b.AddRefToPush(plumbing.ZeroHash, ref.Name())
-	b.RequireRef(ref)
+func (b *pushRefSpecBuilder) addRefToDelete(ref *plumbing.Reference) {
+	b.addRefToPush(plumbing.ZeroHash, ref.Name())
+	b.requireRef(ref)
 }
 
-func (b *pushRefSpecBuilder) RequireRef(ref *plumbing.Reference) {
+func (b *pushRefSpecBuilder) requireRef(ref *plumbing.Reference) {
 	if ref != nil {
 		b.require[ref.Name()] = ref.Hash()
 	}
@@ -64,7 +64,7 @@ func (b *pushRefSpecBuilder) updateRequiredRefs(repo *git.Repository) {
 	}
 }
 
-func (b *pushRefSpecBuilder) BuildRefSpecs() (push []config.RefSpec, require []config.RefSpec, err error) {
+func (b *pushRefSpecBuilder) buildRefSpecs() (push []config.RefSpec, require []config.RefSpec, err error) {
 	for local, hash := range b.pushRefs {
 		remote, err := refInRemoteFromRefInLocal(local)
 		if err != nil {

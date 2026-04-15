@@ -25,12 +25,12 @@ import (
 )
 
 func TestBranchNames(t *testing.T) {
-	const main BranchName = "main"
+	const main branchName = "main"
 
-	if got, want := main.RefInRemote(), "refs/heads/main"; string(got) != want {
+	if got, want := main.refInRemote(), "refs/heads/main"; string(got) != want {
 		t.Errorf("%s in remote repository: got %s, wnat %s", main, got, want)
 	}
-	if got, want := main.RefInLocal(), "refs/remotes/origin/main"; string(got) != want {
+	if got, want := main.refInLocal(), "refs/remotes/origin/main"; string(got) != want {
 		t.Errorf("%s in local repository: got %s, wnat %s", main, got, want)
 	}
 }

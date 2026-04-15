@@ -23,58 +23,58 @@ import (
 )
 
 func TestNewCommitOperationBuilder(t *testing.T) {
-	builder := NewCommitOperationBuilder()
+	builder := newCommitOperationBuilder()
 	require.NotNil(t, builder)
 	assert.Empty(t, builder.operations)
 }
 
 func TestAddPackageApproval(t *testing.T) {
-	builder := NewCommitOperationBuilder()
+	builder := newCommitOperationBuilder()
 	draft := "test-draft"
 	tag := plumbing.ReferenceName("refs/tags/test-tag")
 
-	builder.AddPackageApproval(draft, tag)
+	builder.addPackageApproval(draft, tag)
 
-	ops := builder.GetOperations()
+	ops := builder.getOperations()
 	require.Len(t, ops, 1)
 
 	op := ops[0]
-	assert.Equal(t, "approval", op.Type)
+	assert.Equal(t, "approval", op.opType)
 
-	data := op.Data.(map[string]interface{})
+	data := op.data.(map[string]interface{})
 	assert.Equal(t, draft, data["draft"])
 	assert.Equal(t, tag, data["tag"])
 }
 
 func TestAddPackageDeletion(t *testing.T) {
-	builder := NewCommitOperationBuilder()
+	builder := newCommitOperationBuilder()
 	branch := plumbing.ReferenceName("refs/heads/test-branch")
 	prKey := "test-key"
 
-	builder.AddPackageDeletion(branch, prKey)
+	builder.addPackageDeletion(branch, prKey)
 
-	ops := builder.GetOperations()
+	ops := builder.getOperations()
 	require.Len(t, ops, 1)
 
 	op := ops[0]
-	assert.Equal(t, "deletion", op.Type)
+	assert.Equal(t, "deletion", op.opType)
 
-	data := op.Data.(map[string]interface{})
+	data := op.data.(map[string]interface{})
 	assert.Equal(t, branch, data["branch"])
 	assert.Equal(t, prKey, data["prKey"])
 }
 
 func TestMultipleOperations(t *testing.T) {
-	builder := NewCommitOperationBuilder()
+	builder := newCommitOperationBuilder()
 
-	builder.AddPackageApproval("draft1", plumbing.ReferenceName("refs/tags/tag1"))
-	builder.AddPackageDeletion(plumbing.ReferenceName("refs/heads/branch1"), "key1")
-	builder.AddPackageApproval("draft2", plumbing.ReferenceName("refs/tags/tag2"))
+	builder.addPackageApproval("draft1", plumbing.ReferenceName("refs/tags/tag1"))
+	builder.addPackageDeletion(plumbing.ReferenceName("refs/heads/branch1"), "key1")
+	builder.addPackageApproval("draft2", plumbing.ReferenceName("refs/tags/tag2"))
 
-	ops := builder.GetOperations()
+	ops := builder.getOperations()
 	require.Len(t, ops, 3)
 
-	assert.Equal(t, "approval", ops[0].Type)
-	assert.Equal(t, "deletion", ops[1].Type)
-	assert.Equal(t, "approval", ops[2].Type)
+	assert.Equal(t, "approval", ops[0].opType)
+	assert.Equal(t, "deletion", ops[1].opType)
+	assert.Equal(t, "approval", ops[2].opType)
 }

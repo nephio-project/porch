@@ -123,7 +123,7 @@ func (g GitSuite) TestOpenEmptyRepository(t *testing.T) {
 	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, opts); err != nil {
 		t.Errorf("Failed to create new main branch: %v", err)
 	}
-	_, err := repo.Reference(BranchName(g.branch).RefInRemote(), false)
+	_, err := repo.Reference(branchName(g.branch).refInRemote(), false)
 	if err != nil {
 		t.Errorf("Couldn't find branch %q after opening repository with CreateIfMissing strategy: %v", g.branch, err)
 	}
@@ -765,7 +765,7 @@ func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
 	assert.Equal(t, porchapi.PackageRevisionLifecycleProposed, result.Spec.Lifecycle, "Package lifecycle")
 
 	proposedBranch := createProposedName(newRevision.Key())
-	refMustExist(t, repo, proposedBranch.RefInRemote())
+	refMustExist(t, repo, proposedBranch.refInRemote())
 }
 
 func (g GitSuite) TestApproveDraft(t *testing.T) {
@@ -776,7 +776,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	const (
 		repositoryName                            = "approve"
 		namespace                                 = "default"
-		draft              BranchName             = "drafts/bucket/v1"
+		draft              branchName             = "drafts/bucket/v1"
 		finalReferenceName plumbing.ReferenceName = "refs/tags/bucket/v1"
 		deployment                                = true
 	)
@@ -805,7 +805,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	})
 
 	// Before Update; Check server references. Draft must exist, final not.
-	refMustExist(t, repo, draft.RefInRemote())
+	refMustExist(t, repo, draft.refInRemote())
 	refMustNotExist(t, repo, finalReferenceName)
 
 	update, err := git.UpdatePackageRevision(ctx, bucket)
@@ -831,7 +831,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	}
 
 	// After Update: Final must exist, draft must not exist
-	refMustNotExist(t, repo, draft.RefInRemote())
+	refMustNotExist(t, repo, draft.refInRemote())
 	refMustExist(t, repo, finalReferenceName)
 }
 
@@ -843,7 +843,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	const (
 		repositoryName                            = "approve"
 		namespace                                 = "default"
-		draft              BranchName             = "drafts/pkg-with-history/v1"
+		draft              branchName             = "drafts/pkg-with-history/v1"
 		finalReferenceName plumbing.ReferenceName = "refs/tags/pkg-with-history/v1"
 		deployment                                = true
 	)
@@ -875,7 +875,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	})
 
 	// Before Update; Check server references. Draft must exist, final not.
-	refMustExist(t, repo, draft.RefInRemote())
+	refMustExist(t, repo, draft.refInRemote())
 	refMustNotExist(t, repo, finalReferenceName)
 
 	update, err := git.UpdatePackageRevision(ctx, bucket)
@@ -904,7 +904,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	}
 
 	// After Update: Final must exist, draft must not exist
-	refMustNotExist(t, repo, draft.RefInRemote())
+	refMustNotExist(t, repo, draft.refInRemote())
 	refMustExist(t, repo, finalReferenceName)
 }
 
@@ -1005,7 +1005,7 @@ func (g GitSuite) TestDeletePackages(t *testing.T) {
 	branch := plumbing.NewBranchReferenceName(g.branch)
 	want := map[plumbing.ReferenceName]bool{
 		branch:                   true,
-		DefaultMainReferenceName: true,
+		defaultMainReferenceName: true,
 		"HEAD":                   true,
 	}
 	if !cmp.Equal(want, got) {
@@ -1235,7 +1235,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 			want[strings.TrimPrefix(name, proposedPrefixInRemoteRepo)] = porchapi.PackageRevisionLifecycleProposed
 		case name == string(branch):
 			// Skip the registered 'main' branch.
-		case name == string(DefaultMainReferenceName), name == "HEAD":
+		case name == string(defaultMainReferenceName), name == "HEAD":
 			// skip main and HEAD
 		default:
 			// There should be no other refs in the repository.
@@ -1947,7 +1947,7 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 	}
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
-	mainBranchCommitHash := resolveReference(t, gitRepo, DefaultMainReferenceName).Hash()
+	mainBranchCommitHash := resolveReference(t, gitRepo, defaultMainReferenceName).Hash()
 	ch, err := newCommitHelper(gitRepo, uip, mainBranchCommitHash, "", plumbing.ZeroHash)
 	if err != nil {
 		t.Fatalf("Failed to create commit helper: %v", err)
@@ -1964,11 +1964,11 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 		t.Fatalf("Failed to create commit: %v", err)
 	}
 
-	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(defaultMainReferenceName, newHash))
 	if err != nil {
 		t.Fatalf("Failed to set reference: %v", err)
 	}
-	t.Logf("Moved %s from %s to %s", DefaultMainReferenceName, mainBranchCommitHash, newHash)
+	t.Logf("Moved %s from %s to %s", defaultMainReferenceName, mainBranchCommitHash, newHash)
 
 	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
 
@@ -2375,8 +2375,8 @@ func TestPushRetryWithTransientError(t *testing.T) {
 
 	// Create a new commit to push
 	var newCommitHash plumbing.Hash
-	err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
-		mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+	err = testrepo.sharedDir.withLock(func(repo *gogit.Repository) error {
+		mainRef, err := repo.Reference(testrepo.branch.refInLocal(), true)
 		if err != nil {
 			return err
 		}
@@ -2408,7 +2408,7 @@ func TestPushRetryWithTransientError(t *testing.T) {
 	}()
 
 	refSpecs := newPushRefSpecBuilder()
-	refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+	refSpecs.addRefToPush(newCommitHash, testrepo.branch.refInLocal())
 
 	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
 
@@ -2469,8 +2469,8 @@ func TestPushFailures(t *testing.T) {
 			testrepo := localRepo.(*gitRepository)
 
 			var newCommitHash plumbing.Hash
-			err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
-				mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+			err = testrepo.sharedDir.withLock(func(repo *gogit.Repository) error {
+				mainRef, err := repo.Reference(testrepo.branch.refInLocal(), true)
 				if err != nil {
 					return err
 				}
@@ -2499,7 +2499,7 @@ func TestPushFailures(t *testing.T) {
 			})
 
 			refSpecs := newPushRefSpecBuilder()
-			refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+			refSpecs.addRefToPush(newCommitHash, testrepo.branch.refInLocal())
 
 			err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
 
