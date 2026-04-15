@@ -70,7 +70,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 
 	_, pushedPRUpstreamLock, err := pushedPR.GetLock(ctx)
 	if err != nil {
-		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "read of upstream lock for package revision %+v pushed to repository %+v failed", pr.Key(), repo.Key())
+		return kptfilev1.Locator{}, pkgerrors.Wrapf(err, "read of locator for package revision %+v pushed to repository %+v failed", pr.Key(), repo.Key())
 	}
 
 	klog.Infof("PushPackageRevision: package %+v pushed to repository %+v", pr.Key(), repo.Key())
