@@ -109,7 +109,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
@@ -216,7 +216,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
@@ -440,7 +440,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -533,7 +533,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -622,7 +622,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -703,7 +703,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -786,7 +786,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -878,7 +878,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -960,7 +960,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
 		Resources:        nil,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 

@@ -275,14 +275,14 @@ type PackageRevision interface {
 	GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
-	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
+	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
 
 	// GetKptfile returns the Kptfile for the package
 	GetKptfile(ctx context.Context) (kptfilev1.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
 	// This will be the upstream info for downstream revisions.
-	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
+	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
 
 	// ResourceVersion returns the Kube resource version of the package
 	ResourceVersion() string

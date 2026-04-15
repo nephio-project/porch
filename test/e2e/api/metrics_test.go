@@ -8,11 +8,11 @@ import (
 func (t *PorchSuite) TestMetricsEndpoint() {
 	porchServerShouldHaveRegexList := []string{
 		"go_*",
-		"http_server_*",
-		"http_client_*",
-		"rest_client_*",
-		"process_*",
-		"rpc_client_*",
+		"http_server_.*",
+		"http_client_.*",
+		"errors_total .*",
+		"target_info .*",
+		"promhttp_metric_handler_.*",
 	}
 	porchControllerShouldHaveRegexList := []string{
 		"controller_*",

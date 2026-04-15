@@ -51,7 +51,7 @@ type dbPackageRevision struct {
 	updated   time.Time
 	updatedBy string
 	lifecycle porchapi.PackageRevisionLifecycle
-	extPRID   kptfile.UpstreamLock
+	extPRID   kptfile.Locator
 	latest    bool
 	tasks     []porchapi.Task
 	resources map[string]string
@@ -283,14 +283,14 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 	}, nil
 }
 
-func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.Locator, error) {
 	kf, err := pr.GetKptfile(ctx)
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
+		return kptfile.Upstream{}, kptfile.Locator{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
 	}
 
 	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+		return kptfile.Upstream{}, kptfile.Locator{}, nil
 	}
 
 	return *kf.Upstream, *kf.UpstreamLock, nil
@@ -361,7 +361,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 	return *kf, nil
 }
 
-func (pr *dbPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.Locator, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
 	return repository.KptUpstreamLock2KptUpstream(pr.extPRID), pr.extPRID, nil
