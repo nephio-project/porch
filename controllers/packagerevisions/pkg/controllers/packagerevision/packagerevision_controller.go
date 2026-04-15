@@ -90,11 +90,13 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // reconcileFinalizer ensures the finalizer is present and handles deletion gating.
+// Only Published packages require DeletionProposed before deletion.
+// Draft and Proposed packages can be deleted directly.
 // Returns (nil, nil) when reconciliation should continue.
 func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
 	if !pr.DeletionTimestamp.IsZero() {
-		if pr.Spec.Lifecycle != porchv1alpha2.PackageRevisionLifecycleDeletionProposed {
-			log.FromContext(ctx).Info("blocking deletion: lifecycle is not DeletionProposed", "lifecycle", pr.Spec.Lifecycle)
+		if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished {
+			log.FromContext(ctx).Info("blocking deletion: published package must be DeletionProposed first", "lifecycle", pr.Spec.Lifecycle)
 			return &ctrl.Result{}, nil
 		}
 		patch := client.MergeFrom(pr.DeepCopy())

@@ -150,6 +150,43 @@ func TestReconcileDeletionBlockedWhenNotDeletionProposed(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, result)
 }
 
+func TestReconcileDeletionAllowedForDraft(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecycleDraft,
+		},
+	}
+
+	var patched bool
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			patched = true
+			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+		}).Return(nil)
+
+	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.True(t, patched, "finalizer should have been removed for Draft package")
+}
+
 func TestReconcileDeletionAllowedWhenDeletionProposed(t *testing.T) {
 	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}

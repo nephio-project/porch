@@ -30,6 +30,12 @@ rules:
 - apiGroups:
   - porch.kpt.dev
   resources:
+  - packagerevisions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - porch.kpt.dev
+  resources:
   - packagerevisions/status
   verbs:
   - get

@@ -265,6 +265,10 @@ func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, err
 			// informer cache, a subsequent Get can miss the just-created object.
 			// This is not ideal, but crcache doesn't support a level of resources where caching makes a difference
 			&internalapi.PackageRev{},
+			// v1alpha2 PackageRevision is a CRD patched by patchRenderRequestAnnotation
+			// right after a write; bypass the cache to avoid stale reads and the
+			// cluster-scope watch that the informer would require.
+			&porchv1alpha2.PackageRevision{},
 		},
 	}})
 }
