@@ -99,6 +99,8 @@ type podManager struct {
 	tlsSecretPath string
 	// Optional override for listRepositoryTags, used in tests
 	listRepositoryTagsFunc func(ctx context.Context, image string) ([]string, error)
+	// Client for listing available tags for images
+	regClient *regclient.RegClient
 	// Optional additional regclient options, used in tests for host-level settings (e.g. TLS)
 	regclientExtraOpts []regclient.Opt
 }
@@ -395,30 +397,25 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 	}
 }
 
-// listRepositoryTags lists all tags for the given OCI image repository using the OCI Distribution API.
-func (pm *podManager) listRepositoryTags(ctx context.Context, image string) ([]string, error) {
-	if pm.listRepositoryTagsFunc != nil {
-		return pm.listRepositoryTagsFunc(ctx, image)
-	}
-
+func (pm *podManager) initRegClient(ctx context.Context, image string) error {
 	r, err := regclientref.New(image)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse repository %q: %w", image, err)
+		return fmt.Errorf("failed to parse repository %q: %w", image, err)
 	}
 
 	var rcOpts []regclient.Opt
 
 	if pm.enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) {
 		if err := pm.ensureCustomAuthSecret(ctx, pm.registryAuthSecretPath, pm.registryAuthSecretName); err != nil {
-			return nil, err
+			return err
 		}
 		dockerConfigBytes, err := os.ReadFile(pm.registryAuthSecretPath)
 		if err != nil {
-			return nil, fmt.Errorf("error reading authentication file: %w", err)
+			return fmt.Errorf("error reading authentication file: %w", err)
 		}
 		var dockerConfig DockerConfig
 		if err := json.Unmarshal(dockerConfigBytes, &dockerConfig); err != nil {
-			return nil, fmt.Errorf("error unmarshaling authentication file: %w", err)
+			return fmt.Errorf("error unmarshaling authentication file: %w", err)
 		}
 		authConfig := dockerConfig.Auths[r.Registry]
 		host := regclientconfig.Host{
@@ -432,17 +429,17 @@ func (pm *podManager) listRepositoryTags(ctx context.Context, image string) ([]s
 			tlsFile := "ca.crt"
 			if _, errCRT := os.Stat(filepath.Join(pm.tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
 				if _, errPEM := os.Stat(filepath.Join(pm.tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
-					return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
+					return fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
 				}
 				tlsFile = "ca.pem"
 			}
 			caCert, err := os.ReadFile(filepath.Join(pm.tlsSecretPath, tlsFile))
 			if err != nil {
-				return nil, fmt.Errorf("failed to load TLS config: %w", err)
+				return fmt.Errorf("failed to load TLS config: %w", err)
 			}
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(caCert) {
-				return nil, fmt.Errorf("failed to load TLS config: failed to append certificates from PEM")
+				return fmt.Errorf("failed to load TLS config: failed to append certificates from PEM")
 			}
 			host.RegCert = string(caCert)
 		}
@@ -454,9 +451,28 @@ func (pm *podManager) listRepositoryTags(ctx context.Context, image string) ([]s
 
 	rcOpts = append(rcOpts, pm.regclientExtraOpts...)
 	rc := regclient.New(rcOpts...)
-	defer func() { _ = rc.Close(ctx, r) }()
+	pm.regClient = rc
+	return nil
+}
 
-	tl, err := rc.TagList(ctx, r)
+// listRepositoryTags lists all tags for the given OCI image repository using the OCI Distribution API.
+func (pm *podManager) listRepositoryTags(ctx context.Context, image string) ([]string, error) {
+	if pm.regClient == nil {
+		err := pm.initRegClient(ctx, image)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if pm.listRepositoryTagsFunc != nil {
+		return pm.listRepositoryTagsFunc(ctx, image)
+	}
+
+	r, err := regclientref.New(image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository %q: %w", image, err)
+	}
+
+	tl, err := pm.regClient.TagList(ctx, r)
 
 	if err != nil {
 		return nil, err

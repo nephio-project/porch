@@ -59,6 +59,7 @@ const (
 	defaultPodIP                   = "10.10.10.10"
 	defaultServiceIP               = "20.10.10.10"
 	defaultFunctionPodTemplateName = "function-pod-template"
+	defaultRegistryAuthSecret      = "authsecret"
 )
 
 type fakeFunctionEvalServer struct {
@@ -1013,7 +1014,7 @@ func TestListRepositoryTags(t *testing.T) {
 			},
 		}
 		tags, err := podManager.listRepositoryTags(ctx, defaultImageName)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{"tag1", "tag2"}, tags)
 	})
 	t.Run("failed to parse repository", func(t *testing.T) {
@@ -1042,7 +1043,7 @@ func TestListRepositoryTags(t *testing.T) {
 		pm := &podManager{
 			enablePrivateRegistries: true,
 			registryAuthSecretPath:  authPath,
-			registryAuthSecretName:  "authsecret",
+			registryAuthSecretName:  defaultRegistryAuthSecret,
 			namespace:               defaultNamespace,
 			kubeClient:              kubeClient,
 		}
@@ -1060,7 +1061,7 @@ func TestListRepositoryTags(t *testing.T) {
 		pm := &podManager{
 			enablePrivateRegistries: true,
 			registryAuthSecretPath:  filepath.Join(t.TempDir(), "nonexistent"),
-			registryAuthSecretName:  "authsecret",
+			registryAuthSecretName:  defaultRegistryAuthSecret,
 			namespace:               defaultNamespace,
 			kubeClient:              kubeClient,
 		}
@@ -1079,7 +1080,7 @@ func TestListRepositoryTags(t *testing.T) {
 
 		existingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "authsecret",
+				Name:      defaultRegistryAuthSecret,
 				Namespace: defaultNamespace,
 			},
 			Data: map[string][]byte{
@@ -1093,7 +1094,7 @@ func TestListRepositoryTags(t *testing.T) {
 		pm := &podManager{
 			enablePrivateRegistries: true,
 			registryAuthSecretPath:  authPath,
-			registryAuthSecretName:  "authsecret",
+			registryAuthSecretName:  defaultRegistryAuthSecret,
 			namespace:               defaultNamespace,
 			kubeClient:              kubeClient,
 		}
@@ -1111,7 +1112,7 @@ func TestListRepositoryTags(t *testing.T) {
 		require.NoError(t, err, "failed to write auth file")
 		existingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "authsecret",
+				Name:      defaultRegistryAuthSecret,
 				Namespace: defaultNamespace,
 			},
 			Data: map[string][]byte{
@@ -1126,7 +1127,7 @@ func TestListRepositoryTags(t *testing.T) {
 			enablePrivateRegistries:    true,
 			enablePrivateRegistriesTls: true,
 			registryAuthSecretPath:     authPath,
-			registryAuthSecretName:     "authsecret",
+			registryAuthSecretName:     defaultRegistryAuthSecret,
 			tlsSecretPath:              t.TempDir(),
 			namespace:                  defaultNamespace,
 			kubeClient:                 kubeClient,
@@ -1147,7 +1148,7 @@ func TestListRepositoryTags(t *testing.T) {
 
 		existingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "authsecret",
+				Name:      defaultRegistryAuthSecret,
 				Namespace: defaultNamespace,
 			},
 			Data: map[string][]byte{
@@ -1166,7 +1167,7 @@ func TestListRepositoryTags(t *testing.T) {
 			enablePrivateRegistries:    true,
 			enablePrivateRegistriesTls: true,
 			registryAuthSecretPath:     authPath,
-			registryAuthSecretName:     "authsecret",
+			registryAuthSecretName:     defaultRegistryAuthSecret,
 			tlsSecretPath:              tlsDir,
 			namespace:                  defaultNamespace,
 			kubeClient:                 kubeClient,
@@ -1185,7 +1186,7 @@ func TestListRepositoryTags(t *testing.T) {
 		require.NoError(t, err, "failed to write auth file")
 		existingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "authsecret",
+				Name:      defaultRegistryAuthSecret,
 				Namespace: defaultNamespace,
 			},
 			Data: map[string][]byte{
@@ -1203,7 +1204,7 @@ func TestListRepositoryTags(t *testing.T) {
 			enablePrivateRegistries:    true,
 			enablePrivateRegistriesTls: true,
 			registryAuthSecretPath:     authPath,
-			registryAuthSecretName:     "authsecret",
+			registryAuthSecretName:     defaultRegistryAuthSecret,
 			tlsSecretPath:              tlsDir,
 			namespace:                  defaultNamespace,
 			kubeClient:                 kubeClient,
@@ -1224,7 +1225,7 @@ func TestListRepositoryTags(t *testing.T) {
 
 		existingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "authsecret",
+				Name:      defaultRegistryAuthSecret,
 				Namespace: defaultNamespace,
 			},
 			Data: map[string][]byte{
@@ -1238,7 +1239,7 @@ func TestListRepositoryTags(t *testing.T) {
 		pm := &podManager{
 			enablePrivateRegistries: true,
 			registryAuthSecretPath:  authPath,
-			registryAuthSecretName:  "authsecret",
+			registryAuthSecretName:  defaultRegistryAuthSecret,
 			namespace:               defaultNamespace,
 			kubeClient:              kubeClient,
 		}
