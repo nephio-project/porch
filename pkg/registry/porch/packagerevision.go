@@ -280,7 +280,11 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
 
-	return r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	runTimeObj, ok, err := r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	if err != nil {
+		klog.ErrorS(err, "[API] PackageRevision update operation failed", context1.LogMetadataFrom(ctx)...)
+	}
+	return runTimeObj, ok, err
 }
 
 // Delete implements the GracefulDeleter interface.

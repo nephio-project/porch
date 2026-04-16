@@ -687,3 +687,112 @@ func TestCheckIfUpstreamIsReferenced(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdate(t *testing.T) {
+	mockClient, mockEngine := setup(t)
+	ctx := request.WithNamespace(context.TODO(), "someDummyNamespace")
+	pkgRevName := "repo.1234567890.ws"
+
+	// Create a draft package revision for testing
+	draftPackageRevision := &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: porchapi.PackageRevisionLifecycleDraft,
+		PackageRevision: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:          make(map[string]string),
+				ResourceVersion: "123",
+			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+			},
+		},
+	}
+
+	// Success case
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		draftPackageRevision,
+	}, nil).Once()
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(draftPackageRevision, nil).Once()
+
+	objInfo := &mockUpdatedObjectInfo{
+		updatedObj: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "123",
+			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+			},
+		},
+	}
+
+	result, created, err := packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.False(t, created)
+	assert.IsType(t, &porchapi.PackageRevision{}, result)
+
+	//=========================================================================================
+
+	// Error case 1- generic updatePackageRevision fails
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		draftPackageRevision,
+	}, nil).Once()
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("update failed")).Once()
+
+	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.False(t, created)
+	assert.True(t, apierrors.IsInternalError(err))
+	assert.ErrorContains(t, err, "update failed")
+
+	// Error case 2 - resource version mismatch updatePackageRevision failure
+
+	objInfo = &mockUpdatedObjectInfo{
+		updatedObj: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "321",
+			},
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+			},
+		},
+	}
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		draftPackageRevision,
+	}, nil).Once()
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, apierrors.NewConflict(porchapi.Resource("packagerevisions"), pkgRevName, fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))).Once()
+
+	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.False(t, created)
+	assert.True(t, apierrors.IsInternalError(err))
+	assert.ErrorContains(t, err, "the object has been modified; please apply your changes to the latest version and try again")
+
+}
+
+// mockUpdatedObjectInfo is a mock implementation of rest.UpdatedObjectInfo
+type mockUpdatedObjectInfo struct {
+	updatedObj runtime.Object
+}
+
+func (m *mockUpdatedObjectInfo) UpdatedObject(ctx context.Context, oldObj runtime.Object) (runtime.Object, error) {
+	return m.updatedObj, nil
+}
+
+func (m *mockUpdatedObjectInfo) Preconditions() *metav1.Preconditions {
+	return nil
+}
