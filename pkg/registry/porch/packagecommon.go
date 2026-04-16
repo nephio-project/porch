@@ -69,13 +69,38 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	if err != nil {
 		return err
 	}
+
+	v1alpha2Repos := r.getV1Alpha2RepoSet(ctx, revisions)
+
 	for _, rev := range revisions {
+		if v1alpha2Repos[rev.Key().RKey().Name] {
+			continue
+		}
 		if err := callback(ctx, rev); err != nil {
 			klog.Warningf("callback error for revision from repository: %+v", err)
 			continue
 		}
 	}
 	return nil
+}
+
+// getV1Alpha2RepoSet returns a set of repo names that are v1alpha2-managed,
+// deduplicating lookups by repo name. Uses the informer-cached coreClient.
+func (r *packageCommon) getV1Alpha2RepoSet(ctx context.Context, revisions []repository.PackageRevision) map[string]bool {
+	v1alpha2Repos := map[string]bool{}
+	for _, rev := range revisions {
+		repoName := rev.Key().RKey().Name
+		if _, checked := v1alpha2Repos[repoName]; checked {
+			continue
+		}
+		var repo configapi.Repository
+		if err := r.coreClient.Get(ctx, types.NamespacedName{Name: repoName, Namespace: rev.KubeObjectNamespace()}, &repo); err != nil {
+			v1alpha2Repos[repoName] = false // fail open
+			continue
+		}
+		v1alpha2Repos[repoName] = isV1Alpha2Repo(&repo)
+	}
+	return v1alpha2Repos
 }
 
 func (r *packageCommon) listPackages(ctx context.Context, filter repository.ListPackageFilter, callback func(p repository.Package) error) error {
@@ -189,6 +214,11 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
+	}
+
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
+	if err == nil && isV1Alpha2Repo(repositoryObj) {
+		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
 	revisions, err := r.cad.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: prKey})

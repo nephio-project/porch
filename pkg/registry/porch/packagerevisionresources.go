@@ -279,7 +279,7 @@ func (r *packageRevisionResources) getRepoPkgRevForResources(ctx context.Context
 		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
-	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
+	revisions, err := r.cad.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
 		return nil, err
 	}
