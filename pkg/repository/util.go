@@ -203,8 +203,7 @@ func PackageRevisionIsPlaceholder(ctx context.Context, namespace string, referen
 	}
 
 	if upstreamRepo.Spec.Git != nil && packageRevision.Key().WorkspaceName == upstreamRepo.Spec.Git.Branch {
-		// We don't allow many operations on placeholder package revisions - return an error alongside true to emphasise its nature
-		return true, fmt.Errorf("%s/%s is a placeholder package revision", packageRevision.Key().RKey().Name, packageRevision.KubeObjectName())
+		return true, nil
 	}
 
 	return false, nil

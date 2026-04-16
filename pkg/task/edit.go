@@ -55,12 +55,12 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	sourceIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, sourceRevision)
-	if sourceIsPlaceholder {
-		// We only allow edit to create new revisions from non-placeholder package revisions
-		return repository.PackageResources{}, nil, fmt.Errorf("source revision %s", err)
-	}
 	if err != nil {
 		return repository.PackageResources{}, nil, err
+	}
+	if sourceIsPlaceholder {
+		// We only allow edit to create new revisions from non-placeholder package revisions
+		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", sourceRevision.Key().RKey().Name, sourceRevision.KubeObjectName())
 	}
 
 	// We only allow edit to create new revisions from published package revisions.

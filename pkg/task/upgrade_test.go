@@ -23,7 +23,12 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	res = &fakeReferenceResolver{}
 )
 
 func createMockedResources() repository.PackageResources {
@@ -120,7 +125,7 @@ info:
 		repository: repo,
 	}
 
-	epm := upgradePackageMutation{
+	mutation := upgradePackageMutation{
 		upgradeTask: &porchapi.Task{
 			Type: porchapi.TaskTypeUpgrade,
 			Upgrade: &porchapi.PackageUpgradeTaskSpec{
@@ -138,11 +143,18 @@ info:
 
 		namespace:         "test-namespace",
 		pkgName:           pkg,
-		referenceResolver: &fakeReferenceResolver{},
+		referenceResolver: res,
 		repoOpener:        repoOpener,
 	}
-	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	_, _, err := mutation.apply(context.Background(), repository.PackageResources{})
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading to the placeholder package revision as new upstream")
+
+	mutation.referenceResolver = (&errorAfterNReferenceResolver{r: res, err: errors.New("error resolving reference")}).startAt(2)
+
+	_, _, err = mutation.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to resolve repository reference")
+
+	mutation.referenceResolver = res
 }
 
 func TestUpgradePlaceholderAsLocal(t *testing.T) {
@@ -205,7 +217,7 @@ info:
 		repository: repo,
 	}
 
-	epm := upgradePackageMutation{
+	mutation := upgradePackageMutation{
 		upgradeTask: &porchapi.Task{
 			Type: porchapi.TaskTypeUpgrade,
 			Upgrade: &porchapi.PackageUpgradeTaskSpec{
@@ -223,9 +235,16 @@ info:
 
 		namespace:         "test-namespace",
 		pkgName:           pkg,
-		referenceResolver: &fakeReferenceResolver{},
+		referenceResolver: res,
 		repoOpener:        repoOpener,
 	}
-	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	_, _, err := mutation.apply(context.Background(), repository.PackageResources{})
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error upgrading the placeholder package revision")
+
+	mutation.referenceResolver = (&errorAfterNReferenceResolver{r: res, err: errors.New("error resolving reference")}).startAt(4)
+
+	_, _, err = mutation.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to resolve repository reference")
+
+	mutation.referenceResolver = res
 }

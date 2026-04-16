@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,6 +26,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -165,6 +167,7 @@ info:
 		repository: repo,
 	}
 
+	res := &fakeReferenceResolver{}
 	epm := editPackageMutation{
 		task: &porchapi.Task{
 			Type: porchapi.TaskTypeEdit,
@@ -178,11 +181,18 @@ info:
 		namespace:         "test-namespace",
 		packageName:       pkg,
 		repositoryName:    repositoryName,
-		referenceResolver: &fakeReferenceResolver{},
+		referenceResolver: res,
 		repoOpener:        repoOpener,
 	}
 	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
 	assert.ErrorContains(t, err, "placeholder package revision", "Expected error editing the placeholder package revision")
+
+	epm.referenceResolver = (&errorAfterNReferenceResolver{r: res, err: errors.New("error resolving reference")}).startAt(1)
+
+	_, _, err = epm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to resolve repository reference")
+
+	epm.referenceResolver = res
 }
 
 // Implementation of the ReferenceResolver interface for testing.
@@ -215,6 +225,28 @@ func (f *fakeReferenceResolver) ResolveReference(ctx context.Context, namespace,
 		result = repo
 	}
 	return nil
+}
+
+// Implementation of the ReferenceResolver interface for testing.
+// For the first N calls to ResolveReference, it delegates to the provided, working resolver.
+// On the N+1th call, it returns the provided error.
+type errorAfterNReferenceResolver struct {
+	r                  repository.ReferenceResolver
+	err                error
+	successesRemaining atomic.Int64
+}
+
+func (f *errorAfterNReferenceResolver) startAt(successesRemaining int64) *errorAfterNReferenceResolver {
+	f.successesRemaining.Store(successesRemaining)
+	return f
+}
+
+func (f *errorAfterNReferenceResolver) ResolveReference(ctx context.Context, namespace, name string, result repository.Object) error {
+	if f.successesRemaining.Load() > 0 {
+		f.successesRemaining.Add(-1)
+		return f.r.ResolveReference(ctx, namespace, name, result)
+	}
+	return f.err
 }
 
 type fakeRepositoryOpener struct {

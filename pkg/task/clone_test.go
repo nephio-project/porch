@@ -41,6 +41,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	gitserver "github.com/nephio-project/porch/test/git/pkg"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -379,6 +380,12 @@ func TestCloneReferenceBasicAuth(t *testing.T) {
 	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
 	assert.NoErrorf(t, err, "task apply failed: %+v", err)
 
+	cpm.referenceResolver = (&errorAfterNReferenceResolver{r: res, err: errors.New("error resolving reference")}).startAt(1)
+
+	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to resolve repository reference")
+
+	cpm.referenceResolver = res
 	cpm.task.Clone.Upstream.UpstreamRef.Name = placeholderPackageName
 	origWorkspaceName := packageRevision.PrKey.WorkspaceName
 	packageRevision.PrKey.WorkspaceName = "main"

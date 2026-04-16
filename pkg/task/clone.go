@@ -119,12 +119,12 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}
 
 	upstreamIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, upstreamRevision)
-	if upstreamIsPlaceholder {
-		// We only allow clone to create new revisions from non-placeholder package revisions
-		return repository.PackageResources{}, fmt.Errorf("upstream revision %s", err)
-	}
 	if err != nil {
 		return repository.PackageResources{}, err
+	}
+	if upstreamIsPlaceholder {
+		// We only allow clone to create new revisions from non-placeholder package revisions
+		return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", upstreamRevision.Key().RKey().Name, upstreamRevision.KubeObjectName())
 	}
 
 	resources, err := upstreamRevision.GetResources(ctx)

@@ -61,12 +61,12 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	}
 
 	targetUpstreamIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, targetUpstreamRevision)
-	if targetUpstreamIsPlaceholder {
-		// We only allow upgrade to create new revisions with non-placeholder package revisions as target upstream
-		return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision %s", err)
-	}
 	if err != nil {
 		return repository.PackageResources{}, nil, err
+	}
+	if targetUpstreamIsPlaceholder {
+		// We only allow upgrade to create new revisions with non-placeholder package revisions as target upstream
+		return repository.PackageResources{}, nil, fmt.Errorf("target upstream revision may not be the placeholder package revision %s/%s", targetUpstreamRevision.Key().RKey().Name, targetUpstreamRevision.KubeObjectName())
 	}
 
 	targetUpstreamResources, err := targetUpstreamRevision.GetResources(ctx)
@@ -80,12 +80,12 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	}
 
 	localIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, localRevision)
-	if localIsPlaceholder {
-		// We only allow upgrade to upgrade non-placeholder package revisions
-		return repository.PackageResources{}, nil, fmt.Errorf("source revision %s", err)
-	}
 	if err != nil {
 		return repository.PackageResources{}, nil, err
+	}
+	if localIsPlaceholder {
+		// We only allow upgrade to upgrade non-placeholder package revisions
+		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", localRevision.Key().RKey().Name, localRevision.KubeObjectName())
 	}
 
 	localResources, err := localRevision.GetResources(ctx)
