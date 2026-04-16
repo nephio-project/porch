@@ -437,31 +437,151 @@ func (t *DbTestSuite) TestPackageRevisionFilter() {
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
 	dbRepo := t.createTestRepo("my-ns", "my-repo")
-
 	dbRepoPkgs := t.createTestPkgs(dbRepo.Key(), "my-package", 4)
-
 	_ = t.createTestPRs(dbRepoPkgs, "my-ws", 4)
 
-	prFilter := repository.ListPackageRevisionFilter{}
-	listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
-	t.Require().NoError(err)
-	t.Equal(16, len(listPRs))
+	dbRepo2 := t.createTestRepo("my-ns", "other-repo")
+	dbRepo2Pkgs := t.createTestPkgs(dbRepo2.Key(), "my-package", 2)
+	_ = t.createTestPRs(dbRepo2Pkgs, "my-ws", 2)
 
-	prFilter.Key.WorkspaceName = "my-ws-2"
-	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
-	t.Require().NoError(err)
-	t.Equal(4, len(listPRs))
+	// Create a nested package (same leaf name, different path)
+	nestedPkg := t.createTestPkgWithPath(dbRepo.Key(), "my-package-0", "catalog")
+	_ = t.createTestPRs([]dbPackage{nestedPkg}, "my-ws", 1)
 
-	prFilter.Key.Revision = 3
-	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
-	t.Require().NoError(err)
-	t.Equal(4, len(listPRs))
+	t.Run("EmptyFilter", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(21, len(listPRs))
+	})
 
-	prFilter.Key.Revision = 1
-	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
-	t.Require().NoError(err)
-	t.Equal(0, len(listPRs))
+	t.Run("WorkspaceNameOnly", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.WorkspaceName = "my-ws-2"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(4, len(listPRs))
+	})
 
+	t.Run("WorkspaceAndRevision", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.WorkspaceName = "my-ws-2"
+		prFilter.Key.Revision = 3
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(4, len(listPRs))
+	})
+
+	t.Run("WorkspaceAndNonMatchingRevision", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.WorkspaceName = "my-ws-2"
+		prFilter.Key.Revision = 1
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(0, len(listPRs))
+	})
+
+	t.Run("PackageNameOnlySharedAcrossRepos", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-0"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(7, len(listPRs)) // 4 from my-repo + 2 from other-repo + 1 nested
+	})
+
+	t.Run("PackageNameOnlyUniqueToOneRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-3"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(4, len(listPRs))
+	})
+
+	t.Run("PackageNameOnlyNonExistent", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "no-such-package"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(0, len(listPRs))
+	})
+
+	t.Run("PackageNameAndRevisionNoRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-0"
+		prFilter.Key.Revision = 1
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(3, len(listPRs)) // revision 1 of my-package-0 in each repo + nested
+	})
+
+	t.Run("RepositoryNameOnly", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.RepoKey.Name = "my-repo"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(17, len(listPRs))
+	})
+
+	t.Run("NamespaceOnly", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.RepoKey.Namespace = "my-ns"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(21, len(listPRs))
+	})
+
+	t.Run("LifecyclePublished", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Lifecycles = []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished}
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(21, len(listPRs))
+	})
+
+	t.Run("LifecycleDraft", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Lifecycles = []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecycleDraft}
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(0, len(listPRs))
+	})
+
+	t.Run("PackageNameAndLifecycleNoRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-0"
+		prFilter.Lifecycles = []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished}
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(7, len(listPRs))
+	})
+
+	t.Run("PackageNameAndPathNoRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-0"
+		prFilter.Key.PkgKey.Path = "catalog"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(1, len(listPRs))
+	})
+
+	t.Run("PackageNameAndNonMatchingPathNoRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Package = "my-package-0"
+		prFilter.Key.PkgKey.Path = "other"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(0, len(listPRs))
+	})
+
+	t.Run("PathOnlyNoRepo", func() {
+		prFilter := repository.ListPackageRevisionFilter{}
+		prFilter.Key.PkgKey.Path = "catalog"
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
+		t.Equal(1, len(listPRs))
+	})
+
+	t.deleteTestRepo(dbRepo2.Key())
 	t.deleteTestRepo(dbRepo.Key())
 
 	t.Empty(t.readRepoPkgPRs(dbRepoPkgs))

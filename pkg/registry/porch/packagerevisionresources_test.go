@@ -64,7 +64,7 @@ func setupResourcesTest(t *testing.T) (mockClient *mockclient.MockClient, mockEn
 
 func TestListResources(t *testing.T) {
 	_, mockEngine := setupResourcesTest(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -83,7 +83,7 @@ func TestListResources(t *testing.T) {
 	//=========================================================================================
 
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
@@ -95,12 +95,11 @@ func TestListResources(t *testing.T) {
 }
 
 func TestGetResources(t *testing.T) {
-	mockClient, mockEngine := setupResourcesTest(t)
+	_, mockEngine := setupResourcesTest(t)
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -113,8 +112,7 @@ func TestGetResources(t *testing.T) {
 	//=========================================================================================
 
 	// PRR Not found case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
 	result, err = packagerevisionresources.Get(ctx, pkgRevName, nil)
 	assert.Error(t, err)
@@ -124,8 +122,7 @@ func TestGetResources(t *testing.T) {
 
 	// Error from GetResources
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil).Once()
 	mockPkgRev.On("KubeObjectName").Return(pkgRevName)
@@ -142,7 +139,7 @@ func TestWatchResources(t *testing.T) {
 	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
 
 	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Maybe()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Maybe()
 
 	watcher, err := packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)

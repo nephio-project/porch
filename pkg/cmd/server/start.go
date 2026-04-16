@@ -332,6 +332,10 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				RepoOperationRetryAttempts: o.RepoOperationRetryAttempts,
 				CacheType:                  cachetypes.CacheType(o.CacheType),
+				CRCacheOptions: cachetypes.CRCacheOptions{
+					MaxConcurrentLists:       o.MaxConcurrentLists,
+					ListTimeoutPerRepository: o.ListTimeoutPerRepository,
+				},
 				DBCacheOptions: cachetypes.DBCacheOptions{
 					Driver:             o.DbCacheDriver,
 					DataSource:         o.DbCacheDataSource,
@@ -341,8 +345,6 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
-			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
-			MaxConcurrentLists:       o.MaxConcurrentLists,
 		},
 	}
 	return config, nil
