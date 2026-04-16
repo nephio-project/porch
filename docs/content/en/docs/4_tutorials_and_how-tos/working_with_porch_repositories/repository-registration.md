@@ -19,11 +19,7 @@ porchctl repo register https://github.com/example/porch-test.git \
   --branch=main
 ```
 
-**What this does:**
-
-- Registers the Git repository with Porch
-- Creates a Repository resource in Kubernetes
-- Begins synchronizing packages from the repository
+This command registers the Git repository with Porch, creates a Repository resource in Kubernetes and begins synchronizing packages from the repository.
 
 **Example output:**
 

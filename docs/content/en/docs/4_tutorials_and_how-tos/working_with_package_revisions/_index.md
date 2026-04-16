@@ -7,9 +7,9 @@ description: A group of guides outlining how to interact with Package Revisions 
 
 ## Prerequisites
 
-- Porch deployed on a Kubernetes cluster [Setup Porch Guide]({{% relref "/docs/3_getting_started/installing-porch.md" %}}).
-- **Porchctl** CLI tool installed [Setup Porchctl Guide]({{% relref "/docs/3_getting_started/installing-porchctl.md" %}}).
-- A Git repository registered with Porch [Setup Repositories Guide]({{% relref "/docs/4_tutorials_and_how-tos/working_with_porch_repositories/repository-registration.md" %}}).
+- Porch deployed on a Kubernetes cluster. See, [Setup Porch Guide]({{% relref "/docs/3_getting_started/installing-porch.md" %}}).
+- **Porchctl** CLI tool installed. See, [Setup Porchctl Guide]({{% relref "/docs/3_getting_started/installing-porchctl.md" %}}).
+- A Git repository registered with Porch. See, [Setup Repositories Guide]({{% relref "/docs/4_tutorials_and_how-tos/working_with_porch_repositories/repository-registration.md" %}}).
 - **Kubectl** configured to access your cluster.
 
 ---
@@ -27,12 +27,14 @@ PackageRevisions are Kubernetes resources that represent versioned collections o
 
 **PackageRevision Operations:**
 
-- **Creation**: `init`, `clone`, `copy` - Create new PackageRevisions from scratch, existing packages, or new revisions
-- **Inspection**: `get` - List and view PackageRevision information and metadata
-- **Content Management**: `pull`, `push` - Move PackageRevision content between Git repositories and local filesystem
-- **Lifecycle Management**: `propose`, `approve`, `reject` - Control PackageRevision workflow states
-- **Upgrading**: `upgrade` - Create new revision upgrading downstream to more recent upstream package
-- **Deletion**: `propose-delete`, `del` - Propose deletion of published PackageRevisions, then delete them
+| Operation | Git Command | Description |
+|-----------|---------|-------------|
+| Creation | `init`, `clone`, `copy` | Create new PackageRevisions from scratch, existing packages, or new revisions |
+| Inspection | `get` | List and view PackageRevision information and metadata |
+| Content Management | `pull`, `push` | Move PackageRevision content between Git repositories and local filesystem |
+| Lifecycle Management | `propose`, `approve`, `reject` | Control PackageRevision workflow states |
+| Upgrading | `upgrade` | Create new revision upgrading downstream to more recent upstream package |
+| Deletion | `propose-delete`, `del` | Propose deletion of published PackageRevisions, then delete them |
 
 ---
 
@@ -44,36 +46,29 @@ PackageRevisions follow a structured lifecycle with three main states:
 - **Proposed**: Ready for review, contents are immutable. To make further changes, reject back to Draft. Revision number remains 0.
 - **Published**: Approved and immutable. Revision number increments to 1+.
 
-**Lifecycle Transitions:**
+PackageRevisions follow the following lifecycle transitions:
 
 1. **Draft → Proposed**: `porchctl rpkg propose` - Signal readiness for review
 2. **Proposed → Published**: `porchctl rpkg approve` - Approve and make immutable
 3. **Proposed → Draft**: `porchctl rpkg reject` - Return for more work
 
-**Additional States:**
-
-- **DeletionProposed**: PackageRevision marked for deletion, pending approval
+An additional state is **DeletionProposed**. In his state, the PackageRevision is marked for deletion, pending approval.
 
 ---
 
 ## PackageRevision Naming
 
-Porch generates PackageRevision names automatically using a consistent format:
+Porch generates PackageRevision names automatically using the `{repositoryName}.{packageName}.{workspaceName}` format. An example PackageRevision naming would be `porch-test.my-first-package.v1`.
 
-- **Format**: `{repositoryName}.{packageName}.{workspaceName}`
-- **Example**: `porch-test.my-first-package.v1`
-
-**Name Components:**
+The name consists of the following components:
 
 - **Repository Name**: Name of the registered Git repository
 - **Package Name**: Logical name for the package (can have multiple revisions)
 - **Workspace Name**: Unique identifier within the package (maps to Git branch/tag)
 
-**Important Notes:**
-
-- Workspace names must be unique within a package
-- Multiple PackageRevisions can share the same package name with different workspaces
-- Published PackageRevisions get tagged in Git using the workspace name
+{{% alert title="Note" color="primary" %}}
+Workspace names must be unique within a package. Multiple PackageRevisions can share the same package name with different workspaces and published PackageRevisions get tagged in Git using the workspace name 
+{{% /alert %}}
 
 ---
 
@@ -87,11 +82,7 @@ PackageRevisions contain structured configuration files that can be modified thr
 2. **Modify**: Edit files locally using standard tools
 3. **Push**: Upload changes back to Porch (triggers pipeline rendering)
 
-**Pipeline Processing:**
-
-- KRM functions defined in the Kptfile automatically transform resources
-- Functions run when PackageRevisions are pushed to Porch
-- Common functions: set-namespace, apply-replacements, search-replace
+KRM functions defined in the Kptfile automatically transform resources; they run when PackageRevisions are pushed to Porch. Common examples include `set-namespace`, `apply-replacements`, and `search-replace`.
 
 **Content Structure:**
 
@@ -116,16 +107,9 @@ PackageRevisions are stored in Git repositories registered with Porch:
 - **Proposed**: Stored in `proposed/{workspace}` branch  
 - **Published**: Tagged as `{workspace}` and stored in main branch
 
-**Repository Types:**
+There are two repository types: Blueprint Repositories and Deployment Repositories. Blueprint Repositories contain upstream package templates for cloning, while Deployment Repositories store deployment-ready packages. These are marked with the `--deployment` flag.
 
-- **Blueprint Repositories**: Contain upstream package templates for cloning
-- **Deployment Repositories**: Store deployment-ready packages (marked with `--deployment` flag)
-
-**Synchronization:**
-
-- Porch automatically syncs with Git repositories
-- Manual sync: `porchctl repo sync <repository-name>`
-- Periodic sync can be configured with cron expressions
+Porch automatically syncs with Git repositories, however you can perform a manual sync with the `porchctl repo sync <repository-name>` command. You can also configure periodic sync with cron expressions.
 
 ---
 
@@ -135,40 +119,40 @@ Common issues when working with PackageRevisions and their solutions:
 
 **PackageRevision stuck in Draft?**
 
-- Check readiness conditions: `porchctl rpkg get <PACKAGE-REVISION> -o yaml | grep -A 5 conditions`
-- Verify all required fields are populated in the Kptfile
-- Check for pipeline function errors in Porch server logs
+- Check readiness conditions with the `porchctl rpkg get <PACKAGE-REVISION> -o yaml | grep -A 5 conditions` command
+- Verify that all required fields are populated in the Kptfile
+- Check for pipeline function errors in the Porch server logs
 
 **Push fails with conflict?**
 
-- Pull the latest version first: `porchctl rpkg pull <PACKAGE-REVISION> ./dir`
-- The PackageRevision may have been modified by someone else
+- Pull the latest version first with the `porchctl rpkg pull <PACKAGE-REVISION> ./dir` command
+- Check if the PackageRevision has been modified by someone else
 - Resolve conflicts locally and push again
 
 **Cannot modify Published PackageRevision?**
 
 - Published PackageRevisions are immutable by design
-- Create a new revision using `porchctl rpkg copy`
+- Create a new revision with the `porchctl rpkg copy` command
 - Use the copying workflow to create editable versions
 
 **PackageRevision not found?**
 
-- Verify the exact PackageRevision name: `porchctl rpkg get --namespace default`
-- Check you're using the correct namespace
+- Verify the exact PackageRevision name with the `porchctl rpkg get --namespace default` command
+- Check if you are using the correct namespace
 - Ensure the repository is registered and synchronized
 
 **Permission denied errors?**
 
-- Check RBAC permissions: `kubectl auth can-i get packagerevisions -n default`
-- Verify service account has proper roles for PackageRevision operations
-- Ensure repository authentication is configured correctly
+- Check RBAC permissions with the `kubectl auth can-i get packagerevisions -n default` command
+- Verify that the service account has proper roles for PackageRevision operations
+- Ensure the repository authentication is configured correctly
 
 **Pipeline functions failing?**
 
-- Check function image availability and version
-- Verify function configuration in Kptfile
-- Review function logs in Porch server output during push operations
-- **To save work-in-progress despite failures**: Add `porch.kpt.dev/push-on-render-failure: "true"` annotation to the PackageRevision
+- Check the function image availability and version
+- Verify the function configuration in Kptfile
+- Review the function logs in the Porch server output during push operations
+- To save work-in-progress despite failures, add the `porch.kpt.dev/push-on-render-failure: "true"` annotation to the PackageRevision
   ```bash
   kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=true
   ```

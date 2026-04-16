@@ -69,7 +69,7 @@ First, list available PackageRevisions to find one to copy:
 porchctl rpkg get --namespace default
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -77,11 +77,7 @@ porch-test.my-app.v1             my-app             v1              1          t
 blueprints.nginx.main            nginx              main            5          true     Published   blueprints
 ```
 
-**What to look for:**
-
-- Published PackageRevisions are good candidates for copying
-- Note the full NAME (e.g., `porch-test.my-app.v1`)
-- Check the LATEST column to find the most recent version
+Look for published PackageRevisions that are good candidates for copying. Note the full NAME (e.g., `porch-test.my-app.v1`) and check the LATEST column to find the most recent version.
 
 ---
 
@@ -97,21 +93,15 @@ porchctl rpkg copy \
   --workspace v2
 ```
 
-**What this does:**
+This command creates a new PackageRevision based on `porch-test.my-app.v1` and names the new PackageRevision `my-app` (package name) while using `v2` as the workspace name (must be unique within the package). This PackageRevision starts in `Draft` lifecycle state. The command copies all resources from the source PackageRevision.
 
-- Creates a new PackageRevision based on `porch-test.my-app.v1`
-- Names the new PackageRevision `my-app` (package name)
-- Uses `v2` as the workspace name (must be unique within the package)
-- Starts in `Draft` lifecycle state
-- Copies all resources from the source PackageRevision
-
-**Verify the copy was created:**
+Verify the copy was created:
 
 ```bash
 porchctl rpkg get --namespace default --name my-app
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -129,7 +119,7 @@ After copying, you can modify the new PackageRevision. Pull it locally:
 porchctl rpkg pull porch-test.my-app.v2 ./my-app-v2 --namespace default
 ```
 
-**Make your changes:**
+Make your changes:
 
 ```bash
 vim ./my-app-v2/Kptfile
@@ -153,7 +143,7 @@ pipeline:
         namespace: production
 ```
 
-**Push the changes back:**
+Push the changes back:
 
 ```bash
 porchctl rpkg push porch-test.my-app.v2 ./my-app-v2 --namespace default
@@ -169,32 +159,32 @@ Once you're satisfied with the changes, propose the PackageRevision:
 porchctl rpkg propose porch-test.my-app.v2 --namespace default
 ```
 
-**Verify the state change:**
+Verify the state change:
 
 ```bash
 porchctl rpkg get porch-test.my-app.v2 --namespace default
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
 porch-test.my-app.v2             my-app             v2              0          false    Proposed    porch-test
 ```
 
-**Approve to publish:**
+Approve to publish:
 
 ```bash
 porchctl rpkg approve porch-test.my-app.v2 --namespace default
 ```
 
-**Verify the publication:**
+Verify the publication:
 
 ```bash
 porchctl rpkg get --namespace default --name my-app
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -262,7 +252,7 @@ Common issues when copying PackageRevisions and how to resolve them.
 **Copy fails with "workspace already exists":**
 
 - The workspace name must be unique within the package
-- Choose a different workspace name: `--workspace v3` or `--workspace dev-2`
+- Choose a different workspace name, `--workspace v3` or `--workspace dev-2`
 - List existing workspaces with the `porchctl rpkg get --namespace default --name <package>` command
 
 **Copy fails with "source not found":**
@@ -270,7 +260,7 @@ Common issues when copying PackageRevisions and how to resolve them.
 - Verify that the source PackageRevision exists with the `porchctl rpkg get --namespace default` command
 - Check the exact name including repository, package, and workspace
 - Ensure you have permission to read the source PackageRevision
-- Ensure the source is in the same repository (copy only works within the same repository)
+- Ensure the source is in the same repository, as copy only works within the same repository
 
 **Copied PackageRevision has unexpected content:**
 

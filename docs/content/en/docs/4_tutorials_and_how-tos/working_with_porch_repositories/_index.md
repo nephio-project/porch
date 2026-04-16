@@ -7,8 +7,8 @@ description: A group of guides outlining how to interact with Porch repositories
 
 ## Prerequisites
 
-- Porch deployed on a Kubernetes cluster [Setup Porch Guide]({{% relref "/docs/3_getting_started/installing-porch.md" %}}).
-- **Porchctl** CLI tool installed [Setup Porchctl Guide]({{% relref "/docs/3_getting_started/installing-porchctl.md" %}}).
+- Porch deployed on a Kubernetes cluster. See, [Setup Porch Guide]({{% relref "/docs/3_getting_started/installing-porch.md" %}}).
+- **Porchctl** CLI tool installed. See, [Setup Porchctl Guide]({{% relref "/docs/3_getting_started/installing-porchctl.md" %}}).
 - **Kubectl** configured to access your cluster.
 - A Git repository to register with Porch. If you need to create one, see [GitHub's Repository Guide](https://docs.github.com/en/repositories/creating-and-managing-repositories/quickstart-for-repositories).
 
@@ -16,11 +16,7 @@ description: A group of guides outlining how to interact with Porch repositories
 
 ## Understanding Repositories
 
-Before Porch can manage packages, you must register repositories where those packages are stored. Repositories tell Porch:
-
-- Where to find package blueprints
-- Where to store deployment packages
-- How to authenticate with the repository
+Before Porch can manage packages, you must register repositories where those packages are stored. Repositories tell Porch where to find package blueprints, where to store deployment packages and how to authenticade with the repository.
 
 Porch primarily supports **Git repositories** from providers like GitHub, GitLab, Gitea, Bitbucket, and other Git-compatible services.
 
@@ -70,23 +66,23 @@ Common issues when working with repositories and their solutions:
 
 **Repository shows READY: False?**
 
-- Check repository URL is accessible
-- Verify authentication credentials are correct
-- Inspect repository conditions: `porchctl repo get <name> -n <namespace> -o yaml`
-- Check Porch server logs for detailed errors
+- Check if the repository URL is accessible
+- Verify that the authentication credentials are correct
+- Inspect the repository conditions: `porchctl repo get <name> -n <namespace> -o yaml`
+- Check the Porch server logs for detailed errors
 
 **Packages not appearing after registration?**
 
-- Ensure repository has been synchronized (check SYNC SCHEDULE or trigger manual sync)
-- Verify packages have valid Kptfile in repository
-- Check repository directory configuration matches package location
-- If re-registering a previously unregistered repository, packages in Git will reappear after sync
+- Ensure that the repository has been synchronized (check SYNC SCHEDULE or trigger manual sync)
+- Verify that the packages have valid Kptfile in repository
+- Check if the repository directory configuration matches package location
+- If you re-registering a previously unregistered repository, the packages in Git will reappear after sync
 
 **Authentication failures?**
 
-- For GitHub: Ensure Personal Access Token has `repo` scope
-- For private repos: Verify credentials are correctly configured
-- Check secret exists: `kubectl get secret <secret-name> -n <namespace>`
+- For GitHub: Ensure that the Personal Access Token has `repo` scope
+- For private repos: Verify that the credentials are correctly configured
+- Check if secret exists: `kubectl get secret <secret-name> -n <namespace>`
 
 **Need to change repository configuration?**
 
@@ -96,7 +92,7 @@ Common issues when working with repositories and their solutions:
 
 **Sync not working?**
 
-- Verify cron expression syntax is correct
+- Verify that the cron expression syntax is correct
 - Check minimum 1-minute delay for manual syncs
 - Inspect repository status for sync errors
 

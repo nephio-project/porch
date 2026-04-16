@@ -17,11 +17,7 @@ View all repositories registered with Porch:
 porchctl repo get --namespace default
 ```
 
-**What this does:**
-
-- Queries Porch for all registered repositories in the specified namespace
-- Displays repository type, content, sync schedule, and status
-- Shows the repository address
+This command queries Porch for all registered repositories in the specified namespace, displays repository type, content, sync schedule, and status and shows the repository address.
 
 {{% alert title="Note" color="primary" %}}
 `porchctl repo list` is an alias for `porchctl repo get` and can be used interchangeably:
@@ -86,11 +82,7 @@ View complete details about a specific repository:
 porchctl repo get porch-test --namespace default -o yaml
 ```
 
-**What this does:**
-
-- Retrieves the full Repository resource
-- Shows configuration, authentication, and status information
-- Displays in YAML format for easy reading
+This command retrieves the full Repository resource, shows configuration, authentication, and status information and displays in YAML format for easy reading.
 
 **Example output:**
 
