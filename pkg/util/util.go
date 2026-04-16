@@ -345,3 +345,18 @@ func RetryOnError(retries int, f func(retryNumber int) error) error {
 	klog.Errorf("Failed to fetch remote repository after %d retries: %v", retries, err)
 	return err
 }
+
+func getImageName(image string) string {
+	if i := strings.Index(image, "@"); i != -1 {
+		image = image[:i]
+	}
+
+	if i := strings.LastIndex(image, ":"); i != -1 && !strings.Contains(image[i+1:], "/") {
+		image = image[:i]
+	}
+
+	if i := strings.LastIndex(image, "/"); i != -1 {
+		image = image[i+1:]
+	}
+	return image
+}

@@ -18,6 +18,7 @@ import (
 	"context"
 	"maps"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -28,6 +29,7 @@ import (
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -40,11 +42,16 @@ const BaseFinalizer = "config.porch.kpt.dev/functionconfig"
 const ServerFinalizer = BaseFinalizer + "-porch-server"
 const FunctionRunnerFinalizer = BaseFinalizer + "-function-runner"
 
+type BinaryCacheEntry struct {
+	PrefixRegex string
+	Tags        map[string]string
+}
+
 type FunctionConfigStore struct {
 	mu sync.RWMutex
 
 	functionConfigurations map[string]*configapi.FunctionConfig
-	binaryExecutorCache    map[string]string
+	binaryExecutorCache    map[string]BinaryCacheEntry
 	builtInExecutorCache   map[string]fnsdk.ResourceListProcessor
 
 	defaultImagePrefix string
@@ -54,7 +61,7 @@ type FunctionConfigStore struct {
 func NewFunctionConfigStore(defaultImagePrefix, defaultBinaryDir string) *FunctionConfigStore {
 	return &FunctionConfigStore{
 		functionConfigurations: make(map[string]*configapi.FunctionConfig),
-		binaryExecutorCache:    make(map[string]string),
+		binaryExecutorCache:    make(map[string]BinaryCacheEntry),
 		builtInExecutorCache:   make(map[string]fnsdk.ResourceListProcessor),
 		defaultImagePrefix:     strings.TrimRight(defaultImagePrefix, "/"),
 		defaultBinaryDir:       strings.TrimRight(defaultBinaryDir, "/"),
@@ -67,35 +74,53 @@ func (s *FunctionConfigStore) UpsertFunctionConfig(name string, obj *configapi.F
 	s.functionConfigurations[name] = obj
 }
 
+func (s *FunctionConfigStore) generateRegexPattern(prefixes []string, imageName string) string {
+	var preparedPrefixes []string
+	for _, prefix := range prefixes {
+		if prefix == "" {
+			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(s.defaultImagePrefix+"/"+imageName))
+		} else {
+			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(prefix+"/"+imageName))
+		}
+	}
+
+	return "^(?:" + strings.Join(preparedPrefixes, "|") + ")"
+
+}
+
+func splitImage(image string) (name string, tag string) {
+	lastSlash := strings.LastIndex(image, "/")
+	lastColon := strings.LastIndex(image, ":")
+
+	if lastColon > lastSlash {
+		return image[:lastColon], image[lastColon+1:]
+	}
+	return image, ""
+}
+
 func (s *FunctionConfigStore) UpdateBinaryCache(_ string, obj *configapi.FunctionConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	imageResolver := (&runneroptions.RunnerOptions{}).ResolveToImageForCLIFunc(s.defaultImagePrefix) // TODO: port porch version to kpt
-	for _, tag := range obj.Spec.BinaryExecutor.Tags {
-		image := obj.Spec.Image + ":" + tag
-		if len(obj.Spec.Prefixes) > 0 && obj.Spec.Prefixes[0] != "" {
-			image = filepath.Join(obj.Spec.Prefixes[0], image)
-		} else {
-			image = filepath.Join(s.defaultImagePrefix, image)
-		}
-		im, _ := imageResolver(nil, image)
-		if _, exists := s.binaryExecutorCache[im]; exists {
-			klog.Warningf("Ignoring duplicate image %q (%s)", im, image)
-		} else {
-			abs := obj.Spec.BinaryExecutor.Path
-			if abs[0] != '/' {
-				var err error
-				abs, err = filepath.Abs(filepath.Join(s.defaultBinaryDir, obj.Spec.BinaryExecutor.Path))
-				if err != nil {
-					klog.Warningf("Failed to cache %q: %v", im, err)
-					return
-				}
-			}
-			klog.Infof("Caching %q as %q", im, abs)
-			s.binaryExecutorCache[im] = abs
+	var binaryCacheEntry BinaryCacheEntry
+	binaryCacheEntry.Tags = make(map[string]string)
+	// Create a prefix Regex
+	binaryCacheEntry.PrefixRegex = s.generateRegexPattern(obj.Spec.Prefixes, obj.Spec.Image)
+
+	abs := obj.Spec.BinaryExecutor.Path
+	if abs[0] != '/' {
+		var err error
+		abs, err = filepath.Abs(filepath.Join(s.defaultBinaryDir, obj.Spec.BinaryExecutor.Path))
+		if err != nil {
+			klog.Warningf("Failed to cache %q: %v", obj.Spec.Image, err)
+			return
 		}
 	}
+
+	for _, tag := range obj.Spec.BinaryExecutor.Tags {
+		binaryCacheEntry.Tags[tag] = abs
+	}
+	s.binaryExecutorCache[obj.Spec.Image] = binaryCacheEntry
 }
 
 func (s *FunctionConfigStore) UpdateExecCache(name string, functionConfig *configapi.FunctionConfig) {
@@ -150,10 +175,22 @@ func (s *FunctionConfigStore) GetFunctionConfig(name string) (*configapi.Functio
 	return config, ok
 }
 
-func (s *FunctionConfigStore) GetBinaryCache() map[string]string {
+func (s *FunctionConfigStore) GetBinaryFromCache(image string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.binaryExecutorCache
+
+	prefixToCheck, tag := splitImage(image)
+	binaryStore, exists := s.binaryExecutorCache[util.GetImageName(image)]
+	if exists {
+		regex := regexp.MustCompile(binaryStore.PrefixRegex)
+		if regex.MatchString(prefixToCheck) {
+			binaryPath, tagExists := binaryStore.Tags[tag]
+			if tagExists {
+				return binaryPath, true
+			}
+		}
+	}
+	return "", false
 }
 
 func (s *FunctionConfigStore) GetExecCache() map[string]fnsdk.ResourceListProcessor {

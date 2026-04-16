@@ -25,6 +25,7 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
+	"github.com/nephio-project/porch/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -129,7 +130,7 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 
 				fn.pods = append(fn.pods, NewPodInfo(req.responseCh))
 
-				functionConfig, exists := pcm.functionConfigMap.GetFunctionConfig(getImageName(req.image))
+				functionConfig, exists := pcm.functionConfigMap.GetFunctionConfig(util.GetImageName(req.image))
 				if !exists {
 					functionConfig = &configapi.FunctionConfig{}
 				}
@@ -207,7 +208,7 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 // If the image is present in the configMap, it returns the specific parameters for that image.
 // Otherwise, it falls back to the global defaults (pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction).
 func (pcm *podCacheManager) getParamsForImage(image string) (ttl time.Duration, maxWaitlist, maxPods int) {
-	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(getImageName(image)); ok && entry.Spec.PodExecutor != nil {
+	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(util.GetImageName(image)); ok && entry.Spec.PodExecutor != nil {
 		podExecutorConfig := entry.Spec.PodExecutor
 		parsedTTL := podExecutorConfig.TimeToLive.Duration
 		if parsedTTL <= 0 {
@@ -557,19 +558,4 @@ func (pod *functionPodInfo) SendResponse(responseCh chan<- *connectionResponse, 
 // WaitlistLen returns with the number of fn evaluations currently handled by the pod
 func (pod functionPodInfo) WaitlistLen() int {
 	return int(pod.concurrentEvaluations.Load())
-}
-
-func getImageName(image string) string {
-	if i := strings.Index(image, "@"); i != -1 {
-		image = image[:i]
-	}
-
-	if i := strings.LastIndex(image, ":"); i != -1 && !strings.Contains(image[i+1:], "/") {
-		image = image[:i]
-	}
-
-	if i := strings.LastIndex(image, "/"); i != -1 {
-		image = image[i+1:]
-	}
-	return image
 }

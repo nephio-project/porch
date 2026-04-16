@@ -164,10 +164,9 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			check: func(t *testing.T, r *FunctionConfigReconciler) {
 				expectedKey := "ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.4"
 				expectedPath := "/functions/set-image"
-				binaryCache := r.FunctionConfigStore.GetBinaryCache()
-				got, ok := binaryCache[expectedKey]
-				assert.True(t, ok, "BinaryExecutorCache should have '%s'", expectedKey)
-				assert.Equal(t, expectedPath, got, "BinaryExecutorCache entry is %q, want %q", got, expectedPath)
+				binary, exists := r.FunctionConfigStore.GetBinaryFromCache(expectedKey)
+				assert.True(t, exists, "BinaryExecutorCache should have '%s'", expectedKey)
+				assert.Equal(t, expectedPath, binary, "BinaryExecutorCache entry is %q, want %q", binary, expectedPath)
 			},
 		},
 		{

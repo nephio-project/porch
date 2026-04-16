@@ -46,10 +46,9 @@ func NewExecutableEvaluator(FunctionConfigStore *reconciler.FunctionConfigStore)
 }
 
 func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
-	cache := e.FunctionConfigStore.GetBinaryCache()
+	binary, exists := e.FunctionConfigStore.GetBinaryFromCache(req.Image)
 
-	binary, cached := cache[req.Image]
-	if !cached {
+	if !exists {
 		return nil, &fn.NotFoundError{
 			Function: kptfilev1.Function{Image: req.Image},
 		}
