@@ -16,6 +16,7 @@ package suiteutils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -26,11 +27,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kptfileapi "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilesdk "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	coreapi "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +50,7 @@ import (
 
 const (
 	defaultKrmFuncRegistry = "ghcr.io/kptdev/krm-functions-catalog"
+	sleepImage             = "sleep:latest"
 )
 
 var (
@@ -244,12 +249,12 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.CreateF(repo)
 
 	t.Cleanup(func() {
-		if IsPorchTestRepo(config.Repo) {
-			defer t.RecreateGiteaTestRepo()
-		}
 		t.DeleteE(repo)
-		t.WaitUntilRepositoryDeleted(name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		t.WaitUntilRepositoryDeleted(name, repo.Namespace)
+		t.WaitUntilAllPackagesDeleted(name, repo.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -555,12 +560,12 @@ func (t *TestSuite) WaitUntilAllPackageRevisionsDeleted(repoName string, namespa
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &pkgRevList, client.InNamespace(namespace)); err != nil {
 			t.Logf("error listing PackageRevisions: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
+			if pkgRev.Spec.RepositoryName == repoName {
 				t.Logf("Found PackageRevision %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
@@ -576,17 +581,20 @@ func (t *TestSuite) WaitUntilAllPackageRevsDeleted(repoName string, namespace st
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var internalPkgRevList internalapi.PackageRevList
-		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &internalPkgRevList, client.InNamespace(namespace), client.MatchingLabels{
+			"internal.porch.kpt.dev/repository": repoName,
+		}); err != nil {
 			t.Logf("error listing PackageRevs: %v", err)
 			return false, nil
 		}
-		for _, internalPkgRev := range internalPkgRevList.Items {
-			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+		if len(internalPkgRevList.Items) > 0 {
+			t.Logf("Found %d PackageRevs from repo %s", len(internalPkgRevList.Items), repoName)
+			for _, internalPkgRev := range internalPkgRevList.Items {
 				if len(internalPkgRev.Finalizers) > 0 {
 					t.removePkgRevFinalizers(ctx, &internalPkgRev)
 				}
-				return false, nil
 			}
+			return false, nil
 		}
 		return true, nil
 	})
@@ -738,7 +746,128 @@ func WithConfigPath(configPath string) MutatorOption {
 	}
 }
 
-// AddMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func SplitContainerFullName(fullName string) (repo, image, tag string) {
+	slash := strings.LastIndex(fullName, "/")
+	repo = fullName[:slash+1]
+	imageAndTag := fullName[slash+1:]
+	colon := strings.LastIndex(imageAndTag, ":")
+	if colon >= 0 {
+		return repo, imageAndTag[:colon], imageAndTag[colon:]
+	} else {
+		return repo, imageAndTag, ""
+	}
+}
+
+func (t *TestSuite) FindFirstContainerByImageName(ns string, wantedImages ...string) *coreapi.Container {
+	var pods coreapi.PodList
+	if err := t.Client.List(t.GetContext(), &pods, client.InNamespace(ns)); err != nil {
+		t.Logf("FindFirstContainerByImageName: Failed to list pods in namespace %s: %v", ns, err)
+		return nil
+	}
+
+	t.ListF(&pods, client.InNamespace(ns))
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			_, imageGot, _ := SplitContainerFullName(container.Image)
+			for _, imageWanted := range wantedImages {
+				if strings.Contains(imageGot, imageWanted) {
+					return container.DeepCopy()
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (t *TestSuite) FnNamespaceName() string {
+	defaultNamespace := "porch-fn-system"
+
+	porchSvcKey := t.PorchServerServiceKey()
+
+	container := t.FindFirstContainerByImageName(porchSvcKey.Namespace, "porch-function-runner", "porch-fnrunner")
+	if container != nil {
+		for _, arg := range container.Args {
+			if strings.Contains(arg, "pod-namespace") {
+				elements := strings.Split(arg, "=")
+				return elements[len(elements)-1]
+			}
+		}
+		for _, command := range container.Command {
+			if strings.Contains(command, "pod-namespace") {
+				elements := strings.Split(command, "=")
+				return elements[len(elements)-1]
+			}
+		}
+
+	}
+
+	return defaultNamespace
+}
+
+func (t *TestSuiteWithGit) AddSleepFunctionToPipeline(prKey client.ObjectKey, sleepDuration time.Duration) error {
+	t.T().Helper()
+	resources := &porchapi.PackageRevisionResources{}
+	err := t.Client.Get(t.GetContext(), prKey, resources)
+	if err != nil {
+		return err
+	}
+	kptfile, err := kptfilesdk.NewFromPackage(resources.Spec.Resources)
+	if err != nil {
+		return err
+	}
+
+	err = kptfile.UpsertMutatorFunctions([]kptfileapi.Function{
+		{
+			Name:  "test-sleep",
+			Image: t.KrmFunctionsRegistry + "/" + sleepImage,
+			ConfigMap: map[string]string{
+				"duration": sleepDuration.String(),
+			},
+		},
+	}, -1)
+	if err != nil {
+		return err
+	}
+
+	err = kptfile.WriteToPackage(resources.Spec.Resources)
+	if err != nil {
+		return err
+	}
+
+	err = t.Client.Update(t.GetContext(), resources)
+	if err != nil {
+		return err
+	}
+
+	err = t.CheckRenderError(&resources.Status.RenderStatus)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *TestSuite) CheckRenderError(rs *porchapi.RenderStatus) error {
+	if rs.Err != "" {
+		return fmt.Errorf("failed to render package: %s", rs.Err)
+	}
+
+	if rs.Result.ExitCode != 0 {
+		var errorDetails strings.Builder
+		errorDetails.WriteString(fmt.Sprintf("render pipeline failed with overall exit code %d.", rs.Result.ExitCode))
+
+		for _, item := range rs.Result.Items {
+			if item != nil && item.ExitCode != 0 {
+				errorDetails.WriteString(fmt.Sprintf("\n  - Function %q failed with exit code %d. Stderr: %s", item.Image, item.ExitCode, item.Stderr))
+			}
+		}
+		return errors.New(errorDetails.String())
+	}
+
+	return nil
+}
+
+// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
 func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
 	t.T().Helper()
 	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
@@ -865,21 +994,33 @@ func (t *TestSuite) TimingHelper(operationDescription string, toTime func(t *Tes
 
 func RunInParallel(functions ...func() any) []any {
 	var group sync.WaitGroup
-	var results []any
-	for _, eachFunction := range functions {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			if reflect.TypeOf(eachFunction).NumOut() == 0 {
-				results = append(results, nil)
-				eachFunction()
-			} else {
-				eachResult := eachFunction()
+	var mu sync.Mutex
+	results := make([]any, len(functions))
 
-				results = append(results, eachResult)
+	startSignal := make(chan struct{})
+
+	for i, eachFunction := range functions {
+		group.Add(1)
+		go func(index int, fn func() any) {
+			defer group.Done()
+
+			<-startSignal
+
+			var result any
+			if reflect.TypeOf(fn).NumOut() == 0 {
+				fn()
+				result = nil
+			} else {
+				result = fn()
 			}
-		}()
+
+			mu.Lock()
+			results[index] = result
+			mu.Unlock()
+		}(i, eachFunction)
 	}
+	close(startSignal)
+
 	group.Wait()
 	return results
 }

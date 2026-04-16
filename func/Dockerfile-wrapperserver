@@ -23,15 +23,20 @@ WORKDIR /go/src
 ENV CGO_ENABLED=0
 
 COPY go.mod go.sum ./
+COPY ./third_party ./third_party
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 COPY func/ func/
 COPY ./api ./api
 COPY ./pkg ./pkg
 COPY ./internal ./internal
-COPY ./third_party ./third_party
 
-RUN cd func ; go build -v -o /wrapper-server/wrapper-server ./wrapper-server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd func ; go build -trimpath -ldflags="-s -w" -v -o /wrapper-server/wrapper-server ./wrapper-server
 RUN cp $GOPATH/bin/grpc-health-probe /wrapper-server/
 
 FROM alpine:${ALPINE_VERSION}

@@ -55,25 +55,35 @@ const (
 
 // PorchServerOptions contains state for master/api server
 type PorchServerOptions struct {
-	RecommendedOptions         *genericoptions.RecommendedOptions
-	CacheDirectory             string
-	CacheType                  string
-	CoreAPIKubeconfigPath      string
-	DbCacheDriver              string
-	DbCacheDataSource          string
-	DefaultImagePrefix         string
-	FunctionRunnerAddress      string
+	RecommendedOptions *genericoptions.RecommendedOptions
+
+	CoreAPIKubeconfigPath string
+
+	CacheDirectory       string
+	CacheType            string
+	DbCacheDriver        string
+	DbCacheDataSource    string
+	DbMaxConnections     int
+	DbMaxIdleConnections int
+	DbMaxConnLifetime    time.Duration
+	DbPushDrafsToGit     bool
+
+	DefaultImagePrefix       string
+	FunctionRunnerAddress    string
+	LocalStandaloneDebugging bool // Enables local standalone running/debugging of the apiserver.
+
 	ListTimeoutPerRepository   time.Duration
-	LocalStandaloneDebugging   bool // Enables local standalone running/debugging of the apiserver.
 	MaxConcurrentLists         int
 	MaxRequestBodySize         int
-	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RetryableGitErrors         []string // Additional retryable git error patterns
-	SharedInformerFactory      informers.SharedInformerFactory
-	StdOut                     io.Writer
-	StdErr                     io.Writer
-	UseUserDefinedCaBundle     bool
+
+	SharedInformerFactory informers.SharedInformerFactory
+
+	StdOut io.Writer
+	StdErr io.Writer
+
+	UseUserDefinedCaBundle bool
 }
 
 // NewPorchServerOptions returns a new PorchServerOptions
@@ -170,9 +180,37 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
+
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {
 			return err
+		}
+		// Set connection pool defaults from environment variables
+		if maxConns := os.Getenv("DB_MAX_CONNECTIONS"); maxConns != "" {
+			if n, err := fmt.Sscanf(maxConns, "%d", &o.DbMaxConnections); err != nil || n != 1 {
+				klog.Warningf("Invalid DB_MAX_CONNECTIONS value %q, using default 300", maxConns)
+				o.DbMaxConnections = 300
+			}
+		} else {
+			o.DbMaxConnections = 300
+		}
+		if maxIdle := os.Getenv("DB_MAX_IDLE_CONNECTIONS"); maxIdle != "" {
+			if n, err := fmt.Sscanf(maxIdle, "%d", &o.DbMaxIdleConnections); err != nil || n != 1 {
+				klog.Warningf("Invalid DB_MAX_IDLE_CONNECTIONS value %q, using default 100", maxIdle)
+				o.DbMaxIdleConnections = 100
+			}
+		} else {
+			o.DbMaxIdleConnections = 100
+		}
+		if maxLifetime := os.Getenv("DB_MAX_CONN_LIFETIME"); maxLifetime != "" {
+			if d, err := time.ParseDuration(maxLifetime); err != nil {
+				klog.Warningf("Invalid DB_MAX_CONN_LIFETIME value %q, using default 3m", maxLifetime)
+				o.DbMaxConnLifetime = 3 * time.Minute
+			} else {
+				o.DbMaxConnLifetime = d
+			}
+		} else {
+			o.DbMaxConnLifetime = 3 * time.Minute
 		}
 	}
 
@@ -292,13 +330,16 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency:          o.RepoSyncFrequency,
 				RepoOperationRetryAttempts: o.RepoOperationRetryAttempts,
 				CacheType:                  cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
-					Driver:     o.DbCacheDriver,
-					DataSource: o.DbCacheDataSource,
+					Driver:             o.DbCacheDriver,
+					DataSource:         o.DbCacheDataSource,
+					MaxConnections:     o.DbMaxConnections,
+					MaxIdleConnections: o.DbMaxIdleConnections,
+					MaxConnLifetime:    o.DbMaxConnLifetime,
 				},
+				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
@@ -335,26 +376,29 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	o.RecommendedOptions.AddFlags(fs)
 	utilfeature.DefaultMutableFeatureGate.AddFlag(fs)
 
-	// Add additional flags.
-
+	// Debugging flags
 	if os.Getenv("KUBERNETES_SERVICE_HOST") == "" && os.Getenv("KUBERNETES_SERVICE_PORT") == "" {
-		// Add this flag only when not running in k8s cluster.
 		fs.BoolVar(&o.LocalStandaloneDebugging, "standalone-debug-mode", false,
 			"Under the local-debug mode the apiserver will allow all access to its resources without "+
 				"authorizing the requests, this flag is only intended for debugging in your workstation.")
 	}
 
+	// Cache configuration
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
+	fs.BoolVar(&o.DbPushDrafsToGit, "db-push-drafts-to-git", false, "If true, Porch will push draft package revisions to git when using the DB cache")
+
+	// Function runner configuration
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
-	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
-	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
+
+	// Repository operations configuration
+	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
-	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
+	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
+	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
 }

@@ -88,9 +88,11 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Namespace: namespace,
 			Name:      name,
 		}
+		var lastErr error
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				lastErr = err
 				return err
 			}
 
@@ -99,17 +101,26 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 				err := r.client.Update(r.ctx, &pr)
 				if err == nil {
+					lastErr = nil
 					fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed for deletion\n", name)
+				} else {
+					lastErr = err
 				}
 				return err
 			case porchapi.PackageRevisionLifecycleDeletionProposed:
+				lastErr = nil
 				fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed for deletion\n", name)
 				return nil
 			default:
-				return fmt.Errorf("can only propose published packages for deletion; package %s is not published", name)
+				lastErr = fmt.Errorf("can only propose published packages for deletion; package %s is not published", name)
+				return lastErr
 			}
 
 		})
+		// Workaround for k8s retry library bug: OnError/RetryOnConflict sometimes returns nil even when errors occur
+		if err == nil && lastErr != nil {
+			err = lastErr
+		}
 		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)

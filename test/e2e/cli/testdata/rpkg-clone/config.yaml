@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
       - porchctl
@@ -7,7 +8,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-clone
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
       - porchctl
       - rpkg
@@ -29,7 +30,7 @@ commands:
       - --workspace=clone-3
       - basens-clone
     stderr: |
-      error: `clone` cannot create a new revision for package "basens-clone" that already exists in repo "git"; make subsequent revisions using `copy`
+      Error: Internal error occurred: `clone` cannot create a new revision for package "basens-clone" that already exists in repo "git"; make subsequent revisions using `copy` 
     exitCode: 1
   - args:
       - porchctl
@@ -94,6 +95,11 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|basens-clone
           name: basens-clone
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
         upstream:
           git:
             directory: basens
@@ -151,6 +157,11 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|empty-clone
           name: empty-clone
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
         upstream:
           git:
             directory: empty

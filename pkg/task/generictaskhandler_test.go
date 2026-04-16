@@ -17,10 +17,12 @@ package task
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -159,8 +161,8 @@ func TestDoPrMutations(t *testing.T) {
 	ror := func(namespace string) runneroptions.RunnerOptions {
 		return runneroptions.RunnerOptions{
 			ImagePullPolicy: runneroptions.IfNotPresentPull,
-			ResolveToImage: func(_ context.Context, image string) (string, error) {
-				return image, nil
+			ResolveToImage: func(image string) string {
+				return image
 			},
 		}
 	}
@@ -212,14 +214,15 @@ func TestDoPrResourceMutations(t *testing.T) {
 	ror := func(namespace string) runneroptions.RunnerOptions {
 		return runneroptions.RunnerOptions{
 			ImagePullPolicy: runneroptions.IfNotPresentPull,
-			ResolveToImage: func(_ context.Context, image string) (string, error) {
-				return image, nil
+			ResolveToImage: func(image string) string {
+				return image
 			},
 		}
 	}
 
 	th := &genericTaskHandler{
 		runnerOptionsResolver: ror,
+		runtime:               kptops.NewSimpleFunctionRuntime(),
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
@@ -267,7 +270,78 @@ func TestDoPrResourceMutations(t *testing.T) {
 		}, draft.Resources.Spec.Resources)
 	})
 
-	// TODO: test rendering
+	t.Run("Render failure persists resources to draft", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+		newRes.Spec.Resources["configmap.yaml"] = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n"
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+		// Should return a typed RenderError
+		var renderError *RenderError
+		require.True(t, errors.As(err, &renderError))
+		// Verify resources were written to draft despite render failure
+		require.Contains(t, draft.Ops, "UpdateResources")
+		assert.Contains(t, draft.Resources.Spec.Resources, "configmap.yaml")
+	})
+
+	t.Run("Render failure with draft update error", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: quay.io/invalid/nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Err: fmt.Errorf("draft update failed"),
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+		// Should return a typed RenderPersistError
+		var persistErr *RenderPersistError
+		require.True(t, errors.As(err, &persistErr))
+		assert.Contains(t, persistErr.PersistErr.Error(), "draft update failed")
+		assert.NotNil(t, persistErr.RenderErr)
+	})
 }
 
 func TestRenderError(t *testing.T) {
@@ -278,15 +352,14 @@ func TestRenderError(t *testing.T) {
 		t.Fatal("expected non-nil error")
 	}
 
-	// Check that the error message contains both the base error and the wrapper message
 	got := wrappedErr.Error()
 
 	if !strings.Contains(got, "some base error") {
 		t.Errorf("expected base error message to be included, got: %q", got)
 	}
 
-	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
-		t.Errorf("expected wrapper message to be included, got: %q", got)
+	if !strings.Contains(got, "Package NOT pushed to remote") {
+		t.Errorf("expected 'NOT pushed' message, got: %q", got)
 	}
 }
 

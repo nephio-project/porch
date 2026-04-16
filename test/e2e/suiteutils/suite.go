@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
-	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
@@ -42,6 +41,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	aggregatorv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -81,11 +81,10 @@ type TestSuite struct {
 	// Strongly-typed client handy for reading e.g. pod logs
 	KubeClient kubernetes.Interface
 
-	Clientset porchclient.Interface
-
-	Namespace            string // K8s namespace for this test run
-	TestRunnerIsLocal    bool   // Tests running against local dev porch
-	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
+	Namespace               string // K8s namespace for this test run
+	TestRunnerIsLocal       bool   // Tests running against local dev porch
+	porchServerInCluster    *bool  // Cached result of IsPorchServerInCluster check
+	repoControllerInCluster *bool  // Cached result of IsRepoControllerInCluster check
 }
 
 func (t *TestSuite) SetupSuite() {
@@ -132,12 +131,6 @@ func (t *TestSuite) Initialize() {
 		t.KubeClient = kubeClient
 	}
 
-	if cs, err := porchclient.NewForConfig(cfg); err != nil {
-		t.Fatalf("Failed to initialize Porch clientset: %v", err)
-	} else {
-		t.Clientset = cs
-	}
-
 	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
@@ -162,6 +155,21 @@ func (t *TestSuite) Initialize() {
 	})
 }
 
+func (t *TestSuite) PorchServerServiceKey() client.ObjectKey {
+	porchApiService := aggregatorv1.APIService{}
+	apiServiceName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
+	t.GetF(client.ObjectKey{Name: apiServiceName}, &porchApiService)
+
+	if porchApiService.Spec.Service == nil {
+		t.Fatalf("Porch APIService %q found, but its Spec.Service field is nil. Cannot determine Porch server Service.", apiServiceName)
+	}
+
+	return client.ObjectKey{
+		Namespace: porchApiService.Spec.Service.Namespace,
+		Name:      porchApiService.Spec.Service.Name,
+	}
+}
+
 func (t *TestSuite) IsPorchServerInCluster() bool {
 	if t.porchServerInCluster != nil {
 		return *t.porchServerInCluster
@@ -179,6 +187,27 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 
 	result := len(service.Spec.Selector) > 0
 	t.porchServerInCluster = &result
+	return result
+}
+
+func (t *TestSuite) IsRepoControllerInCluster() bool {
+	if t.repoControllerInCluster != nil {
+		return *t.repoControllerInCluster
+	}
+
+	deployment := appsv1.Deployment{}
+	err := t.Client.Get(t.GetContext(), client.ObjectKey{
+		Namespace: "porch-system",
+		Name:      "porch-controllers",
+	}, &deployment)
+	if err != nil {
+		result := false
+		t.repoControllerInCluster = &result
+		return false
+	}
+
+	result := deployment.Spec.Replicas != nil && *deployment.Spec.Replicas > 0
+	t.repoControllerInCluster = &result
 	return result
 }
 
@@ -364,17 +393,6 @@ func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.P
 	}
 }
 
-func (t *TestSuite) updateApproval(obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
-	t.T().Helper()
-	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(t.GetContext(), obj.Name, obj, opts); err != nil {
-		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
-		return nil
-	} else {
-		return res
-	}
-}
-
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
 func (t *TestSuite) GetE(key client.ObjectKey, obj client.Object) {
@@ -458,14 +476,32 @@ func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client
 	t.patch(obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Logf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Logf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
 }
 
-func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(pr, opts, t.Fatalf)
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	if err := t.Client.SubResource("approval").Update(t.GetContext(), pr); err != nil {
+		t.Fatalf("failed to update approval of %s/%s: %v", pr.Namespace, pr.Name, err)
+		return nil
+	}
+	return pr
+}
+
+// UpdateApprovalE returns error for concurrent testing
+func (t *TestSuite) UpdateApprovalE(pr *porchapi.PackageRevision) error {
+	t.T().Helper()
+	t.Logf("updating approval of %v", DebugFormat(pr))
+	prCopy := pr.DeepCopy()
+	return t.Client.SubResource("approval").Update(t.GetContext(), prCopy)
 }
 
 func createClientScheme(t *testing.T) *runtime.Scheme {
@@ -572,10 +608,41 @@ type PackageRevisionStatusCounts struct {
 	Total, Draft, Proposed, Published, DeletionProposed int
 }
 
+func (c *PackageRevisionStatusCounts) String() string {
+	total := c.Total
+	drafts := c.Draft
+	proposed := c.Proposed
+	published := c.Published
+	deletionProposed := c.DeletionProposed
+	table := metav1.Table{
+		ColumnDefinitions: []metav1.TableColumnDefinition{
+			{Name: "Total", Type: "int"},
+			{Name: "Draft", Type: "int"},
+			{Name: "Proposed", Type: "int"},
+			{Name: "Published", Type: "int"},
+			{Name: "Deletion Proposed", Type: "int"},
+		},
+		Rows: []metav1.TableRow{
+			{
+				Cells: []any{total, drafts, proposed, published, deletionProposed},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	p := printers.NewTablePrinter(printers.PrintOptions{})
+	p.PrintObj((runtime.Object)(&table), &buf)
+	return fmt.Sprintf("%+v", buf.String())
+}
+
 func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *PackageRevisionStatusCounts) {
 	t.T().Helper()
 
-	actual := t.CountPackageRevisions()
+	actual, err := t.CountPackageRevisions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Actual package revision counts:\n\n%s\n", actual)
 
 	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
 	// 		gather as much potentially-useful information as possible
@@ -583,16 +650,18 @@ func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *Package
 	assert.Equal(t.T(), expected.Proposed, actual.Proposed, "Count of Proposed PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.Published, actual.Published, "Count of Published PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.DeletionProposed, actual.DeletionProposed, "Count of DeletionProposed PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
 
-	// allow it to fail the test case at the end
-	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
+	// if failed, use require and Failed() to fail the entire test case at the end
+	require.False(t.T(), t.T().Failed(), "Actual package revision counts not equal to expected counts")
 }
 
-func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
+func (t *TestSuite) CountPackageRevisions() (*PackageRevisionStatusCounts, error) {
 	var packageRevisions porchapi.PackageRevisionList
 	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
-		t.Errorf("error listing package revisions to count: %w", err)
-		return nil
+		err := fmt.Errorf("error listing package revisions to count: %w", err)
+		t.Logf(err.Error())
+		return nil, err
 	}
 
 	counts := &PackageRevisionStatusCounts{}
@@ -609,5 +678,5 @@ func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
 			counts.DeletionProposed += 1
 		}
 	}
-	return counts
+	return counts, nil
 }

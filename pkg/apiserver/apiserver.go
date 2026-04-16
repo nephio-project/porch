@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
@@ -30,6 +31,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/registry/porch"
+	pkgerrors "github.com/pkg/errors"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,12 +39,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,6 +57,9 @@ var (
 	// Codecs provides methods for retrieving codecs and serializers for specific
 	// versions and content types.
 	Codecs = serializer.NewCodecFactory(Scheme)
+	// completeScheme is a singleton for the complete scheme with all types
+	completeScheme *runtime.Scheme
+	schemeOnce     sync.Once
 )
 
 func init() {
@@ -92,9 +100,9 @@ type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
-	periodicRepoSyncFrequency  time.Duration
 	ListTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
+	ExtraConfig                *ExtraConfig
 }
 
 type completedConfig struct {
@@ -119,6 +127,54 @@ func (cfg *Config) Complete() CompletedConfig {
 	return CompletedConfig{&c}
 }
 
+// schemeBuilder builds a complete scheme with all necessary types
+type schemeBuilder func(*runtime.Scheme) error
+
+// buildSchemeWithTypes builds a scheme by applying all provided builders
+func buildSchemeWithTypes(builders ...schemeBuilder) (*runtime.Scheme, error) {
+	scheme := runtime.NewScheme()
+	for _, builder := range builders {
+		if err := builder(scheme); err != nil {
+			return nil, err
+		}
+	}
+	return scheme, nil
+}
+
+// buildCompleteScheme returns a singleton runtime scheme with all necessary types registered
+func buildCompleteScheme() (*runtime.Scheme, error) {
+	var err error
+	schemeOnce.Do(func() {
+		completeScheme, err = buildSchemeWithTypes(
+			func(s *runtime.Scheme) error {
+				if e := configapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding configapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := porchapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding porchapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := corev1.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding corev1 to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := internalapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding internalapi to scheme: %w", e)
+				}
+				return nil
+			},
+		)
+	})
+	return completeScheme, err
+}
+
 func (c completedConfig) getRestConfig() (*rest.Config, error) {
 	kubeconfig := c.ExtraConfig.CoreAPIKubeconfigPath
 	if kubeconfig == "" {
@@ -139,7 +195,7 @@ func (c completedConfig) getRestConfig() (*rest.Config, error) {
 	}
 }
 
-func (c completedConfig) buildClient() (client.WithWatch, error) {
+func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, error) {
 	restConfig, err := c.getRestConfig()
 	if err != nil {
 		return nil, err
@@ -149,21 +205,53 @@ func (c completedConfig) buildClient() (client.WithWatch, error) {
 	restConfig.QPS = 200
 	restConfig.Burst = 400
 
-	scheme := runtime.NewScheme()
-	if err := configapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := porchapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := corev1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := internalapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
+	scheme, err := buildCompleteScheme()
+	if err != nil {
+		return nil, err
 	}
 
-	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme})
+	informerCache, err := ctrlcache.New(restConfig, ctrlcache.Options{
+		Scheme: scheme,
+		ByObject: map[client.Object]ctrlcache.ByObject{
+			//The informer should pre-cache all the repositories at startup
+			&configapi.Repository{}: {},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache: %w", err)
+	}
+
+	go func() {
+		if err := informerCache.Start(ctx); err != nil {
+			klog.Errorf("informer cache stopped with error: %v", err)
+		}
+	}()
+
+	if !informerCache.WaitForCacheSync(ctx) {
+		return nil, fmt.Errorf("informer cache failed to sync")
+	}
+
+	// Register field index for metadata.name so that field selector queries on Repository work through the cache
+	if err := informerCache.IndexField(ctx, &configapi.Repository{}, "metadata.name", func(obj client.Object) []string {
+		return []string{obj.GetName()}
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create index for metadata.name: %w", err)
+	}
+
+	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme, Cache: &client.CacheOptions{
+		Reader: informerCache,
+		DisableFor: []client.Object{
+			//The caching client should not cache resources served by porch-server
+			&porchapi.PackageRevision{},
+			&porchapi.PackageRevisionResources{},
+			// PackageRev uses write-then-read patterns (Create then Get in
+			// ClosePackageRevisionDraft/SetMeta). Since writes bypass the
+			// informer cache, a subsequent Get can miss the just-created object.
+			// This is not ideal, but crcache doesn't support a level of resources where caching makes a difference
+			&internalapi.PackageRev{},
+		},
+	}})
 }
 
 func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
@@ -189,7 +277,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, err
 	}
 
-	coreClient, err := c.buildClient()
+	coreClient, err := c.buildClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build client for core apiserver: %w", err)
 	}
@@ -224,10 +312,21 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+	var cacheImpl cachetypes.Cache
+	err = retry.OnError(
+		wait.Backoff{Duration: time.Second, Factor: 1.5, Steps: 20, Cap: 30 * time.Second},
+		func(err error) bool {
+			klog.Warningf("failed to create repository cache: %v; wait a sec...", err)
+			return true
+		},
+		func() error {
+			var err error
+			cacheImpl, err = cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+			return err
+		})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create repository cache: %w", err)
+		return nil, pkgerrors.Wrap(err, "failed to create repository cache")
 	}
 
 	runnerOptionsResolver := func(namespace string) runneroptions.RunnerOptions {
@@ -268,11 +367,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	s := &PorchServer{
-		GenericAPIServer: genericServer,
-		coreClient:       coreClient,
-		cache:            cacheImpl,
-		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		GenericAPIServer:           genericServer,
+		coreClient:                 coreClient,
+		cache:                      cacheImpl,
+		ExtraConfig:                c.ExtraConfig,
 		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
@@ -286,12 +384,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	porch.RunBackground(ctx, s.coreClient, s.cache,
-		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
-		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
-		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
-	)
-
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")

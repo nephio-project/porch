@@ -23,7 +23,9 @@ WORKDIR /go/src
 # and so that source changes don't invalidate our downloaded layer
 
 COPY . .
-RUN cd test; go build -v -o /git-server ./git
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd test; go build -trimpath -ldflags="-s -w" -v -o /git-server ./git
 
 FROM debian:bookworm-slim
 RUN apt update && apt install -y ca-certificates && rm -rf /var/lib/apt && rm -rf /var/cache/apt

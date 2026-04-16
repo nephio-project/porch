@@ -113,6 +113,11 @@ func (r *ociRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func (r *ociRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	// OCI repositories don't have branches or commits
+	return "", nil
+}
+
 func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ListPackageRevisions")
 	defer span.End()
@@ -396,14 +401,14 @@ func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFile,
 	return *kf, nil
 }
 
-func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
+func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
+	return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	_, span := tracer.Start(ctx, "ociPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
+	return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 
 func (p *ociPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {

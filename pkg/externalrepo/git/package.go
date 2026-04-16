@@ -129,7 +129,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 }
 
 func (p *gitPackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
-	resources, err := p.repo.GetResources(p.tree)
+	resources, err := p.repo.getResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
@@ -170,7 +170,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 
-	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
+	mainBranchRef := plumbing.NewHashReference(p.repo.branch.refInLocal(), p.commit)
 	mainPr := &gitPackageRevision{
 		repo:      p.repo,
 		prKey:     p.prKey,
@@ -188,7 +188,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 }
 
 func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
-	kfString, err := p.repo.GetResource(p.tree, kptfilev1.KptFileName)
+	kfString, err := p.repo.getResource(p.tree, kptfilev1.KptFileName)
 	if err != nil {
 		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfilev1.KptFileName)
 	}
@@ -200,15 +200,15 @@ func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, err
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.
-func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	kf, err := p.GetKptfile(ctx)
 	if err != nil {
-		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
 	}
 
 	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
 		// the package doesn't have any upstream package.
-		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
+		return kptfilev1.Upstream{}, kptfilev1.Locator{}, nil
 	}
 	return *kf.Upstream, *kf.UpstreamLock, nil
 }
@@ -216,22 +216,22 @@ func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfilev1.Ups
 // GetLock returns the self version of the package. Think of it as the Git commit information
 // that represent the package revision of this package. Please note that it uses Upstream types
 // to represent this information but it has no connection with the associated upstream package (if any).
-func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	_, span := tracer.Start(ctx, "gitPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
 
 	repo, err := p.repo.GetRepo()
 	if err != nil {
-		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("cannot determine package lock: %w", err)
 	}
 
 	if p.ref == nil {
-		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; package has no ref")
+		return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("cannot determine package lock; package has no ref")
 	}
 
 	ref, err := refInRemoteFromRefInLocal(p.ref.Name())
 	if err != nil {
-		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
+		return kptfilev1.Upstream{}, kptfilev1.Locator{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
 	}
 
 	return kptfilev1.Upstream{
@@ -241,7 +241,7 @@ func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, k
 				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 			},
-		}, kptfilev1.UpstreamLock{
+		}, kptfilev1.Locator{
 			Type: kptfilev1.GitOrigin,
 			Git: &kptfilev1.GitLock{
 				Repo:      repo,

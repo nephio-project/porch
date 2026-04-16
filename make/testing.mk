@@ -34,12 +34,12 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
 	                       export PORCHDIR=${PORCHDIR}; \
 	                       git config --global user.name test; \
 	                       git config --global user.email test@nephio.org; \
-	                       go test ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
+	                       go test -short ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
 	                       go tool cover -html=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} && \
 	                       go tool cover -func=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE}' && \
 	         cp ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE} ."
 else
-	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
+	go test -short ./... -v -coverprofile=${TEST_COVERAGE_FILE}
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
 	go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
 endif
@@ -82,4 +82,4 @@ test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
 test-disaster-recovery: ## Run disaster-recovery test scenarios against environment deployed by `test/disaster/deployment/setup.sh`
 # To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
 #	to the `go test` command line below
-	DISASTER=1 gotestsum --format standard-verbose -- -count 1 -v -failfast -timeout 60m ./test/disaster/api
+	go test -count 1 -v -failfast -timeout 60m ./test/disaster/api

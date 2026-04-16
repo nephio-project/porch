@@ -93,12 +93,12 @@ func (fpr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFi
 	return fpr.Kptfile, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	fpr.Ops = append(fpr.Ops, "GetUpstreamLock")
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (fpr *FakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error) {
 	fpr.Ops = append(fpr.Ops, "GetLock")
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }

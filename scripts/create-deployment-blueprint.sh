@@ -38,6 +38,7 @@ Supported Flags:
   --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
   --fn-runner-warm-up-pod-cache BOOL  ... disable warm-up-pod-cache in function runner
   --porch-cache-type TYPE             ... porch cache type (CR or DB)
+  --db-push-drafts-to-git BOOL        ... enable db-push-drafts-to-git flag for porch-server
 EOF
   exit 1
 }
@@ -51,7 +52,8 @@ WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
 FN_RUNNER_WARM_UP_POD_CACHE="true"
-PORCH_CACHE_TYPE="CR"
+PORCH_CACHE_TYPE="DB"
+DB_PUSH_DRAFTS_TO_GIT="false"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -95,6 +97,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --porch-cache-type)
       PORCH_CACHE_TYPE="${2}"
+      shift 2
+      ;;
+    --db-push-drafts-to-git)
+      DB_PUSH_DRAFTS_TO_GIT="${2}"
       shift 2
       ;;
     *)
@@ -199,7 +205,20 @@ function disable_fn_runner_warm_up_pod_cache() {
       -- by-value="--warm-up-pod-cache=true" put-value="--warm-up-pod-cache=false"
 }
 
+function enable_db_push_drafts_to_git() {
+    kpt fn eval ${DESTINATION} \
+      --image ${SEARCH_REPLACE_IMG} \
+      --match-kind Deployment \
+      --match-name porch-server \
+      --match-namespace porch-system \
+      -- by-value="--db-push-drafts-to-git=false" put-value="--db-push-drafts-to-git=true"
+}
+
 function configure_porch_cache() {
+    echo "Configuring Porch: cache=${PORCH_CACHE_TYPE}"
+    
+    adjust_reconcilers_for_cache_type
+    
     kpt fn eval ${DESTINATION} \
       --image ${SEARCH_REPLACE_IMG} \
       --match-kind ConfigMap \
@@ -238,15 +257,60 @@ for resource in ctx.resource_list['items']:
                 args[i] = '--cache-type=cr'"
 
         rm -f "${DESTINATION}"/*porch-postgres*.yaml 2>/dev/null || true
+        
+        configure_controllers_for_cr_cache
     else
         echo "Configuring porch-api-server for DB cache"
+    fi
+}
+
+function configure_controllers_for_cr_cache() {
+    echo "Configuring porch-controllers for CR cache (no database)"
+    kpt fn eval ${DESTINATION} \
+      --image ${STARLARK_IMG} \
+      --match-kind Deployment \
+      --match-name porch-controllers \
+      --match-namespace porch-system \
+      -- "source=
+for resource in ctx.resource_list['items']:
+    podspec = resource['spec']['template']['spec']
+    
+    # Remove wait-for-postgres initContainer
+    if 'initContainers' in podspec:
+        new_init = [c for c in podspec['initContainers'] if c.get('name') != 'wait-for-postgres']
+        if new_init:
+            podspec['initContainers'] = new_init
+        else:
+            podspec.pop('initContainers')
+    
+    # Update container args and remove database env vars
+    for container in podspec.get('containers', []):
+        if container.get('name') == 'porch-controllers':
+            args = container.get('args', [])
+            for i, arg in enumerate(args):
+                if arg.startswith('--repositories.cache-type='):
+                    args[i] = '--repositories.cache-type=CR'
+        if 'envFrom' in container:
+            container['envFrom'] = []"
+}
+
+function adjust_reconcilers_for_cache_type() {
+    # Always ensure repositories reconciler is enabled for standalone controller
+    if [[ ! ",${ENABLED_RECONCILERS}," =~ ",repositories," ]]; then
+        if [[ -n "${ENABLED_RECONCILERS}" ]]; then
+            ENABLED_RECONCILERS="${ENABLED_RECONCILERS},repositories"
+        else
+            ENABLED_RECONCILERS="repositories"
+        fi
+        echo "Added 'repositories' to reconcilers list (standalone controller required for both CR and DB cache)"
     fi
 }
 
 function main() {
   # Repository CRD
   cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
-     "${DESTINATION}/0-repositories.yaml"
+   "${DESTINATION}/0-repositories.yaml"
+
   # PackageRev CRD
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
@@ -281,6 +345,10 @@ function main() {
   fi
 
   configure_porch_cache
+
+  if [[ "${DB_PUSH_DRAFTS_TO_GIT}" == "true" ]]; then
+    enable_db_push_drafts_to_git
+  fi
 
   customize_controller_reconcilers
   

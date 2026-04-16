@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	"github.com/nephio-project/porch/test/git/pkg"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -262,10 +262,10 @@ func createLocalGitServer(t *testing.T) GitConfig {
 		}
 	})
 
-	var gitRepoOptions []git.GitRepoOption
-	repos := git.NewDynamicRepos(tmp, gitRepoOptions)
+	var gitRepoOptions []gitserver.GitRepoOption
+	repos := gitserver.NewDynamicRepos(tmp, gitRepoOptions)
 
-	server, err := git.NewGitServer(repos)
+	server, err := gitserver.NewGitServer(repos)
 	if err != nil {
 		t.Fatalf("Failed to start git server: %v", err)
 		return GitConfig{}
@@ -306,8 +306,6 @@ func createLocalGitServer(t *testing.T) GitConfig {
 		Directory: "/",
 	}
 }
-
-
 
 func InferGitServerImage(porchImage string) string {
 	slash := strings.LastIndex(porchImage, "/")

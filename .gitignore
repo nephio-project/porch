@@ -45,9 +45,13 @@ __debug*
 docs/.hugo_build.lock
 docs/public/
 docs/resources/
+docs/go.sum
 
 # Temporary lock file while building
 /.hugo_build.lock
+
+# Test binaries
+testbin/
 
 # gosec artifacts
 *.sarif

@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
@@ -103,7 +103,7 @@ func (_c *MockPackageRevision_GetKptfile_Call) RunAndReturn(run func(ctx context
 }
 
 // GetLock provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) GetLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+func (_mock *MockPackageRevision) GetLock(ctx context.Context) (v1.Upstream, v1.Locator, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
@@ -111,9 +111,9 @@ func (_mock *MockPackageRevision) GetLock(ctx context.Context) (v1.Upstream, v1.
 	}
 
 	var r0 v1.Upstream
-	var r1 v1.UpstreamLock
+	var r1 v1.Locator
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.Locator, error)); ok {
 		return returnFunc(ctx)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
@@ -121,10 +121,10 @@ func (_mock *MockPackageRevision) GetLock(ctx context.Context) (v1.Upstream, v1.
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.Locator); ok {
 		r1 = returnFunc(ctx)
 	} else {
-		r1 = ret.Get(1).(v1.UpstreamLock)
+		r1 = ret.Get(1).(v1.Locator)
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
 		r2 = returnFunc(ctx)
@@ -158,12 +158,12 @@ func (_c *MockPackageRevision_GetLock_Call) Run(run func(ctx context.Context)) *
 	return _c
 }
 
-func (_c *MockPackageRevision_GetLock_Call) Return(upstream v1.Upstream, upstreamLock v1.UpstreamLock, err error) *MockPackageRevision_GetLock_Call {
+func (_c *MockPackageRevision_GetLock_Call) Return(upstream v1.Upstream, upstreamLock v1.Locator, err error) *MockPackageRevision_GetLock_Call {
 	_c.Call.Return(upstream, upstreamLock, err)
 	return _c
 }
 
-func (_c *MockPackageRevision_GetLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error)) *MockPackageRevision_GetLock_Call {
+func (_c *MockPackageRevision_GetLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.Locator, error)) *MockPackageRevision_GetLock_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -337,7 +337,7 @@ func (_c *MockPackageRevision_GetResources_Call) RunAndReturn(run func(ctx conte
 }
 
 // GetUpstreamLock provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+func (_mock *MockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.Locator, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
@@ -345,9 +345,9 @@ func (_mock *MockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstr
 	}
 
 	var r0 v1.Upstream
-	var r1 v1.UpstreamLock
+	var r1 v1.Locator
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.Locator, error)); ok {
 		return returnFunc(ctx)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
@@ -355,10 +355,10 @@ func (_mock *MockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstr
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.Locator); ok {
 		r1 = returnFunc(ctx)
 	} else {
-		r1 = ret.Get(1).(v1.UpstreamLock)
+		r1 = ret.Get(1).(v1.Locator)
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
 		r2 = returnFunc(ctx)
@@ -392,12 +392,12 @@ func (_c *MockPackageRevision_GetUpstreamLock_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockPackageRevision_GetUpstreamLock_Call) Return(upstream v1.Upstream, upstreamLock v1.UpstreamLock, err error) *MockPackageRevision_GetUpstreamLock_Call {
+func (_c *MockPackageRevision_GetUpstreamLock_Call) Return(upstream v1.Upstream, upstreamLock v1.Locator, err error) *MockPackageRevision_GetUpstreamLock_Call {
 	_c.Call.Return(upstream, upstreamLock, err)
 	return _c
 }
 
-func (_c *MockPackageRevision_GetUpstreamLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error)) *MockPackageRevision_GetUpstreamLock_Call {
+func (_c *MockPackageRevision_GetUpstreamLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.Locator, error)) *MockPackageRevision_GetUpstreamLock_Call {
 	_c.Call.Return(run)
 	return _c
 }

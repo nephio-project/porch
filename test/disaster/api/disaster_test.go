@@ -23,6 +23,7 @@ import (
 	"github.com/go-git/go-billy/v5/helper/chroot"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/test/disaster/api/environment/gitea"
 	"github.com/nephio-project/porch/test/disaster/api/environment/kind"
@@ -34,7 +35,6 @@ import (
 	"github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/suite"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,6 +43,8 @@ type PorchDisasterRecoverySuite struct {
 	suiteutils.MultiClusterTestSuite
 
 	skipPackageVariants, skipPackageVariantSets bool
+
+	baselineCounts *suiteutils.PackageRevisionStatusCounts
 }
 
 var (
@@ -90,49 +92,69 @@ func (t *PorchDisasterRecoverySuite) SetupSuite() {
 	}
 
 	s.SetupSuite()
+
+	if err := kind.UseDBCacheCluster(s); err != nil {
+		t.Logf("Unable to access DB cache cluster - assuming environment not set up")
+		setupEnv(s)
+		kind.ReconnectDBCacheCluster(s)
+	}
+
+	initialCounts, err := t.CountPackageRevisions()
+	if err != nil {
+		t.Logf("Unable to get initial count of package revisions - resetting environment")
+		setupEnv(s)
+		kind.ReconnectDBCacheCluster(s)
+		initialCounts, _ = t.CountPackageRevisions()
+	}
+	t.baselineCounts = initialCounts
+	t.Logf("Baseline package revision counts:\n\n%s\n", t.baselineCounts)
 }
 
 func (t *PorchDisasterRecoverySuite) SetupTest() {
 	s := &t.MultiClusterTestSuite
-	kind.UseDBCacheCluster(s)
-	actualCounts := t.CountPackageRevisions()
-	if t.T().Failed() {
-		t.Logf("Unable to get initial count of package revisions - resetting environment")
+
+	if err := kind.UseDBCacheCluster(s); err != nil {
+		t.Logf("Unable to access DB cache cluster - assuming environment not set up")
 		setupEnv(s)
 	}
 
+	actualCounts, err := t.CountPackageRevisions()
 	environmentReady := func() bool {
-		expectedCountsBefore := &suiteutils.PackageRevisionStatusCounts{
-			Total:            1104,
-			Draft:            10,
-			Proposed:         10,
-			Published:        1074,
-			DeletionProposed: 10,
-		}
+		expectedCountsBefore := t.baselineCounts
 
-		return actualCounts.Total == expectedCountsBefore.Total &&
-			actualCounts.Draft == expectedCountsBefore.Draft &&
-			actualCounts.Proposed == expectedCountsBefore.Proposed &&
-			actualCounts.Published == expectedCountsBefore.Published &&
-			actualCounts.DeletionProposed == expectedCountsBefore.DeletionProposed
+		return err == nil &&
+			!(actualCounts.Total == 0 ||
+				actualCounts.Draft == 0 ||
+				actualCounts.Proposed == 0 ||
+				actualCounts.Published == 0 ||
+				actualCounts.DeletionProposed == 0) &&
+			(actualCounts.Total == expectedCountsBefore.Total &&
+				actualCounts.Draft == expectedCountsBefore.Draft &&
+				actualCounts.Proposed == expectedCountsBefore.Proposed &&
+				actualCounts.Published == expectedCountsBefore.Published &&
+				actualCounts.DeletionProposed == expectedCountsBefore.DeletionProposed)
 	}
 
 	if !environmentReady() {
+		t.Logf("Environment not ready - package revision counts differ from baseline as follows:\n\n%s\n", actualCounts)
 		if _, err := os.Stat("./dumped_db.sql"); err == nil {
-			t.Logf("found DB cache backup from previous test - restoring from it")
+			t.Logf("Found DB cache backup from previous test - restoring from it")
 			postgres.Restore(s)
 			kind.UseDBCacheCluster(s)
 		} else {
-			t.Logf("resetting environment before test")
+			t.Logf("Resetting environment before test")
 			resetEnv(s)
 		}
 	}
 
-	actualCounts = t.CountPackageRevisions()
+	actualCounts, err = t.CountPackageRevisions()
 	if !environmentReady() {
+		t.Logf("Environment not ready - package revision counts differ from baseline as follows:\n\n%s\n", actualCounts)
 		t.Logf("DB cache restoration did not restore all expected package revisions - resetting environment")
 		resetEnv(s)
 	}
+
+	t.Logf("Package revision counts before disaster:\n\n%s\n", actualCounts)
 }
 
 func (t *PorchDisasterRecoverySuite) TestCompleteDisaster() {
@@ -162,14 +184,10 @@ func (t *PorchDisasterRecoverySuite) TestCompleteDisaster() {
 		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
-	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
-		Total:            1104,
-		Draft:            10,
-		Proposed:         10,
-		Published:        1074,
-		DeletionProposed: 10,
-	}
+	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
+	t.T().Name()
 }
 
 func (t *PorchDisasterRecoverySuite) TestKubernetesClusterLoss() {
@@ -192,13 +210,8 @@ func (t *PorchDisasterRecoverySuite) TestKubernetesClusterLoss() {
 		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
-	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
-		Total:            1104,
-		Draft:            10,
-		Proposed:         10,
-		Published:        1074,
-		DeletionProposed: 10,
-	}
+	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
@@ -218,8 +231,8 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithoutBackup() {
 
 	postgres.Wipe(s)
 
-	t.TimingHelper("restart porch-server and rebuild from Git", func(t *suiteutils.TestSuite) {
-		t.T().Helper()
+	t.TimingHelper("restart porch-server and rebuild from Git", func(innerT *suiteutils.TestSuite) {
+		innerT.T().Helper()
 		kind.UseDBCacheCluster(s)
 		repositories.Restore(s, repositoriesToRestore, 20)
 		packagevariants.Restore(s, variantsToRestore, 20)
@@ -233,18 +246,23 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithoutBackup() {
 			Published:        0,
 			DeletionProposed: 0,
 		}
+		t.Logf("Expected package revision counts after wiping DB cache:\n\n%s\n", expectedCountsAfter)
 		s.PackageRevisionCountsMustMatch(expectedCountsAfter)
 
 		// restarting porch-server microservice allows it to rebuild what it can from Git
 		// Draft, Proposed, and DeletionProposed data is lost
 		pods.RestartPorchServer(s)
+
+		expectedTotalAfterServerRestart :=
+			t.baselineCounts.Total - (t.baselineCounts.Draft + t.baselineCounts.Proposed)
 		expectedCountsAfterServerRestart := &suiteutils.PackageRevisionStatusCounts{
-			Total:            1084,
+			Total:            expectedTotalAfterServerRestart,
 			Draft:            0,
 			Proposed:         0,
-			Published:        1084,
+			Published:        expectedTotalAfterServerRestart,
 			DeletionProposed: 0,
 		}
+		t.Logf("Expected package revision counts after rebuilding DB cache from Git:\n\n%s\n", expectedCountsAfterServerRestart)
 		s.PackageRevisionCountsMustMatch(expectedCountsAfterServerRestart)
 	})
 
@@ -278,13 +296,8 @@ func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithBackup() {
 		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
-	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
-		Total:            1104,
-		Draft:            10,
-		Proposed:         10,
-		Published:        1074,
-		DeletionProposed: 10,
-	}
+	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
@@ -305,8 +318,7 @@ func (t *PorchDisasterRecoverySuite) TestPorchPodsUngracefulRestart() {
 		t.WaitUntilMultipleRepositoriesReady(repos.Items)
 
 		wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
-			_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).
-				List(t.GetContext(), metav1.ListOptions{FieldSelector: "spec.repository=" + repos.Items[0].Name})
+			err := t.Reader.List(ctx, &porchapi.PackageRevisionList{}, client.InNamespace(t.Namespace), client.MatchingFields{"spec.repository": repos.Items[0].Name})
 			if err != nil {
 				if apierrors.IsTimeout(err) {
 					return false, nil
@@ -318,12 +330,7 @@ func (t *PorchDisasterRecoverySuite) TestPorchPodsUngracefulRestart() {
 		})
 	})
 
-	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
-		Total:            1104,
-		Draft:            10,
-		Proposed:         10,
-		Published:        1074,
-		DeletionProposed: 10,
-	}
+	expectedCountsAfter := t.baselineCounts
+	t.Logf("Expected package revision counts after disaster-recovery:\n\n%s\n", expectedCountsAfter)
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }

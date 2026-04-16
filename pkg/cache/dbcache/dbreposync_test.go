@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func (t *DbTestSuite) TestDBRepoSync() {
@@ -61,8 +60,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
@@ -95,7 +93,9 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -109,24 +109,229 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
+
+	// Sync should not add PR because version hasn't changed
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
-	time.Sleep(2 * time.Second)
+
+	// Explicitly trigger sync after version change
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(1, len(prList)) // Sync should have added a cached PR that is in the external repo
 
-	testRepo.repositorySync.Stop()
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftInExternalKept() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "push-drafts-repo"
+	namespace := "push-drafts-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.pushDraftsToGit = true
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		CoreClient: fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
+	t.Require().Equal(porchapi.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
+
+	// Simulate the draft having been pushed to external git: add it to the fake repo.
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+	newPRDefDraft := newPRDef.DeepCopy()
+	newPRDefDraft.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            dbPR.Key(),
+		PackageRevision:  newPRDefDraft,
+		PackageLifecycle: porchapi.PackageRevisionLifecycleDraft,
+		Resources:        &porchapi.PackageRevisionResources{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.Locator{},
+		},
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, fakeExtPR)
+	fakeRepo.CurrentVersion = "draft-v1"
+
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(1, len(prList), "with pushDraftsToGit enabled, draft in both cache and external should be kept by sync")
+
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGit_DraftOnlyInCacheRemoved() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "push-drafts-removed-repo"
+	namespace := "push-drafts-removed-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.pushDraftsToGit = true
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		CoreClient: fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	_, err = testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+
+	// Do not add the draft to the external repo. Sync should treat it as "cached only" and remove it.
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(0, len(prList), "with pushDraftsToGit enabled, draft only in cache should be removed by sync")
+
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepoSyncWithPushDraftsToGitDisabled_DraftNotConsideredBySync() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "no-push-drafts-repo"
+	namespace := "no-push-drafts-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	t.Require().False(testRepo.pushDraftsToGit)
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		CoreClient: fakeClient,
+	}
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	_, err = testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+
+	// Sync only considers Published/DeletionProposed when pushDraftsToGit is false, so the draft is not "cached only".
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(1, len(prList), "with pushDraftsToGit disabled, draft in cache should not be removed by sync")
 
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
@@ -170,8 +375,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 30 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	sync := newRepositorySync(testRepo, cacheOptions)
@@ -206,8 +410,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
-
 	// Add the PR to the external repo
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
@@ -216,11 +418,10 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
 	testRepo.externalRepo.(*fake.Repository).CurrentVersion = "bar"
 
 	// Wait until externalRepo.Version(ctx) returns "bar"
@@ -241,9 +442,9 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		}
 	}
 
-	t.T().Log("Starting 5 second sleep...")
-	time.Sleep(5 * time.Second)
-	t.T().Log("Finished 5 second sleep")
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -252,16 +453,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 
 	// Check that sync stats were updated
 	t.Require().NotNil(sync.lastSyncStats)
-	t.Require().Nil(sync.getLastSyncError())
 
-	// Check statusStore for condition update
-	status, ok := fakeClient.GetStatusStore()[types.NamespacedName{Name: repoName, Namespace: namespace}]
-	t.Require().True(ok)
-	t.Require().Equal(configapi.RepositoryReady, status.Conditions[0].Type)
-	t.Require().Equal(metav1.ConditionTrue, status.Conditions[0].Status)
-	t.Require().Equal(configapi.ReasonReady, status.Conditions[0].Reason)
-
-	sync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
@@ -287,42 +479,6 @@ func (t *DbTestSuite) TestRepositorySync_SyncOnce() {
 	t.Require().NoError(err)
 }
 
-func (t *DbTestSuite) TestRepositorySync_Key() {
-	testRepo := t.createTestRepo("test-ns", "key-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	key := sync.Key()
-	t.Equal(testRepo.Key(), key)
-}
-
-func (t *DbTestSuite) TestRepositorySync_GetSpec() {
-	testRepo := t.createTestRepo("test-ns", "spec-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	spec := sync.GetSpec()
-	t.Equal(testRepo.spec, spec)
-}
-
-func (t *DbTestSuite) TestRepositorySync_getLastSyncError() {
-	testRepo := t.createTestRepo("test-ns", "error-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	// Test with nil syncManager
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-
-	err := sync.getLastSyncError()
-	t.Nil(err)
-}
 func (t *DbTestSuite) TestNewRepositorySync() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -342,35 +498,13 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 	fakeClient := testutil.NewFakeClientWithStatus(scheme)
 
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	sync := newRepositorySync(testRepo, options)
-	defer func() {
-		if sync != nil {
-			sync.Stop()
-		}
-	}()
 
 	t.NotNil(sync)
 	t.Equal(testRepo, sync.repo)
-	t.NotNil(sync.syncManager)
-}
-
-func (t *DbTestSuite) TestRepositorySync_Stop() {
-	testRepo := t.createTestRepo("test-ns", "stop-test-repo")
-	defer t.deleteTestRepo(testRepo.Key())
-
-	// Test Stop with nil syncManager
-	sync := &repositorySync{
-		repo: testRepo,
-	}
-	sync.Stop() // Should not panic
-
-	// Test Stop with nil repositorySync
-	var nilSync *repositorySync
-	nilSync.Stop() // Should not panic
 }
 
 // TestCacheExternalPRs_SkipsBinaryFiles verifies that sync skips binary files
@@ -440,7 +574,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -533,7 +667,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -622,7 +756,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -703,7 +837,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -786,7 +920,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -878,7 +1012,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 		Resources:        resources,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 
@@ -960,7 +1094,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
 		Resources:        nil,
 		Kptfile: kptfilev1.KptFile{
 			Upstream:     &kptfilev1.Upstream{},
-			UpstreamLock: &kptfilev1.UpstreamLock{},
+			UpstreamLock: &kptfilev1.Locator{},
 		},
 	}
 

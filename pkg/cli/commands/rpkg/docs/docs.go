@@ -146,6 +146,11 @@ Flags:
   --revision
     Revision of the package to get. Any package whose revision
     matches this value will be included in the results.
+
+  --show-kptfile
+    Display the root Kptfile of the specified package revision.
+    Requires exactly one package revision name as an argument.
+    Cannot be combined with --name, --revision, --workspace, or --all-namespaces.
 `
 var GetExamples = `
   # get a specific package revision using its kubernetes resource name in the 'example-namespace' namespace
@@ -159,6 +164,9 @@ var GetExamples = `
 
   # get all package revisions with revision '0'
   $ porchctl rpkg get --revision=0
+
+  # display the root Kptfile of a specific package revision
+  $ porchctl rpkg get example-repo.example-package-name.example-workspace --show-kptfile --namespace=example-namespace
 `
 
 var InitShort = `Initializes a new package revision in a repository.`

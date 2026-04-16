@@ -31,11 +31,15 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-// Key and value of the latest package revision label:
+// PackageRevision labels and annotations:
 
 const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
+
+	// PushOnFnRenderFailureKey annotation controls whether to push package changes even when function rendering fails.
+	PushOnFnRenderFailureKey   = "porch.kpt.dev/push-on-render-failure"
+	PushOnFnRenderFailureValue = "true"
 )
 
 type PkgRevFieldSelector string
@@ -109,7 +113,7 @@ type PackageRevisionSpec struct {
 	// task list. This represent packagerevisions created from scratch, based
 	// a copy of a different revision in the same package, or a packagerevision
 	// cloned from another package.
-	// Each change to the packagerevision will result in a correspondig
+	// Each change to the packagerevision will result in a corresponding
 	// task being added to the list of tasks. It will describe the operation
 	// performed and will have a corresponding entry (commit or layer) in git
 	// or oci.
@@ -356,6 +360,7 @@ type GitLock struct {
 	Commit string `json:"commit,omitempty"`
 }
 
+// Condition represents a condition for PackageRevision resources.
 type Condition struct {
 	Type string `json:"type"`
 

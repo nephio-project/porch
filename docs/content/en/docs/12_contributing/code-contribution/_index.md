@@ -149,15 +149,63 @@ git push origin feature-add-package-validation
 
 The EasyCLA bot will prompt you to sign the CLA if you haven't already (see [Before You Start]({{% relref "../" %}})).
 
+## Declare any use of AI
+
+{{% alert title="Warning" color="warning" %}}
+The use of AI in the creation of PRs is allowed but you must declare any use of AI and you
+must be able to explain the PR code independently of any AI tools.
+{{% /alert %}}
+
+
+Update the PR description to state whether you used AI to help you create this PR; if so, list the AI tools you have used and in what areas.
+
+For example:
+
+```
+I have used AI in the creation of this PR.
+
+I have used the following AI tools:
+- Microsoft Copilot to analyse the code
+- Claude code to generate the function someNewFunctionIAdded()
+- Amazon Q to generate unit tests
+```
+
+## CI Checks on Your PR
+
+When you create a Pull Request, the Continuous Integration (CI) framework will run some checks on your PR. It will:
+
+1. Compile, build and test the code including the code changes in your PR
+2. Build and verify the documentation including the documentation changes in your PR, carrying out checks such as making sure there are no dead internal links in the documentation
+3. Run linters and other checks on your code
+4. Run SonarCloud to check that the code in your PR meets quality criteria such as required test coverage percentage
+5. Run some AI tools (such as Copilot or [Dosu](https://dosu.dev/)) to review the code
+
 ## Update Your PR
 
-If maintainers request changes:
+If the CI checks fail or raise comments, or if the maintainers request changes:
 
 1. Make the requested changes on your local branch
 2. Commit the changes: `git commit -sm "fix: address review feedback"`
 3. Push to the upstream branch on your fork: `git push origin feature-add-package-validation`
 
 The PR will automatically update with your new commits.
+
+## Reviews of Your PR
+
+Before your PR is merged, it must be reviewed by community members and maintainers. Generally, in order to make the best
+use of their time, they will review your PR when:
+
+1. The code including the code changes in your PR is compiling and building
+2. The documentation is building and verified
+3. All lint checks are passing
+4. SonarCloud quality checks such as code coverage levels are passing
+5. The comments from the first run of AI on the commit of the PR are addressed (Further re-runs of AI are optional)
+
+{{% alert title="Note" color="primary" %}}
+If you are having difficulty in getting tests to pass, need guidance in how to address an AI-generated comment, or
+want to request an exception on a quality metric such as code coverage, please add a comment on your PR and the
+community members and maintainers will consider your request.
+{{% /alert %}}
 
 ## Rebase on Latest Main
 

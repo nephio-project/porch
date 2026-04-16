@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
       - porchctl
@@ -7,7 +8,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-init
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
       - porchctl
       - repo
@@ -16,7 +17,7 @@ commands:
       - --namespace=rpkg-init
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      git   http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-init   main   /
+      git   http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test   main   /
     ignoreWhitespace: true
   - args:
       - porchctl
@@ -69,6 +70,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: init-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -92,5 +98,5 @@ commands:
       - --workspace=init-2
       - init-package
     stderr: |
-      error: `init` cannot create a new revision for package "init-package" that already exists in repo "git"; make subsequent revisions using `copy`
+      Error: Internal error occurred: package "init-package" already exists in repository "git" 
     exitCode: 1

@@ -37,19 +37,22 @@ const (
 
 type CacheOptions struct {
 	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RepoPRChangeNotifier       RepoPRChangeNotifier
 	CoreClient                 client.WithWatch
 	CacheType                  CacheType
 	DBCacheOptions             DBCacheOptions
+	DbPushDraftsToGit          bool
 }
 
 const DefaultDBCacheDriver string = "pgx"
 
 type DBCacheOptions struct {
-	Driver     string
-	DataSource string
+	Driver             string
+	DataSource         string
+	MaxConnections     int
+	MaxIdleConnections int
+	MaxConnLifetime    time.Duration
 }
 
 type Cache interface {
@@ -59,6 +62,7 @@ type Cache interface {
 	GetRepository(repository.RepositoryKey) repository.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
+	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
 }
 
 var (
@@ -71,6 +75,18 @@ type CacheFactory interface {
 
 type RepoPRChangeNotifier interface {
 	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
+}
+
+// noOpRepoPRChangeNotifier is a no-op implementation
+type noOpRepoPRChangeNotifier struct{}
+
+func (n *noOpRepoPRChangeNotifier) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
+	return 0
+}
+
+// NewNoOpRepoPRChangeNotifier creates a no-op notifier
+func NewNoOpRepoPRChangeNotifier() RepoPRChangeNotifier {
+	return &noOpRepoPRChangeNotifier{}
 }
 
 func IsACacheType(ct string) bool {

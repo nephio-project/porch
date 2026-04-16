@@ -169,21 +169,24 @@ func K8SName2PkgName(k8sName string) string {
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
+	path, name := SplitPackagePathName(fullpath)
+
+	return PackageKey{
+		RepoKey: repoKey,
+		Path:    path,
+		Package: name,
+	}
+}
+
+func SplitPackagePathName(fullpath string) (path, name string) {
 	pkgPath := strings.Trim(fullpath, "/")
 	slashIndex := strings.LastIndex(pkgPath, "/")
 
 	if slashIndex >= 0 {
-		return PackageKey{
-			RepoKey: repoKey,
-			Path:    pkgPath[:slashIndex],
-			Package: pkgPath[slashIndex+1:],
-		}
-	} else {
-		return PackageKey{
-			RepoKey: repoKey,
-			Package: pkgPath,
-		}
+		return pkgPath[:slashIndex], pkgPath[slashIndex+1:]
 	}
+
+	return "", pkgPath
 }
 
 func (k PackageKey) RKey() RepositoryKey {
@@ -272,14 +275,14 @@ type PackageRevision interface {
 	GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
-	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
+	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
 
 	// GetKptfile returns the Kptfile for the package
 	GetKptfile(ctx context.Context) (kptfilev1.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
 	// This will be the upstream info for downstream revisions.
-	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
+	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.Locator, error)
 
 	// ResourceVersion returns the Kube resource version of the package
 	ResourceVersion() string
@@ -452,6 +455,10 @@ type Repository interface {
 
 	// Version returns a string that is guaranteed to be different if any change has been made to the repo contents
 	Version(ctx context.Context) (string, error)
+
+	// BranchCommitHash returns the commit hash of the configured branch for git repositories.
+	// Returns empty string for OCI repositories or if branch doesn't exist.
+	BranchCommitHash(ctx context.Context) (string, error)
 
 	// Close cleans up any resources associated with the repository
 	Close(ctx context.Context) error

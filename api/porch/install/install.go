@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 )
 
 // Install registers the API group and adds types to a scheme
+// for the aggregated API server (v1alpha1 only).
+// v1alpha2 is a CRD and doesn't need to be registered here.
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(porch.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
