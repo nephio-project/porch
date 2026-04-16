@@ -42,7 +42,6 @@ import (
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	porchotel "github.com/nephio-project/porch/internal/otel"
-	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -155,7 +154,6 @@ func run(ctx context.Context) error {
 		LeaderElection:             false,
 		LeaderElectionID:           "porch-operators.config.porch.kpt.dev",
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
-		MapperProvider:             controllerrestmapper.New,
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
