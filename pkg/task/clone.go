@@ -120,7 +120,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 
 	upstreamIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, upstreamRevision)
 	if err != nil {
-		return repository.PackageResources{}, err
+		return repository.PackageResources{}, pkgerrors.Wrap(err, "error checking for placeholder package revision")
 	}
 	if upstreamIsPlaceholder {
 		// We only allow clone to create new revisions from non-placeholder package revisions

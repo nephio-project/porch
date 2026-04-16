@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -199,7 +200,7 @@ func PackageRevisionIsPlaceholder(ctx context.Context, namespace string, referen
 	var upstreamRepo configapi.Repository
 	err := referenceResolver.ResolveReference(ctx, namespace, packageRevision.Key().RKey().Name, &upstreamRepo)
 	if err != nil {
-		return false, fmt.Errorf("failed to resolve repository reference for %q when checking placeholder revision: %v", packageRevision.Key().RKey().Name, err)
+		return false, pkgerrors.Wrapf(err, "failed to resolve repository reference for %q when checking placeholder revision: %v", packageRevision.Key().RKey().Name, err)
 	}
 
 	if upstreamRepo.Spec.Git != nil && packageRevision.Key().WorkspaceName == upstreamRepo.Spec.Git.Branch {

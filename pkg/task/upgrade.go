@@ -62,7 +62,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 
 	targetUpstreamIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, targetUpstreamRevision)
 	if err != nil {
-		return repository.PackageResources{}, nil, err
+		return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "error checking for placeholder package revision")
 	}
 	if targetUpstreamIsPlaceholder {
 		// We only allow upgrade to create new revisions with non-placeholder package revisions as target upstream
@@ -81,7 +81,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 
 	localIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, localRevision)
 	if err != nil {
-		return repository.PackageResources{}, nil, err
+		return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "error checking for placeholder package revision")
 	}
 	if localIsPlaceholder {
 		// We only allow upgrade to upgrade non-placeholder package revisions

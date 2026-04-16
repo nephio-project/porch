@@ -20,6 +20,7 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -56,7 +57,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	sourceIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, sourceRevision)
 	if err != nil {
-		return repository.PackageResources{}, nil, err
+		return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "error checking for placeholder package revision")
 	}
 	if sourceIsPlaceholder {
 		// We only allow edit to create new revisions from non-placeholder package revisions
