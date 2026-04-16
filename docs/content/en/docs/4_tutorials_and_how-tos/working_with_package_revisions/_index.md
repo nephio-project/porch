@@ -163,6 +163,13 @@ Common issues when working with PackageRevisions and their solutions:
 - Verify service account has proper roles for PackageRevision operations
 - Ensure repository authentication is configured correctly
 
+**Errors about "placeholder package revision"?**
+
+- Clone, edit/copy, and upgrade operations cannot be performed on or using placeholder PackageRevisions
+  - (identified by revision number -1 and workspace name matching the repository's Git branch, typically 'main')
+- Use published PackageRevisions with specific version numbers in these operations
+- For more information on placeholder PackageRevisions, see [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}})
+
 **Pipeline functions failing?**
 
 - Check function image availability and version

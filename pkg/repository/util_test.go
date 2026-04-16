@@ -15,10 +15,13 @@
 package repository
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -245,4 +248,81 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 		packageName: "new",
 	}
 	assert.NoError(t, ValidatePackagePathOverlap(newPr, []PackageRevision{differentRepoRev}))
+}
+
+type fakeReferenceResolver struct {
+	repo *configapi.Repository
+	err  error
+}
+
+func (f *fakeReferenceResolver) ResolveReference(_ context.Context, _, _ string, result Object) error {
+	if f.err != nil {
+		return f.err
+	}
+	if repo, ok := result.(*configapi.Repository); ok {
+		*repo = *f.repo
+	}
+	return nil
+}
+
+func TestPackageRevisionIsPlaceholder(t *testing.T) {
+	tests := []struct {
+		name     string
+		pr       PackageRevision
+		resolver ReferenceResolver
+		want     bool
+		wantErr  bool
+	}{
+		{
+			name: "published revision is not placeholder",
+			pr:   &fakePackageRevision{revision: 1, workspaceName: "main", repoName: "repo"},
+			want: false,
+		},
+		{
+			name: "draft with matching git branch is placeholder",
+			pr:   &fakePackageRevision{revision: -1, workspaceName: "main", repoName: "repo"},
+			resolver: &fakeReferenceResolver{repo: &configapi.Repository{
+				Spec: configapi.RepositorySpec{Git: &configapi.GitRepository{Branch: "main"}},
+			}},
+			want: true,
+		},
+		{
+			name: "draft with non-matching git branch is not placeholder",
+			pr:   &fakePackageRevision{revision: -1, workspaceName: "dev", repoName: "repo"},
+			resolver: &fakeReferenceResolver{repo: &configapi.Repository{
+				Spec: configapi.RepositorySpec{Git: &configapi.GitRepository{Branch: "main"}},
+			}},
+			want: false,
+		},
+		{
+			name: "draft with no git config is not placeholder",
+			pr:   &fakePackageRevision{revision: -1, workspaceName: "main", repoName: "repo"},
+			resolver: &fakeReferenceResolver{repo: &configapi.Repository{
+				Spec: configapi.RepositorySpec{},
+			}},
+			want: false,
+		},
+		{
+			name:     "resolver error returns error",
+			pr:       &fakePackageRevision{revision: -1, workspaceName: "main", repoName: "repo"},
+			resolver: &fakeReferenceResolver{err: fmt.Errorf("not found")},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := tt.resolver
+			if resolver == nil {
+				resolver = &fakeReferenceResolver{repo: &configapi.Repository{}}
+			}
+			got, err := PackageRevisionIsPlaceholder(context.Background(), "ns", resolver, tt.pr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
 }

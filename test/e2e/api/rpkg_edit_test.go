@@ -15,6 +15,8 @@
 package api
 
 import (
+	"strings"
+
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
@@ -103,6 +105,23 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	assert.Equal(t, porchapi.TaskTypeEdit, tasks[0].Type)
 	assert.NotNil(t, tasks[0].Edit)
 	assert.Equal(t, pr.Name, tasks[0].Edit.Source.Name)
+
+	// Create a new revision with a placeholder package revision as the source.
+	// This is not allowed.
+	editPlaceholderPR := t.CreatePackageSkeleton(repository, packageName, workspace2)
+	editPlaceholderPR.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: strings.ReplaceAll(editPR.Name, workspaceToAvoidCreationClash, "main"),
+				},
+			},
+		},
+	}
+
+	err := t.Client.Create(t.GetContext(), editPlaceholderPR)
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error editing the placeholder package revision")
 }
 
 func (t *PorchSuite) TestUpdateResources() {

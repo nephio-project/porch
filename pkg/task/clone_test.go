@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -35,9 +36,83 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	gitserver "github.com/nephio-project/porch/test/git/pkg"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+)
+
+var (
+	repositoryNamespace    = "test-namespace"
+	repositoryName         = "repo"
+	pkg                    = "1234567890"
+	revision               = -1
+	workspace              = "ws"
+	packageName            = "repo.1234567890.ws"
+	placeholderPackageName = "repo.1234567890.main"
+	packageRevision        = &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: repositoryNamespace,
+					Name:      repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				PackageName:    pkg,
+				Revision:       revision,
+				RepositoryName: repositoryName,
+				Resources: map[string]string{
+					kptfilev1.KptFileName: strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+					`),
+				},
+			},
+		},
+		Kptfile: kptfilev1.KptFile{
+			Upstream: &kptfilev1.Upstream{
+				Type: "git",
+				Git: &kptfilev1.Git{
+					Repo:      "dummy",
+					Directory: "dummy",
+					Ref:       "dummy",
+				},
+			},
+			UpstreamLock: &kptfilev1.UpstreamLock{
+				Type: "git",
+				Git: &kptfilev1.GitLock{
+					Repo:      "dummy",
+					Directory: "dummy",
+					Ref:       "dummy",
+					Commit:    "dummy",
+				},
+			},
+		},
+	}
+	repo = &fake.Repository{
+		PackageRevisions: []repository.PackageRevision{
+			packageRevision,
+		},
+	}
+	repoOpener = &fakeRepositoryOpener{
+		repository: repo,
+	}
 )
 
 func createRepoWithContents(t *testing.T, contentDir string) *gogit.Repository {
@@ -266,4 +341,58 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	}
 
 	t.Logf("%v", r)
+}
+
+func TestCloneReferenceBasicAuth(t *testing.T) {
+	testdata, err := filepath.Abs(filepath.Join(".", "testdata", "clone"))
+	if err != nil {
+		t.Fatalf("Failed to find testdata: %+v", err)
+	}
+
+	auth := randomCredentials()
+	gogitRepo := createRepoWithContents(t, testdata)
+
+	repo, err := gitserver.NewRepo(gogitRepo, gitserver.WithBasicAuth(auth.username, auth.password))
+	if err != nil {
+		t.Fatalf("NewRepo failed: %+v", err)
+	}
+
+	addr := startGitServer(t, repo)
+	res := &fakeReferenceResolver{address: addr}
+
+	cpm := clonePackageMutation{
+		task: &porchapi.Task{
+			Type: "clone",
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{Name: packageName},
+				},
+			},
+		},
+		namespace:                  repositoryNamespace,
+		name:                       "test-configmap",
+		repoOperationRetryAttempts: 3,
+		credentialResolver:         auth,
+		referenceResolver:          res,
+		repoOpener:                 repoOpener,
+	}
+
+	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
+	assert.NoErrorf(t, err, "task apply failed: %+v", err)
+
+	cpm.referenceResolver = (&errorAfterNReferenceResolver{r: res, err: errors.New("error resolving reference")}).startAt(1)
+
+	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to resolve repository reference")
+
+	cpm.referenceResolver = res
+	cpm.task.Clone.Upstream.UpstreamRef.Name = placeholderPackageName
+	origWorkspaceName := packageRevision.PrKey.WorkspaceName
+	packageRevision.PrKey.WorkspaceName = "main"
+	t.Cleanup(func() {
+		packageRevision.PrKey.WorkspaceName = origWorkspaceName
+	})
+
+	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "placeholder package revision", "Expected error cloning from the placeholder package revision")
 }
