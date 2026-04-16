@@ -39,7 +39,7 @@ type gitPackageRevisionDraft struct {
 	base *plumbing.Reference
 
 	// name of the branch where the changes will be pushed
-	branch BranchName
+	branch branchName
 
 	// Current HEAD of the package changes (commit sha)
 	commit plumbing.Hash

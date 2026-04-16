@@ -38,6 +38,74 @@ func (_m *MockdbSQLInterface) EXPECT() *MockdbSQLInterface_Expecter {
 	return &MockdbSQLInterface_Expecter{mock: &_m.Mock}
 }
 
+// BeginTx provides a mock function for the type MockdbSQLInterface
+func (_mock *MockdbSQLInterface) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	ret := _mock.Called(ctx, opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BeginTx")
+	}
+
+	var r0 *sql.Tx
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *sql.TxOptions) (*sql.Tx, error)); ok {
+		return returnFunc(ctx, opts)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *sql.TxOptions) *sql.Tx); ok {
+		r0 = returnFunc(ctx, opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sql.Tx)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *sql.TxOptions) error); ok {
+		r1 = returnFunc(ctx, opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockdbSQLInterface_BeginTx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BeginTx'
+type MockdbSQLInterface_BeginTx_Call struct {
+	*mock.Call
+}
+
+// BeginTx is a helper method to define mock.On call
+//   - ctx context.Context
+//   - opts *sql.TxOptions
+func (_e *MockdbSQLInterface_Expecter) BeginTx(ctx interface{}, opts interface{}) *MockdbSQLInterface_BeginTx_Call {
+	return &MockdbSQLInterface_BeginTx_Call{Call: _e.mock.On("BeginTx", ctx, opts)}
+}
+
+func (_c *MockdbSQLInterface_BeginTx_Call) Run(run func(ctx context.Context, opts *sql.TxOptions)) *MockdbSQLInterface_BeginTx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *sql.TxOptions
+		if args[1] != nil {
+			arg1 = args[1].(*sql.TxOptions)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockdbSQLInterface_BeginTx_Call) Return(tx *sql.Tx, err error) *MockdbSQLInterface_BeginTx_Call {
+	_c.Call.Return(tx, err)
+	return _c
+}
+
+func (_c *MockdbSQLInterface_BeginTx_Call) RunAndReturn(run func(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)) *MockdbSQLInterface_BeginTx_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function for the type MockdbSQLInterface
 func (_mock *MockdbSQLInterface) Close() error {
 	ret := _mock.Called()

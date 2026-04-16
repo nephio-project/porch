@@ -191,7 +191,7 @@ func (t *PorchSuite) TestRepositoryError() {
 			continue
 		}
 
-		t.Logf("[%s] Repository condition: Status=%s, Reason=%s, Message=%s", 
+		t.Logf("[%s] Repository condition: Status=%s, Reason=%s, Message=%s",
 			now.Format("15:04:05.000"), available.Status, available.Reason, available.Message)
 
 		if got, want := available.Status, metav1.ConditionFalse; got != want {
@@ -471,4 +471,3 @@ func (t *PorchSuite) TestRepositoryBranchDefault() {
 		t.Logf("Branch correctly defaulted to 'main'")
 	}
 }
-

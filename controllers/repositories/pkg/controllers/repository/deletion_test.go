@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	cachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	cachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 )
 
 func TestGetAllRepositories(t *testing.T) {
@@ -57,7 +57,7 @@ func TestGetAllRepositories(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := mockclient.NewMockClient(t)
-			
+
 			if tt.listError != nil {
 				mockClient.EXPECT().List(ctx, &configapi.RepositoryList{}).Return(tt.listError)
 			} else {
@@ -101,7 +101,7 @@ func TestCleanupRepositoryCache(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockCache := cachetypes.NewMockCache(t)
-			
+
 			if tt.cacheError != nil {
 				mockCache.EXPECT().CloseRepository(ctx, repo, allRepos).Return(tt.cacheError)
 			} else {
@@ -137,7 +137,7 @@ func TestRemoveFinalizer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := createTestRepoWithFinalizer("test-repo", "test-ns")
 			mockClient := mockclient.NewMockClient(t)
-			
+
 			if tt.updateError != nil {
 				mockClient.EXPECT().Update(ctx, repo).Return(tt.updateError)
 			} else {
@@ -152,7 +152,7 @@ func TestRemoveFinalizer(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			// Finalizer should always be removed regardless of update result
 			assert.False(t, controllerutil.ContainsFinalizer(repo, RepositoryFinalizer))
 		})
@@ -163,14 +163,14 @@ func TestHandleDeletion(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name           string
-		repo           *configapi.Repository
-		allRepos       []configapi.Repository
-		cacheError     error
-		listError      error
-		updateError    error
-		expectRequeue  bool
-		expectError    bool
+		name            string
+		repo            *configapi.Repository
+		allRepos        []configapi.Repository
+		cacheError      error
+		listError       error
+		updateError     error
+		expectRequeue   bool
+		expectError     bool
 		expectFinalizer bool
 	}{
 		{
@@ -182,16 +182,16 @@ func TestHandleDeletion(t *testing.T) {
 			expectFinalizer: false,
 		},
 		{
-			name: "successful deletion with empty repo list",
-			repo: createTestRepoWithFinalizer("test-repo", "test-ns"),
-			allRepos: []configapi.Repository{},
+			name:            "successful deletion with empty repo list",
+			repo:            createTestRepoWithFinalizer("test-repo", "test-ns"),
+			allRepos:        []configapi.Repository{},
 			expectFinalizer: false,
 		},
 		{
-			name:        "list repositories error",
-			repo:        createTestRepoWithFinalizer("test-repo", "test-ns"),
-			listError:   errors.New("list failed"),
-			expectError: true,
+			name:            "list repositories error",
+			repo:            createTestRepoWithFinalizer("test-repo", "test-ns"),
+			listError:       errors.New("list failed"),
+			expectError:     true,
 			expectFinalizer: true,
 		},
 		{
@@ -200,8 +200,8 @@ func TestHandleDeletion(t *testing.T) {
 			allRepos: []configapi.Repository{
 				*createTestRepo("other-repo", "test-ns"),
 			},
-			cacheError: errors.New("cache close failed"),
-			expectRequeue: true,
+			cacheError:      errors.New("cache close failed"),
+			expectRequeue:   true,
 			expectFinalizer: true,
 		},
 		{
@@ -217,7 +217,7 @@ func TestHandleDeletion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock client
 			mockClient := mockclient.NewMockClient(t)
-			
+
 			// Setup List expectation
 			if tt.listError != nil {
 				mockClient.EXPECT().List(mock.Anything, &configapi.RepositoryList{}).Return(tt.listError)
@@ -227,7 +227,7 @@ func TestHandleDeletion(t *testing.T) {
 					repoList.Items = tt.allRepos
 				}).Return(nil)
 			}
-			
+
 			// Setup Update expectation (only if no list error and no cache error)
 			if tt.listError == nil && tt.cacheError == nil {
 				if tt.updateError != nil {
@@ -279,12 +279,12 @@ func TestHandleDeletionTimeout(t *testing.T) {
 	// Create context that will timeout quickly
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
-	
+
 	// Wait for context to timeout
 	time.Sleep(10 * time.Millisecond)
 
 	repo := createTestRepoWithFinalizer("test-repo", "test-ns")
-	
+
 	fakeClient := mockclient.NewMockClient(t)
 	fakeClient.EXPECT().List(mock.Anything, &configapi.RepositoryList{}).Return(context.DeadlineExceeded)
 

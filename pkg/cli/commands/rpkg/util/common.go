@@ -15,35 +15,16 @@
 package util
 
 import (
-	"context"
 	"fmt"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	ResourceVersionAnnotation = "internal.kpt.dev/resource-version"
 )
-
-func PackageAlreadyExists(ctx context.Context, c client.Client, repository, packageName, namespace string) (bool, error) {
-	// only the first package revision can be created from init or clone, so
-	// we need to check that the package doesn't already exist.
-	packageRevisionList := porchapi.PackageRevisionList{}
-	if err := c.List(ctx, &packageRevisionList, &client.ListOptions{
-		Namespace: namespace,
-	}); err != nil {
-		return false, err
-	}
-	for _, pr := range packageRevisionList.Items {
-		if pr.Spec.RepositoryName == repository && pr.Spec.PackageName == packageName {
-			return true, nil
-		}
-	}
-	return false, nil
-}
 
 func GetResourceFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
 	if prr.Spec.Resources == nil {

@@ -83,10 +83,10 @@ func TestUpdateRepoStatusWithBackoff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := createTestRepo("test-repo", "test-ns")
-			
+
 			mockClient := mockclient.NewMockClient(t)
 			mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
-			
+
 			mockClient.EXPECT().Status().Return(mockStatusWriter)
 			if tt.name == "conflict error retries" {
 				// First call returns conflict, second call succeeds
@@ -114,8 +114,8 @@ func TestHasSpecChanged(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "no conditions - new repo",
-			repo: createTestRepo("test-repo", "test-ns"),
+			name:     "no conditions - new repo",
+			repo:     createTestRepo("test-repo", "test-ns"),
 			expected: true, // New repos have Generation=1, ObservedGeneration=0, so spec changed
 		},
 		{
@@ -137,7 +137,7 @@ func TestHasSpecChanged(t *testing.T) {
 			name: "controller restart during spec change - generation mismatch",
 			repo: func() *configapi.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
-				repo.Generation = 6 // Spec was changed
+				repo.Generation = 6                // Spec was changed
 				repo.Status.ObservedGeneration = 5 // Controller crashed before updating status
 				repo.Status.Conditions = []metav1.Condition{{
 					Type:               configapi.RepositoryReady,
@@ -198,38 +198,38 @@ func TestUpdateRepoStatusWithBackoffExtended(t *testing.T) {
 		expectError  bool
 	}{
 		{
-			name:        "status ready with next sync time",
-			status:      RepositoryStatusReady,
-			syncError:   nil,
+			name:         "status ready with next sync time",
+			status:       RepositoryStatusReady,
+			syncError:    nil,
 			nextSyncTime: func() *time.Time { t := time.Now().Add(time.Hour); return &t }(),
-			expectError: false,
+			expectError:  false,
 		},
 		{
-			name:        "status error with sync error",
-			status:      RepositoryStatusError,
-			syncError:   errors.New("sync failed"),
+			name:         "status error with sync error",
+			status:       RepositoryStatusError,
+			syncError:    errors.New("sync failed"),
 			nextSyncTime: nil,
-			expectError: false,
+			expectError:  false,
 		},
 		{
-			name:        "status sync in progress",
-			status:      RepositoryStatusSyncInProgress,
-			syncError:   nil,
+			name:         "status sync in progress",
+			status:       RepositoryStatusSyncInProgress,
+			syncError:    nil,
 			nextSyncTime: nil,
-			expectError: false,
+			expectError:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := createTestRepo("test-repo", "test-ns")
-			
+
 			mockClient := mockclient.NewMockClient(t)
 			mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
-			
+
 			mockClient.EXPECT().Status().Return(mockStatusWriter)
 			mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			
+
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, tt.status, tt.syncError, tt.nextSyncTime)
 			if tt.expectError {

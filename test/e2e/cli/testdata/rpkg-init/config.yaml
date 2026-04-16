@@ -70,6 +70,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: init-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -93,5 +98,5 @@ commands:
       - --workspace=init-2
       - init-package
     stderr: |
-      error: `init` cannot create a new revision for package "init-package" that already exists in repo "git"; make subsequent revisions using `copy`
+      Error: Internal error occurred: package "init-package" already exists in repository "git" 
     exitCode: 1

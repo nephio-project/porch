@@ -184,7 +184,7 @@ func TestTestPrSliceToMap(t *testing.T) {
 }
 
 func TestKptUpstreamLock2APIUpstreamLock(t *testing.T) {
-	kptLock := kptfilev1.UpstreamLock{}
+	kptLock := kptfilev1.Locator{}
 	assert.Nil(t, KptUpstreamLock2APIUpstreamLock(kptLock).Git)
 
 	kptLock.Git = &kptfilev1.GitLock{
@@ -195,7 +195,7 @@ func TestKptUpstreamLock2APIUpstreamLock(t *testing.T) {
 }
 
 func TestKptUpstreamLock2KptUpstream(t *testing.T) {
-	kptLock := kptfilev1.UpstreamLock{}
+	kptLock := kptfilev1.Locator{}
 	assert.Nil(t, KptUpstreamLock2KptUpstream(kptLock).Git)
 
 	kptLock.Git = &kptfilev1.GitLock{

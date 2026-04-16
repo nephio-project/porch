@@ -16,10 +16,13 @@ package dbcache
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 func pkgListFilter2WhereClause(filter repository.ListPackageFilter) string {
@@ -61,6 +64,7 @@ func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) strin
 	whereStatement, first = filter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
 
 	whereStatement, first = filter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
+	whereStatement, first = filter2SubClausePrLabels(whereStatement, filter.Label, first)
 	whereStatement, _ = filter2SubClauseKptfileLabels(whereStatement, filter.KptfileLabels, first)
 
 	if whereStatement == "" {
@@ -153,4 +157,99 @@ func filter2SubClauseKptfileLabels(whereStatement string, filterLabels map[strin
 	} else {
 		return whereStatement + "AND " + combinedClause, false
 	}
+}
+
+func filter2SubClausePrLabels(whereStatement string, labelSelector labels.Selector, first bool) (string, bool) {
+
+	if labelSelector == nil {
+		return whereStatement, first
+	}
+
+	subClauses := labelSelectorToJSONBClauses(labelSelector)
+	if len(subClauses) == 0 {
+		return whereStatement, first
+	}
+
+	combinedClause := "(" + strings.Join(subClauses, " AND ") + ")"
+
+	if first {
+		return whereStatement + combinedClause, false
+	} else {
+		return whereStatement + "AND " + combinedClause, false
+	}
+}
+
+func labelSelectorToJSONBClauses(labelSelector labels.Selector) []string {
+	jsonbPath := "package_revisions.meta::jsonb->'labels'"
+	reqs, hasSelector := labelSelector.Requirements()
+	if !hasSelector {
+		return nil
+	}
+
+	var clauses []string
+	for _, req := range reqs {
+		key := req.Key()
+		values := req.Values().List()
+
+		if key == porchapi.LatestPackageRevisionKey {
+			clauses = append(clauses, latestRevisionClause(req.Operator(), values))
+			continue
+		}
+
+		switch req.Operator() {
+		case selection.Equals, selection.DoubleEquals:
+			clauses = append(clauses, fmt.Sprintf("(%s->>'%s' = '%s')", jsonbPath, key, values[0]))
+		case selection.NotEquals:
+			clauses = append(clauses, fmt.Sprintf("((%s->>'%s') IS NULL OR %s->>'%s' != '%s')", jsonbPath, key, jsonbPath, key, values[0]))
+		case selection.In:
+			clauses = append(clauses, fmt.Sprintf("(%s->>'%s' IN (%s))", jsonbPath, key, quotedStringListForJsonB(values)))
+		case selection.NotIn:
+			clauses = append(clauses, fmt.Sprintf("((%s->>'%s') IS NULL OR %s->>'%s' NOT IN (%s))", jsonbPath, key, jsonbPath, key, quotedStringListForJsonB(values)))
+		case selection.Exists:
+			clauses = append(clauses, fmt.Sprintf("(%s ? '%s')", jsonbPath, key))
+		case selection.DoesNotExist:
+			clauses = append(clauses, fmt.Sprintf("(NOT (%s ? '%s'))", jsonbPath, key))
+		}
+	}
+	return clauses
+}
+
+func latestRevisionClause(op selection.Operator, values []string) string {
+	col := "package_revisions.latest"
+	switch op {
+	case selection.Equals, selection.DoubleEquals:
+		if values[0] == porchapi.LatestPackageRevisionValue {
+			return fmt.Sprintf("(%s = TRUE)", col)
+		}
+		return fmt.Sprintf("(%s = FALSE)", col)
+	case selection.NotEquals:
+		if values[0] == porchapi.LatestPackageRevisionValue {
+			return fmt.Sprintf("(%s = FALSE)", col)
+		}
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.In:
+		if slices.Contains(values, porchapi.LatestPackageRevisionValue) {
+			return fmt.Sprintf("(%s = TRUE)", col)
+		}
+		return fmt.Sprintf("(%s = FALSE)", col)
+	case selection.NotIn:
+		if slices.Contains(values, porchapi.LatestPackageRevisionValue) {
+			return fmt.Sprintf("(%s = FALSE)", col)
+		}
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.Exists:
+		return fmt.Sprintf("(%s = TRUE)", col)
+	case selection.DoesNotExist:
+		return fmt.Sprintf("(%s = FALSE)", col)
+	default:
+		return "TRUE"
+	}
+}
+
+func quotedStringListForJsonB(values []string) string {
+	quoted := make([]string, len(values))
+	for i, v := range values {
+		quoted[i] = fmt.Sprintf("'%s'", v)
+	}
+	return strings.Join(quoted, ", ")
 }

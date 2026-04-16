@@ -223,7 +223,6 @@ var _ = Describe("Repository Controller Integration", func() {
 		})
 	})
 
-
 	Context("When testing error recovery scenarios", func() {
 		It("Should handle RunOnceAt not yet due", func() {
 			_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: namespacedName})

@@ -44,11 +44,11 @@ func TestBranchCommitHash(t *testing.T) {
 			validateCommit: true,
 		},
 		{
-			name:           "empty repository",
-			tarfile:        "empty-repository.tar",
-			branch:         "main",
-			expectHash:     false, // Empty repo has no commits
-			expectError:    false,
+			name:        "empty repository",
+			tarfile:     "empty-repository.tar",
+			branch:      "main",
+			expectHash:  false, // Empty repo has no commits
+			expectError: false,
 		},
 		{
 			name:        "non-existent branch",
@@ -104,7 +104,7 @@ func TestBranchCommitHash(t *testing.T) {
 				// Validate commit exists if requested
 				if tc.validateCommit {
 					gitRepo := repo.(*gitRepository)
-					err := gitRepo.sharedDir.WithRLock(func(r *gogit.Repository) error {
+					err := gitRepo.sharedDir.withRLock(func(r *gogit.Repository) error {
 						_, err := r.CommitObject(plumbing.NewHash(hash))
 						return err
 					})
