@@ -25,11 +25,7 @@ Porch's PackageVariant controller watches for changes to:
 2. The upstream PackageRevision it references
 3. The downstream PackageRevisions it owns
 
-When changes occur, the controller:
-- Creates a new downstream PackageRevision if none exists (via clone task)
-- Updates existing downstream PackageRevisions when upstream changes (via upgrade task)
-- Applies customizations specified in the PackageVariant spec (functions, injectors, labels, annotations)
-- Manages the lifecycle of downstream PackageRevisions (draft → published)
+When changes occur, the controller creates a new downstream PackageRevision if none exists (via clone task), updates existing downstream PackageRevisions when upstream changes (via upgrade task), applies customizations specified in the PackageVariant spec (functions, injectors, labels, annotations), and manages the lifecycle of downstream PackageRevisions (draft → published).
 
 ## PackageVariant Spec
 
@@ -100,12 +96,7 @@ A PackageVariantSet defines:
 
 ## PackageVariantSet Behavior
 
-The PackageVariantSet controller:
-1. Evaluates target selectors to determine downstream repositories
-2. Creates a PackageVariant resource for each target
-3. Applies the template to customize each PackageVariant
-4. Manages the lifecycle of generated PackageVariants
-5. Updates PackageVariants when the PackageVariantSet changes
+The PackageVariantSet controller evaluates target selectors to determine downstream repositories, creates a PackageVariant resource for each target, applies the template to customize each PackageVariant, manages the lifecycle of generated PackageVariants, and updates PackageVariants when the PackageVariantSet changes.
 
 ## Key Points
 
