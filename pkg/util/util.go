@@ -346,7 +346,7 @@ func RetryOnError(retries int, f func(retryNumber int) error) error {
 	return err
 }
 
-func getImageName(image string) string {
+func GetImageName(image string) string {
 	if i := strings.Index(image, "@"); i != -1 {
 		image = image[:i]
 	}
@@ -359,4 +359,12 @@ func getImageName(image string) string {
 		image = image[i+1:]
 	}
 	return image
+}
+
+func GetImageRepository(image string) string {
+	lastSlash := strings.LastIndex(image, "/")
+	if lastSlash == -1 {
+		return ""
+	}
+	return image[:lastSlash]
 }

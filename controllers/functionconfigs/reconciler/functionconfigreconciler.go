@@ -78,9 +78,9 @@ func (s *FunctionConfigStore) generateRegexPattern(prefixes []string, imageName 
 	var preparedPrefixes []string
 	for _, prefix := range prefixes {
 		if prefix == "" {
-			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(s.defaultImagePrefix+"/"+imageName))
+			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(s.defaultImagePrefix))
 		} else {
-			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(prefix+"/"+imageName))
+			preparedPrefixes = append(preparedPrefixes, regexp.QuoteMeta(prefix))
 		}
 	}
 
@@ -179,7 +179,8 @@ func (s *FunctionConfigStore) GetBinaryFromCache(image string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	prefixToCheck, tag := splitImage(image)
+	image, tag := splitImage(image)
+	prefixToCheck := util.GetImageRepository(image)
 	binaryStore, exists := s.binaryExecutorCache[util.GetImageName(image)]
 	if exists {
 		regex := regexp.MustCompile(binaryStore.PrefixRegex)
