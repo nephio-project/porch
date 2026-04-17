@@ -78,9 +78,6 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache
 	}
 
 	// Initialize Git server semaphore with configured MaxConcurrentLists
-	if b.MaxConcurrentLists == 0 {
-		b.MaxConcurrentLists = 20 // Default value
-	}
 	b.workerSemaphore = semaphore.NewWeighted(int64(b.MaxConcurrentLists))
 
 	go b.run(ctx)
@@ -248,29 +245,16 @@ func (b *background) processRepositoryEvent(ctx context.Context, event watch.Eve
 	// Create unique key for the repository
 	repoKey := fmt.Sprintf("%s/%s", repository.Namespace, repository.Name)
 
-	errCh := make(chan error, 1)
 	go func() {
-		defer close(errCh)
 		// Get per-repository mutex to ensure event ordering
 		mutex := b.getRepositoryMutex(repoKey)
 		mutex.Lock()
 		defer mutex.Unlock()
 		if err := b.handleRepositoryEvent(ctx, repository, event); err != nil {
-			errCh <- err
+			klog.Warningf("Processing error for %s:%s: %v", repository.Namespace, repository.Name, err)
 		}
 	}()
 
-	// Handle errors from goroutine asynchronously
-	go func() {
-		select {
-		case err := <-errCh:
-			if err != nil && ctx.Err() == nil {
-				klog.Warningf("Processing error for %s:%s: %v", repository.Namespace, repository.Name, err)
-			}
-		case <-ctx.Done():
-			return
-		}
-	}()
 }
 
 func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
@@ -302,10 +286,10 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	var err error
 	switch eventType {
 	case watch.Deleted:
-		err = b.cache.CloseRepository(ctx, repo, repoList.Items)
+		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
 	default:
 		// Check connectivity before caching
-		if err = b.checkRepositoryConnectivity(ctx, repo); err != nil {
+		if err = b.checkRepositoryConnectivity(listCtx, repo); err != nil {
 			klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
 			condition := v1.Condition{
 				Type:               configapi.RepositoryReady,
@@ -315,9 +299,9 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 				Reason:             configapi.ReasonError,
 				Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
 			}
-			return b.updateRepositoryStatusCondition(ctx, repo, condition)
+			return b.updateRepositoryStatusCondition(listCtx, repo, condition)
 		}
-		err = b.cacheRepository(ctx, repo)
+		err = b.cacheRepository(listCtx, repo)
 	}
 	if err == nil {
 		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))

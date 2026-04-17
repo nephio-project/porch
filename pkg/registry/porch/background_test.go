@@ -49,16 +49,23 @@ func TestBackgroundOptions(t *testing.T) {
 			expected: &background{repoOperationRetryAttempts: 5},
 		},
 		{
+			name:     "With max concurrent lists",
+			options:  []BackgroundOption{WithMaxConcurrentLists(5)},
+			expected: &background{MaxConcurrentLists: 5},
+		},
+		{
 			name: "With multiple options",
 			options: []BackgroundOption{
 				WithPeriodicRepoSyncFrequency(5 * time.Second),
 				WithListTimeoutPerRepo(10 * time.Second),
 				WithRepoOperationRetryAttempts(3),
+				WithMaxConcurrentLists(20),
 			},
 			expected: &background{
 				periodicRepoSyncFrequency:  5 * time.Second,
 				listTimeoutPerRepo:         10 * time.Second,
 				repoOperationRetryAttempts: 3,
+				MaxConcurrentLists:         20,
 			},
 		},
 	}
@@ -295,7 +302,9 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			mockCache := &mockcache.MockCache{}
 
 			// Add mocks for repository events to verify they get processed
-			if tt.name == "Repository ADDED event" || tt.name == "Repository MODIFIED event" {
+			// Add mocks for repository events to verify they get processed
+			switch tt.name {
+			case "Repository ADDED event", "Repository MODIFIED event":
 				// ADDED and MODIFIED events go through the same path (connectivity check + cache)
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
 				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.Anything).Return(nil)
@@ -304,7 +313,7 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 				mockResourceWriter := &mockclient.MockSubResourceWriter{}
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 				mockClient.On("Status").Return(mockResourceWriter)
-			} else if tt.name == "Repository DELETED event" {
+			case "Repository DELETED event":
 				// DELETED events go through a different path (close repository)
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
 				mockCache.On("CloseRepository", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -331,11 +340,12 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			b.handleWatchEvent(context.Background(), tt.event, &bookmark, &consecutiveFailures, reconnect)
 
 			// For repository events, wait for goroutine to complete and verify cache was called
-			if tt.name == "Repository ADDED event" || tt.name == "Repository MODIFIED event" {
+			switch tt.name {
+			case "Repository ADDED event", "Repository MODIFIED event":
 				time.Sleep(200 * time.Millisecond) // Give goroutines time to complete
 				mockCache.AssertCalled(t, "CheckRepositoryConnectivity", mock.Anything, mock.Anything)
 				mockCache.AssertCalled(t, "OpenRepository", mock.Anything, mock.Anything)
-			} else if tt.name == "Repository DELETED event" {
+			case "Repository DELETED event":
 				time.Sleep(200 * time.Millisecond) // Give goroutines time to complete
 				mockCache.AssertCalled(t, "CloseRepository", mock.Anything, mock.Anything, mock.Anything)
 			}
