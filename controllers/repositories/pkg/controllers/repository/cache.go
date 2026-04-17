@@ -35,7 +35,7 @@ import (
 )
 
 func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.Manager) error {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 	if err := r.validateCacheType(); err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (r *RepositoryReconciler) validateCacheType() error {
 // Priority: 1. Flag value, 2. GIT_CACHE_DIR env var, 3. User cache dir, 4. Temp dir
 // Matches porch-server behavior for consistency
 func (r *RepositoryReconciler) determineCacheDirectory() string {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 
 	// Priority 1: Use flag value if set
 	if r.cacheDirectory != "" {
@@ -159,7 +159,7 @@ func (r *RepositoryReconciler) buildCacheOptions(
 }
 
 func (r *RepositoryReconciler) setupDBCacheOptionsFromEnv() (cachetypes.DBCacheOptions, error) {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 	dbDriver := os.Getenv("DB_DRIVER")
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")

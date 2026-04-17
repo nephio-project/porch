@@ -39,33 +39,33 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
-// RenderResult holds the output of a render operation.
-type RenderResult struct {
-	Resources map[string]string
-	Results   *fnresult.ResultList // per-function execution results; nil if no pipeline ran
-	Err       error                // pipeline failure; nil on success
+// renderResult holds the output of a render operation.
+type renderResult struct {
+	resources map[string]string
+	results   *fnresult.ResultList // per-function execution results; nil if no pipeline ran
+	err       error                // pipeline failure; nil on success
 }
 
-// Renderer renders a package's KRM function pipeline.
+// renderer renders a package's KRM function pipeline.
 // If nil on the reconciler, rendering is skipped.
 // The returned error is an infrastructure failure (cannot read/write FS).
-// A pipeline failure is reported via RenderResult.Err.
-type Renderer interface {
-	Render(ctx context.Context, resources map[string]string) (*RenderResult, error)
+// A pipeline failure is reported via renderResult.err.
+type renderer interface {
+	Render(ctx context.Context, resources map[string]string) (*renderResult, error)
 }
 
-// kptRenderer implements Renderer using kpt's render library.
+// kptRenderer implements renderer using kpt's render library.
 type kptRenderer struct {
 	runtime       fn.FunctionRuntime
 	runnerOptions runneroptions.RunnerOptions
 }
 
-// NewKptRenderer creates a Renderer backed by a kpt FunctionRuntime.
-func NewKptRenderer(runtime fn.FunctionRuntime, opts runneroptions.RunnerOptions) Renderer {
+// newKptRenderer creates a renderer backed by a kpt FunctionRuntime.
+func newKptRenderer(runtime fn.FunctionRuntime, opts runneroptions.RunnerOptions) renderer {
 	return &kptRenderer{runtime: runtime, runnerOptions: opts}
 }
 
-func (r *kptRenderer) Render(ctx context.Context, resources map[string]string) (*RenderResult, error) {
+func (r *kptRenderer) Render(ctx context.Context, resources map[string]string) (*renderResult, error) {
 	fs := filesys.MakeFsInMemory()
 	pkgPath, err := writeResourcesToFS(fs, resources)
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *kptRenderer) Render(ctx context.Context, resources map[string]string) (
 	}
 
 	if pkgPath == "" {
-		return &RenderResult{Resources: resources}, nil
+		return &renderResult{resources: resources}, nil
 	}
 
 	renderer := kptops.NewRenderer(r.runnerOptions)
@@ -89,10 +89,10 @@ func (r *kptRenderer) Render(ctx context.Context, resources map[string]string) (
 		return nil, fmt.Errorf("failed to read resources after render: %w", readErr)
 	}
 
-	return &RenderResult{
-		Resources: fsResources,
-		Results:   resultList,
-		Err:       renderErr,
+	return &renderResult{
+		resources: fsResources,
+		results:   resultList,
+		err:       renderErr,
 	}, nil
 }
 
@@ -224,27 +224,27 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 		}
 	}
 
-	if result.Err != nil {
-		log.Error(result.Err, "render pipeline failed", "fnResults", result.Results)
+	if result.err != nil {
+		log.Error(result.err, "render pipeline failed", "fnResults", result.results)
 		if isPushOnRenderFailure(pr) {
 			log.Info("persisting partial resources (push-on-render-failure)")
-			r.persistAndSyncKptfile(ctx, pr, repoKey, result.Resources)
+			r.persistAndSyncKptfile(ctx, pr, repoKey, result.resources)
 		}
-		r.setRenderFailed(ctx, pr, result.Err)
-		return nil, fmt.Errorf("render pipeline failed: %w", result.Err)
+		r.setRenderFailed(ctx, pr, result.err)
+		return nil, fmt.Errorf("render pipeline failed: %w", result.err)
 	}
 
-	if err := r.writeRenderedResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, result.Resources); err != nil {
+	if err := r.writeRenderedResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, result.resources); err != nil {
 		r.setRenderFailed(ctx, pr, err)
 		return nil, err
 	}
 	log.V(1).Info("rendered resources written")
-	r.syncKptfileFields(ctx, pr, result.Resources)
+	r.syncKptfileFields(ctx, pr, result.resources)
 	log.Info("render complete")
 	return nil, nil
 }
 
-func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Context, resources map[string]string) (*RenderResult, *ctrl.Result, error) {
+func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Context, resources map[string]string) (*renderResult, *ctrl.Result, error) {
 	if r.renderLimiter != nil {
 		select {
 		case r.renderLimiter <- struct{}{}:

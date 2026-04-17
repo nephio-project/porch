@@ -263,9 +263,9 @@ metadata:
 	result, err := r.Render(t.Context(), resources)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.NoError(t, result.Err)
-	assert.Contains(t, result.Resources, "Kptfile")
-	assert.Contains(t, result.Resources, "cm.yaml")
+	assert.NoError(t, result.err)
+	assert.Contains(t, result.resources, "Kptfile")
+	assert.Contains(t, result.resources, "cm.yaml")
 }
 
 func TestKptRendererNoKptfile(t *testing.T) {
@@ -275,9 +275,9 @@ func TestKptRendererNoKptfile(t *testing.T) {
 	result, err := r.Render(t.Context(), resources)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.NoError(t, result.Err)
-	assert.Equal(t, resources, result.Resources)
-	assert.Nil(t, result.Results)
+	assert.NoError(t, result.err)
+	assert.Equal(t, resources, result.resources)
+	assert.Nil(t, result.results)
 }
 
 
@@ -289,8 +289,8 @@ func TestMockRendererPipelineErr(t *testing.T) {
 	result, err := m.Render(t.Context(), nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, "rendered", result.Resources["Kptfile"])
-	assert.EqualError(t, result.Err, "function failed")
+	assert.Equal(t, "rendered", result.resources["Kptfile"])
+	assert.EqualError(t, result.err, "function failed")
 }
 
 func TestMockRendererInfraErr(t *testing.T) {

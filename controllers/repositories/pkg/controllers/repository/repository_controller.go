@@ -37,6 +37,7 @@ import (
 )
 
 const (
+	reconcilerName      = "repositories"
 	RepositoryFinalizer = "config.porch.kpt.dev/repository"
 )
 
@@ -64,7 +65,6 @@ type RepositoryReconciler struct {
 
 	// Private implementation details
 	syncLimiter chan struct{} // Semaphore for sync concurrency
-	loggerName  string        // Logger name for this reconciler
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -257,10 +257,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
-// SetLogger sets the logger name for this reconciler
-func (r *RepositoryReconciler) SetLogger(name string) {
-	r.loggerName = name
-}
+func (r *RepositoryReconciler) Name() string { return reconcilerName }
 
 // ensureFinalizer adds finalizer if missing using patch to avoid generation increment
 func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Repository) (bool, error) {
@@ -289,7 +286,7 @@ func getRepoFields(repo *api.Repository) (repoURL, branch, directory string) {
 
 // SetupWithManager sets up the controller with the Manager
 func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 	log.Info("SetupWithManager called", "reconcilerPtr", fmt.Sprintf("%p", r), "cacheIsNil", r.Cache == nil)
 
 	// Log controller configuration

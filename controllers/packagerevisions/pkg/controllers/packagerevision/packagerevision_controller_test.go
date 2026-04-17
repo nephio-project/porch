@@ -658,12 +658,6 @@ func TestReconcileGetPackageContentFailure(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, result)
 }
 
-func TestSetLogger(t *testing.T) {
-	r := &PackageRevisionReconciler{}
-	r.SetLogger("test-logger")
-	assert.Equal(t, "test-logger", r.loggerName)
-}
-
 // --- Source execution tests ---
 
 // fakeDraftSlim is a simple test double for PackageRevisionDraftSlim.
@@ -913,20 +907,20 @@ func TestReconcileNoSource(t *testing.T) {
 }
 
 
-// mockRenderer is a test double for the Renderer interface.
+// mockRenderer is a test double for the renderer interface.
 type mockRenderer struct {
 	resources   map[string]string
 	err         error // infrastructure error
-	pipelineErr error // pipeline failure (returned via RenderResult.Err)
+	pipelineErr error // pipeline failure (returned via renderResult.err)
 }
 
-func (m *mockRenderer) Render(_ context.Context, _ map[string]string) (*RenderResult, error) {
+func (m *mockRenderer) Render(_ context.Context, _ map[string]string) (*renderResult, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return &RenderResult{
-		Resources: m.resources,
-		Err:       m.pipelineErr,
+	return &renderResult{
+		resources: m.resources,
+		err:       m.pipelineErr,
 	}, nil
 }
 

@@ -36,6 +36,8 @@ import (
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories,verbs=get
 
+const reconcilerName = "packagerevisions"
+
 // PackageRevisionReconciler reconciles v1alpha2 PackageRevision CRDs.
 // It handles lifecycle transitions (draft/proposed/published) by executing
 // git operations via the shared cache.
@@ -44,14 +46,13 @@ type PackageRevisionReconciler struct {
 	Scheme                 *runtime.Scheme
 	ContentCache           repository.ContentCache
 	ExternalPackageFetcher repository.ExternalPackageFetcher
-	Renderer               Renderer // nil = skip rendering
+	Renderer               renderer // nil = skip rendering
 
 	MaxConcurrentReconciles    int
 	MaxConcurrentRenders       int
 	RepoOperationRetryAttempts int
-	loggerName                 string
-	renderLimiter              chan struct{}    // bounds concurrent fn-runner calls
-	apiReader                  client.Reader   // bypasses informer cache for direct etcd reads
+	renderLimiter              chan struct{} // bounds concurrent fn-runner calls
+	apiReader                  client.Reader // bypasses informer cache for direct etcd reads
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -237,12 +238,10 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 	return nil, nil
 }
 
-func (r *PackageRevisionReconciler) SetLogger(name string) {
-	r.loggerName = name
-}
+func (r *PackageRevisionReconciler) Name() string { return reconcilerName }
 
 func (r *PackageRevisionReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 
 	r.Client = mgr.GetClient()
 	r.apiReader = mgr.GetAPIReader()

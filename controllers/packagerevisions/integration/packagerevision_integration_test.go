@@ -240,7 +240,6 @@ var _ = Describe("PackageRevision Controller Integration", func() {
 				ContentCache:            mgrMockCache,
 				MaxConcurrentReconciles: 1,
 			}
-			r.SetLogger("test-packagerevision")
 			Expect(r.SetupWithManager(mgr)).To(Succeed())
 
 			mgrCtx, mgrCancel = context.WithCancel(ctx)

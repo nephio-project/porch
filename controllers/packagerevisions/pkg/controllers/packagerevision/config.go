@@ -14,7 +14,17 @@
 
 package packagerevision
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/nephio-project/porch/pkg/cache/contentcache"
+	"github.com/nephio-project/porch/pkg/engine"
+	porch "github.com/nephio-project/porch/pkg/registry/porch"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
 
 const (
 	defaultMaxConcurrentReconciles    = 50
@@ -32,4 +42,45 @@ func (r *PackageRevisionReconciler) BindFlags(prefix string, flags *flag.FlagSet
 	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent PackageRevision reconciles")
 	flags.IntVar(&r.MaxConcurrentRenders, prefix+"max-concurrent-renders", defaultMaxConcurrentRenders, "Maximum number of concurrent renders (0 = unbounded)")
 	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
+}
+
+// Init wires runtime dependencies (credential resolvers, renderer)
+// that require the manager. ContentCache must be set before calling Init.
+func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
+	log := ctrl.Log.WithName(r.Name())
+	log.Info("PackageRevision controller configuration",
+		"maxConcurrentReconciles", r.MaxConcurrentReconciles,
+		"maxConcurrentRenders", r.MaxConcurrentRenders,
+		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts,
+	)
+
+	coreClient := mgr.GetClient()
+	credResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{
+		porch.NewBasicAuthResolver(),
+		porch.NewBearerTokenAuthResolver(),
+	})
+	caBundleResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{
+		porch.NewCaBundleResolver(),
+	})
+	r.ExternalPackageFetcher = contentcache.NewExternalPackageFetcher(
+		credResolver, caBundleResolver, r.RepoOperationRetryAttempts,
+	)
+
+	if fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS"); fnRunnerAddr != "" {
+		rt, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, 6*1024*1024, "")
+		if err != nil {
+			return fmt.Errorf("failed to create function runtime: %w", err)
+		}
+		opts := runneroptions.RunnerOptions{}
+		prefix := os.Getenv("DEFAULT_IMAGE_PREFIX")
+		if prefix == "" {
+			prefix = runneroptions.GHCRImagePrefix
+		}
+		opts.InitDefaults(prefix)
+		r.Renderer = newKptRenderer(rt, opts)
+		ctrl.Log.WithName(r.Name()).Info("function runtime enabled", "address", fnRunnerAddr)
+	} else {
+		ctrl.Log.WithName(r.Name()).Info("function runtime not configured — rendering disabled")
+	}
+	return nil
 }
