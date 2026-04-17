@@ -69,8 +69,9 @@ func WithRepoOperationRetryAttempts(count int) BackgroundOption {
 
 func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cachetypes.Cache, options ...BackgroundOption) {
 	b := &background{
-		coreClient: coreClient,
-		cache:      cache,
+		coreClient:  coreClient,
+		cache:       cache,
+		repoMutexes: make(map[string]*sync.Mutex),
 	}
 
 	for _, o := range options {
@@ -91,7 +92,8 @@ type background struct {
 	listTimeoutPerRepo         time.Duration
 	repoOperationRetryAttempts int
 	MaxConcurrentLists         int
-	repoMutexes                sync.Map            // Per-repository mutexes for event ordering
+	repoMutexes                map[string]*sync.Mutex // Per-repository mutexes for event ordering
+	repoMutexesLock            sync.RWMutex           // Protects repoMutexes map
 	workerSemaphore            *semaphore.Weighted // Rate limit Git server operations
 }
 
@@ -237,8 +239,20 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 }
 
 func (b *background) getRepositoryMutex(repoKey string) *sync.Mutex {
-	mutex, _ := b.repoMutexes.LoadOrStore(repoKey, &sync.Mutex{})
-	return mutex.(*sync.Mutex)
+	b.repoMutexesLock.RLock()
+	mutex, exists := b.repoMutexes[repoKey]
+	b.repoMutexesLock.RUnlock()
+	
+	if !exists {
+		b.repoMutexesLock.Lock()
+		// Double-check after acquiring write lock
+		if mutex, exists = b.repoMutexes[repoKey]; !exists {
+			mutex = &sync.Mutex{}
+			b.repoMutexes[repoKey] = mutex
+		}
+		b.repoMutexesLock.Unlock()
+	}
+	return mutex
 }
 
 func (b *background) processRepositoryEvent(ctx context.Context, event watch.EventType, repository *configapi.Repository) {
@@ -249,7 +263,15 @@ func (b *background) processRepositoryEvent(ctx context.Context, event watch.Eve
 		// Get per-repository mutex to ensure event ordering
 		mutex := b.getRepositoryMutex(repoKey)
 		mutex.Lock()
-		defer mutex.Unlock()
+		defer func() {
+			mutex.Unlock()
+			// Clean up mutex for deleted repositories
+			if event == watch.Deleted {
+				b.repoMutexesLock.Lock()
+				delete(b.repoMutexes, repoKey)
+				b.repoMutexesLock.Unlock()
+			}
+		}()
 		if err := b.handleRepositoryEvent(ctx, repository, event); err != nil {
 			klog.Warningf("Processing error for %s:%s: %v", repository.Namespace, repository.Name, err)
 		}

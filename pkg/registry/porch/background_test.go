@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -74,6 +75,7 @@ func TestBackgroundOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &background{
 				workerSemaphore: semaphore.NewWeighted(20),
+				repoMutexes:     make(map[string]*sync.Mutex),
 			}
 			for _, o := range tt.options {
 				o.apply(b)
@@ -93,6 +95,7 @@ func TestBackgroundUpdateCache(t *testing.T) {
 		coreClient:      mockClient,
 		workerSemaphore: semaphore.NewWeighted(20),
 		cache:           mockCache,
+		repoMutexes:     make(map[string]*sync.Mutex),
 	}
 
 	// Test invalid repository - should not call OpenRepository
@@ -324,6 +327,7 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			// Initialize test variables
@@ -493,6 +497,7 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 				cache:                      mockCache,
 				listTimeoutPerRepo:         1 * time.Second,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			var repository *configapi.Repository
@@ -634,6 +639,7 @@ func TestBackgroundRunOnce(t *testing.T) {
 				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
@@ -847,6 +853,7 @@ func TestBackgroundCacheRepository(t *testing.T) {
 				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			repository := tt.setupRepo()
