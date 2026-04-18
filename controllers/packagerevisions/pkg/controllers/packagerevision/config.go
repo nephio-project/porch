@@ -66,21 +66,22 @@ func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
 		credResolver, caBundleResolver, r.RepoOperationRetryAttempts,
 	)
 
-	if fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS"); fnRunnerAddr != "" {
-		rt, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, 6*1024*1024, "")
-		if err != nil {
-			return fmt.Errorf("failed to create function runtime: %w", err)
-		}
-		opts := runneroptions.RunnerOptions{}
-		prefix := os.Getenv("DEFAULT_IMAGE_PREFIX")
-		if prefix == "" {
-			prefix = runneroptions.GHCRImagePrefix
-		}
-		opts.InitDefaults(prefix)
-		r.Renderer = newKptRenderer(rt, opts)
-		ctrl.Log.WithName(r.Name()).Info("function runtime enabled", "address", fnRunnerAddr)
+	fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS")
+	functionRuntime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, 6*1024*1024, "")
+	if err != nil {
+		return fmt.Errorf("failed to create function runtime: %w", err)
+	}
+	opts := runneroptions.RunnerOptions{}
+	prefix := os.Getenv("DEFAULT_IMAGE_PREFIX")
+	if prefix == "" {
+		prefix = runneroptions.GHCRImagePrefix
+	}
+	opts.InitDefaults(prefix)
+	r.Renderer = newKptRenderer(functionRuntime, opts)
+	if fnRunnerAddr != "" {
+		ctrl.Log.WithName(r.Name()).Info("function runtime enabled (builtin + fn-runner)", "address", fnRunnerAddr)
 	} else {
-		ctrl.Log.WithName(r.Name()).Info("function runtime not configured — rendering disabled")
+		ctrl.Log.WithName(r.Name()).Info("function runtime enabled (builtin only, FUNCTION_RUNNER_ADDRESS not set)")
 	}
 	return nil
 }

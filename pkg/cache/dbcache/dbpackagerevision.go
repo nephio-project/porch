@@ -457,6 +457,10 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
+	if pr.repo == nil {
+		return fmt.Errorf("cannot update resources for package revision %s: no associated repository", pr.KubeObjectName())
+	}
+
 	if pr.repo.pushDraftsToGit && pr.gitPRDraft != nil {
 		klog.InfoS("[DB Cache] Updating resources in memory and in Git draft for PackageRevision", context1.LogMetadataFrom(ctx)...)
 		defer func() {

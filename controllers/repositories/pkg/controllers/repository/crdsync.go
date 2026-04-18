@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	fieldManagerRepoController = "repository-controller"
-	RepositoryLabel            = "porch.kpt.dev/repository"
+	fieldManagerRepoController     = "repository-controller"
+	fieldManagerRepoControllerSeed = "repository-controller-seed"
+	RepositoryLabel                = "porch.kpt.dev/repository"
 )
 
 // syncPackageRevisionCRDs creates, updates, or deletes PackageRevision CRDs
@@ -77,13 +78,7 @@ func (r *RepositoryReconciler) applyDesiredCRDs(ctx context.Context, repo *confi
 		name := pkgRev.KubeObjectName()
 		ex, isUpdate := existingByName[name]
 
-		var desired *porchv1alpha2.PackageRevision
-		var err error
-		if isUpdate {
-			desired, err = buildPackageRevisionCRDForUpdate(ctx, repo, pkgRev)
-		} else {
-			desired, err = buildPackageRevisionCRD(ctx, repo, pkgRev)
-		}
+		desired, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
 		if err != nil {
 			log.Error(err, "Failed to build PackageRevision CRD", "key", pkgRev.Key())
 			continue
@@ -95,8 +90,11 @@ func (r *RepositoryReconciler) applyDesiredCRDs(ctx context.Context, repo *confi
 			continue
 		}
 
-		if err := r.applyPackageRevisionCRD(ctx, desired, !isUpdate); err != nil {
+		if err := r.applyPackageRevisionCRD(ctx, desired); err != nil {
 			continue
+		}
+		if !isUpdate {
+			r.applySeedFields(ctx, repo, pkgRev, desired)
 		}
 		if isUpdate {
 			log.V(3).Info("Updated PackageRevision CRD", "name", desired.Name)
@@ -119,43 +117,79 @@ func (r *RepositoryReconciler) deleteStaleCRDs(ctx context.Context, existingByNa
 	}
 }
 
-// applyPackageRevisionCRD applies the spec and status of a PackageRevision CRD.
-// forceOwnership should be true on create (to claim field ownership even if the
-// object already exists from a prior incomplete sync) and false on update (to
-// avoid stealing fields owned by the PR controller or the user).
-func (r *RepositoryReconciler) applyPackageRevisionCRD(ctx context.Context, crd *porchv1alpha2.PackageRevision, forceOwnership bool) error {
+// applyPackageRevisionCRD applies repo-controller-owned spec and status fields
+// via SSA with ForceOwnership. Only includes fields the repo controller
+// permanently owns: identity, labels, ownerRef, locks, deployment.
+func (r *RepositoryReconciler) applyPackageRevisionCRD(ctx context.Context, crd *porchv1alpha2.PackageRevision) error {
 	log := log.FromContext(ctx)
 
-	// Save status before spec apply — r.Patch mutates crd with the server response,
-	// which returns status: {} since status is a separate subresource.
 	savedStatus := crd.Status
 
-	patchOpts := []client.PatchOption{client.FieldOwner(fieldManagerRepoController)}
-	statusOpts := []client.SubResourcePatchOption{client.FieldOwner(fieldManagerRepoController)}
-	if forceOwnership {
-		patchOpts = append(patchOpts, client.ForceOwnership)
-		statusOpts = append(statusOpts, client.ForceOwnership)
-	}
-
-	if err := r.Patch(ctx, crd, client.Apply, patchOpts...); err != nil {
+	opts := []client.PatchOption{client.FieldOwner(fieldManagerRepoController), client.ForceOwnership}
+	if err := r.Patch(ctx, crd, client.Apply, opts...); err != nil {
 		log.Error(err, "Failed to apply PackageRevision CRD", "name", crd.Name)
 		return err
 	}
 
 	statusObj := &porchv1alpha2.PackageRevision{
-		TypeMeta: crd.TypeMeta,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      crd.Name,
-			Namespace: crd.Namespace,
-		},
-		Status: savedStatus,
+		TypeMeta:   crd.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{Name: crd.Name, Namespace: crd.Namespace},
+		Status:     savedStatus,
 	}
+	statusOpts := []client.SubResourcePatchOption{client.FieldOwner(fieldManagerRepoController), client.ForceOwnership}
 	if err := r.Status().Patch(ctx, statusObj, client.Apply, statusOpts...); err != nil {
 		log.Error(err, "Failed to apply PackageRevision CRD status", "name", crd.Name)
 		return err
 	}
 
 	return nil
+}
+
+// applySeedFields applies non-repo-controller-owned fields (lifecycle, revision,
+// Kptfile-derived, publish metadata) on initial CRD creation only. Uses a
+// separate field manager without ForceOwnership so these fields seed the value
+// for discovered packages but never overwrite values already set by the user
+// or the PR controller.
+func (r *RepositoryReconciler) applySeedFields(ctx context.Context, repo *configapi.Repository, pkgRev repository.PackageRevision, crd *porchv1alpha2.PackageRevision) {
+	log := log.FromContext(ctx)
+
+	lifecycle := porchv1alpha2.PackageRevisionLifecycle(pkgRev.Lifecycle(ctx))
+	kf, _ := pkgRev.GetKptfile(ctx)
+
+	seedSpec := &porchv1alpha2.PackageRevision{
+		TypeMeta:   crd.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{Name: crd.Name, Namespace: crd.Namespace},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle:       lifecycle,
+			ReadinessGates:  porchv1alpha2.KptfileToReadinessGates(kf),
+			PackageMetadata: porchv1alpha2.KptfileToPackageMetadata(kf),
+		},
+	}
+	if err := r.Patch(ctx, seedSpec, client.Apply, client.FieldOwner(fieldManagerRepoControllerSeed)); err != nil {
+		log.V(3).Info("Seed spec apply skipped (fields likely already owned)", "name", crd.Name, "err", err)
+	}
+
+	seedStatus := porchv1alpha2.PackageRevisionStatus{
+		PackageConditions: porchv1alpha2.KptfileToPackageConditions(kf),
+	}
+	if porchv1alpha2.LifecycleIsPublished(lifecycle) {
+		key := pkgRev.Key()
+		seedStatus.Revision = key.Revision
+		commitTime, commitAuthor := pkgRev.GetCommitInfo()
+		seedStatus.PublishedBy = commitAuthor
+		if !commitTime.IsZero() {
+			t := metav1.NewTime(commitTime)
+			seedStatus.PublishedAt = &t
+		}
+	}
+	statusObj := &porchv1alpha2.PackageRevision{
+		TypeMeta:   crd.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{Name: crd.Name, Namespace: crd.Namespace},
+		Status:     seedStatus,
+	}
+	if err := r.Status().Patch(ctx, statusObj, client.Apply, client.FieldOwner(fieldManagerRepoControllerSeed)); err != nil {
+		log.V(3).Info("Seed status apply skipped (fields likely already owned)", "name", crd.Name, "err", err)
+	}
 }
 
 // packageRevisionCRDUpToDate returns true if the repo-controller-owned fields
@@ -169,45 +203,11 @@ func packageRevisionCRDUpToDate(existing, desired *porchv1alpha2.PackageRevision
 		equality.Semantic.DeepEqual(existing.Status.SelfLock, desired.Status.SelfLock)
 }
 
-// buildPackageRevisionCRD constructs a full PackageRevision CRD for initial creation.
+// buildPackageRevisionCRD constructs a PackageRevision CRD containing only
+// repo-controller-owned fields: identity, labels, ownerRef, locks, deployment.
+// Seed fields (lifecycle, publish metadata, Kptfile-derived) are applied
+// separately via applySeedFields on create.
 func buildPackageRevisionCRD(ctx context.Context, repo *configapi.Repository, pkgRev repository.PackageRevision) (*porchv1alpha2.PackageRevision, error) {
-	crd, err := buildPackageRevisionCRDForUpdate(ctx, repo, pkgRev)
-	if err != nil {
-		return nil, err
-	}
-
-	// Client-owned fields — only set on creation, not on update.
-	lifecycle := pkgRev.Lifecycle(ctx)
-	crd.Spec.Lifecycle = porchv1alpha2.PackageRevisionLifecycle(lifecycle)
-
-	// Kptfile-derived fields — set on creation. PR controller takes
-	// ownership after first render via ForceOwnership.
-	kf, _ := pkgRev.GetKptfile(ctx)
-	crd.Spec.ReadinessGates = porchv1alpha2.KptfileToReadinessGates(kf)
-	crd.Spec.PackageMetadata = porchv1alpha2.KptfileToPackageMetadata(kf)
-	crd.Status.PackageConditions = porchv1alpha2.KptfileToPackageConditions(kf)
-
-	// PR-controller-owned publish fields — set on creation for packages
-	// discovered as already-published. PR controller takes ownership on
-	// first reconcile via ForceOwnership.
-	if porchv1alpha2.LifecycleIsPublished(crd.Spec.Lifecycle) {
-		key := pkgRev.Key()
-		crd.Status.Revision = key.Revision
-		commitTime, commitAuthor := pkgRev.GetCommitInfo()
-		crd.Status.PublishedBy = commitAuthor
-		if !commitTime.IsZero() {
-			t := metav1.NewTime(commitTime)
-			crd.Status.PublishedAt = &t
-		}
-	}
-
-	return crd, nil
-}
-
-// buildPackageRevisionCRDForUpdate constructs a partial PackageRevision CRD
-// containing only repo-controller-owned fields. Omits spec.lifecycle (client-owned),
-// spec.source (client-owned), and publish metadata (PR-controller-owned).
-func buildPackageRevisionCRDForUpdate(ctx context.Context, repo *configapi.Repository, pkgRev repository.PackageRevision) (*porchv1alpha2.PackageRevision, error) {
 	key := pkgRev.Key()
 	_, upstreamLock, _ := pkgRev.GetUpstreamLock(ctx)
 	_, selfLock, _ := pkgRev.GetLock(ctx)

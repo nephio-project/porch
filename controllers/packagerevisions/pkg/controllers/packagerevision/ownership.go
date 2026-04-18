@@ -38,10 +38,15 @@ func (r *PackageRevisionReconciler) handleDeletion(ctx context.Context, pr *porc
 	}
 	patch := client.MergeFrom(pr.DeepCopy())
 	if controllerutil.RemoveFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
-		if err := r.Patch(ctx, pr, patch); err != nil {
+		if err := r.Patch(ctx, pr, patch); client.IgnoreNotFound(err) != nil {
 			return nil, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
+
+	// Re-evaluate latest-revision labels for the remaining revisions of
+	// the same package, so the previous revision gets promoted to latest.
+	r.updateLatestRevisionLabels(ctx, pr)
+
 	return &ctrl.Result{}, nil
 }
 

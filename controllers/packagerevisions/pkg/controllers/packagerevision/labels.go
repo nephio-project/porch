@@ -58,6 +58,9 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 	var latestName string
 	for i := range allRevs.Items {
 		rev := &allRevs.Items[i]
+		if !rev.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if porchv1alpha2.LifecycleIsPublished(rev.Spec.Lifecycle) && rev.Status.Revision > highestRev {
 			highestRev = rev.Status.Revision
 			latestName = rev.Name
@@ -66,6 +69,9 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 
 	for i := range allRevs.Items {
 		rev := &allRevs.Items[i]
+		if !rev.DeletionTimestamp.IsZero() {
+			continue
+		}
 		desiredLabel := "false"
 		if rev.Name == latestName {
 			desiredLabel = porchv1alpha2.LatestPackageRevisionValue

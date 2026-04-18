@@ -123,7 +123,11 @@ func (r *PackageRevisionReconciler) setSourceFailed(ctx context.Context, pr *por
 }
 
 func (r *PackageRevisionReconciler) setRenderFailed(ctx context.Context, pr *porchv1alpha2.PackageRevision, err error) {
-	r.updateRenderStatus(ctx, pr, "", "",
+	// Pass the render-request annotation as observedVersion so the controller
+	// records that this request was processed (even though it failed).
+	// Without this, the render trigger keeps re-firing indefinitely.
+	observed := pr.Annotations[porchv1alpha2.AnnotationRenderRequest]
+	r.updateRenderStatus(ctx, pr, "", observed,
 		renderedCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonRenderFailed, err.Error()),
 	)
 	// Also set Ready=False — a failed render means the package is not ready.

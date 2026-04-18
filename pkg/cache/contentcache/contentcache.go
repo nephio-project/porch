@@ -123,7 +123,15 @@ func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey repository.R
 		return &packageContentWrapper{inner: pkgRev}, nil
 	}
 
-	// Draft ↔ Proposed, Proposed → Published: draft/close cycle.
+	// Proposed → Published: use UpdateLifecycle which handles revision increment and git push.
+	if currentLC == porchv1alpha2.PackageRevisionLifecycleProposed && desiredLC == porchv1alpha2.PackageRevisionLifecyclePublished {
+		if err := pkgRev.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycle(desiredLC)); err != nil {
+			return nil, err
+		}
+		return &packageContentWrapper{inner: pkgRev}, nil
+	}
+
+	// Draft ↔ Proposed: draft/close cycle.
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return nil, err
@@ -195,9 +203,13 @@ func (c *contentCache) findPackageRevision(ctx context.Context, repoKey reposito
 		return nil, err
 	}
 
+	// Split the package name into path and leaf name for matching.
+	// e.g. "sub/folder/pkg" -> path="sub/folder", leafName="pkg"
+	pkgPath, leafName := repository.SplitPackagePathName(pkg)
+
 	revisions, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
-			PkgKey:        repository.PackageKey{Package: pkg},
+			PkgKey:        repository.PackageKey{Path: pkgPath, Package: leafName},
 			WorkspaceName: workspace,
 		},
 	})
@@ -206,7 +218,8 @@ func (c *contentCache) findPackageRevision(ctx context.Context, repoKey reposito
 	}
 
 	for _, rev := range revisions {
-		if rev.Key().WorkspaceName == workspace && rev.Key().PkgKey.Package == pkg {
+		key := rev.Key()
+		if key.WorkspaceName == workspace && key.PkgKey.Package == leafName && key.PkgKey.Path == pkgPath {
 			return rev, nil
 		}
 	}

@@ -3,6 +3,7 @@ package packagerevision
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -155,8 +156,7 @@ func TestUpdateLatestRevisionLabels(t *testing.T) {
 	}
 }
 
-func TestUpdateLatestRevisionLabelsListError(t *testing.T) {
-	mockClient := mockclient.NewMockClient(t)
+func TestUpdateLatestRevisionLabelsListError(t *testing.T) {	mockClient := mockclient.NewMockClient(t)
 	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).
 		Return(assert.AnError)
 
@@ -170,5 +170,49 @@ func TestUpdateLatestRevisionLabelsListError(t *testing.T) {
 	}
 
 	// Should not panic, just log.
+	r.updateLatestRevisionLabels(t.Context(), pr)
+}
+
+func TestUpdateLatestRevisionLabelsSkipsDeletingPackage(t *testing.T) {
+	now := metav1.NewTime(time.Now())
+	items := []porchv1alpha2.PackageRevision{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "pr-v1", Labels: map[string]string{porchv1alpha2.LatestPackageRevisionKey: "false"}},
+			Spec:       porchv1alpha2.PackageRevisionSpec{Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished},
+			Status:     porchv1alpha2.PackageRevisionStatus{Revision: 1},
+		},
+		{
+			// v2 is being deleted — should be skipped.
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "pr-v2",
+				DeletionTimestamp: &now,
+				Labels:            map[string]string{porchv1alpha2.LatestPackageRevisionKey: "true"},
+			},
+			Spec:   porchv1alpha2.PackageRevisionSpec{Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished},
+			Status: porchv1alpha2.PackageRevisionStatus{Revision: 2},
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).
+		Run(func(_ context.Context, list client.ObjectList, _ ...client.ListOption) {
+			list.(*porchv1alpha2.PackageRevisionList).Items = items
+		}).Return(nil)
+
+	// Expect v1 to be patched to "true" (promoted to latest).
+	mockClient.EXPECT().Patch(mock.Anything, mock.MatchedBy(func(obj client.Object) bool {
+		pr := obj.(*porchv1alpha2.PackageRevision)
+		return pr.Name == "pr-v1" && pr.Labels[porchv1alpha2.LatestPackageRevisionKey] == porchv1alpha2.LatestPackageRevisionValue
+	}), mock.Anything).Return(nil).Once()
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "pr-v2", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+			PackageName:    "my-pkg",
+		},
+	}
+
 	r.updateLatestRevisionLabels(t.Context(), pr)
 }

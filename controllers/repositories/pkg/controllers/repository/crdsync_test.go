@@ -170,27 +170,25 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 		assert.Equal(t, repo.Name, crd.OwnerReferences[0].Name)
 		assert.Equal(t, repo.UID, crd.OwnerReferences[0].UID)
 
-		// Spec
+		// Spec — repo-owned identity fields
 		assert.Equal(t, "path/to/my-pkg", crd.Spec.PackageName)
 		assert.Equal(t, "my-repo", crd.Spec.RepositoryName)
 		assert.Equal(t, "v3", crd.Spec.WorkspaceName)
-		assert.Equal(t, porchv1alpha2.PackageRevisionLifecyclePublished, crd.Spec.Lifecycle)
-		assert.Len(t, crd.Spec.ReadinessGates, 1)
-		assert.Equal(t, "Ready", crd.Spec.ReadinessGates[0].ConditionType)
 
-		// Status — published fields
-		assert.Equal(t, 3, crd.Status.Revision)
-		assert.Equal(t, "user@example.com", crd.Status.PublishedBy)
-		assert.NotNil(t, crd.Status.PublishedAt)
+		// Spec — seed fields NOT included (applied separately via applySeedFields)
+		assert.Empty(t, crd.Spec.Lifecycle)
+		assert.Nil(t, crd.Spec.ReadinessGates)
+
+		// Status — repo-owned fields
 		assert.True(t, crd.Status.Deployment)
-
-		// Status — locks
 		assert.Equal(t, "https://github.com/upstream.git", crd.Status.UpstreamLock.Git.Repo)
 		assert.Equal(t, "https://github.com/self.git", crd.Status.SelfLock.Git.Repo)
 
-		// Status — conditions
-		assert.Len(t, crd.Status.PackageConditions, 1)
-		assert.Equal(t, "Ready", crd.Status.PackageConditions[0].Type)
+		// Status — seed fields NOT included
+		assert.Equal(t, 0, crd.Status.Revision)
+		assert.Empty(t, crd.Status.PublishedBy)
+		assert.Nil(t, crd.Status.PublishedAt)
+		assert.Nil(t, crd.Status.PackageConditions)
 
 		// Labels
 		assert.Equal(t, "my-repo", crd.Labels[RepositoryLabel])
@@ -202,10 +200,11 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 		crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
 		assert.NoError(t, err)
 
+		// buildPackageRevisionCRD never includes seed fields
 		assert.Equal(t, 0, crd.Status.Revision)
 		assert.Empty(t, crd.Status.PublishedBy)
 		assert.Nil(t, crd.Status.PublishedAt)
-		assert.Equal(t, porchv1alpha2.PackageRevisionLifecycleDraft, crd.Spec.Lifecycle)
+		assert.Empty(t, crd.Spec.Lifecycle)
 	})
 
 	t.Run("empty kptfile yields nil optional fields", func(t *testing.T) {
@@ -318,11 +317,18 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 		expectError string
 	}{
 		{
-			name:    "creates new CRD",
+			name:    "creates new CRD with seed fields",
 			pkgRevs: []repository.PackageRevision{draftPkgRev},
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
 				mockListReturning(m, nil)
-				mockApplySuccess(t, m)
+				// applyPackageRevisionCRD: spec Patch + status Patch
+				m.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				sw := mockclient.NewMockSubResourceWriter(t)
+				sw.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				// applySeedFields: spec Patch (no ForceOwnership, so 1 fewer option) + status Patch
+				m.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything).Return(nil).Once()
+				sw.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything).Return(nil).Once()
+				m.EXPECT().Status().Return(sw)
 			},
 		},
 		{
@@ -446,7 +452,7 @@ func TestApplyPackageRevisionCRD(t *testing.T) {
 			tt.setupMocks(t, mockClient)
 
 			r := &RepositoryReconciler{Client: mockClient}
-			err := r.applyPackageRevisionCRD(ctx, crd.DeepCopy(), true)
+			err := r.applyPackageRevisionCRD(ctx, crd.DeepCopy())
 
 			if tt.expectError != "" {
 				assert.ErrorContains(t, err, tt.expectError)
@@ -457,8 +463,7 @@ func TestApplyPackageRevisionCRD(t *testing.T) {
 	}
 }
 
-
-func TestBuildPackageRevisionCRDForUpdateOmitsKptfileFields(t *testing.T) {
+func TestBuildPackageRevisionCRDOmitsNonOwnedFields(t *testing.T) {
 	ctx := context.Background()
 	repo := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default", UID: "repo-uid"},
@@ -481,7 +486,7 @@ func TestBuildPackageRevisionCRDForUpdateOmitsKptfileFields(t *testing.T) {
 		},
 	}
 
-	crd, err := buildPackageRevisionCRDForUpdate(ctx, repo, pkgRev)
+	crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
 	assert.NoError(t, err)
 
 	// Verify identity fields are present.
@@ -494,4 +499,109 @@ func TestBuildPackageRevisionCRDForUpdateOmitsKptfileFields(t *testing.T) {
 	assert.Nil(t, crd.Spec.ReadinessGates)
 	assert.Nil(t, crd.Spec.PackageMetadata)
 	assert.Nil(t, crd.Status.PackageConditions)
+}
+
+// --- Tests: re-sync and race scenarios ---
+
+// TestResyncDoesNotStripNonOwnedStatusFields verifies that when the repo
+// controller re-syncs an existing CRD (update path), the SSA apply object
+// does not include status.revision, status.publishedBy, or status.publishedAt.
+// This prevents SSA from removing those fields on re-sync, which was the
+// root cause of status.revision being reset to 0 after repo re-sync.
+func TestResyncDoesNotStripNonOwnedStatusFields(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestCRDRepo()
+
+	pkgRev := newFakePkgRev("resync-pkg", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
+	pkgRev.key.Revision = 1
+	pkgRev.commitTime = time.Date(2025, 6, 15, 10, 30, 0, 0, time.UTC)
+	pkgRev.commitAuthor = "user@example.com"
+
+	// Build the CRD as the repo controller would for the update path.
+	crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+	assert.NoError(t, err)
+
+	// The CRD must NOT contain publish metadata — those are PR-controller-owned.
+	assert.Equal(t, 0, crd.Status.Revision, "status.revision must not be set by repo controller")
+	assert.Empty(t, crd.Status.PublishedBy, "status.publishedBy must not be set by repo controller")
+	assert.Nil(t, crd.Status.PublishedAt, "status.publishedAt must not be set by repo controller")
+	assert.Empty(t, crd.Spec.Lifecycle, "spec.lifecycle must not be set by repo controller")
+}
+
+// TestSyncUpdatePathDoesNotCallSeedFields verifies that when the informer
+// cache correctly identifies an existing CRD (isUpdate=true), applySeedFields
+// is NOT called — only applyPackageRevisionCRD runs.
+func TestSyncUpdatePathDoesNotCallSeedFields(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestCRDRepo()
+
+	pkgRev := newFakePkgRev("existing-pkg", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
+	pkgRev.selfLock = kptfilev1.Locator{
+		Type: kptfilev1.GitOrigin,
+		Git:  &kptfilev1.GitLock{Repo: "https://example.com/repo.git", Ref: "main", Directory: "existing-pkg", Commit: "new-commit"},
+	}
+
+	// Existing CRD has an old selfLock so it's NOT up-to-date.
+	existingCRD, _ := buildPackageRevisionCRD(ctx, repo, pkgRev)
+	existingCRD.Status.SelfLock = nil // different from desired → triggers update
+
+	mockClient := mockclient.NewMockClient(t)
+	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingCRD})
+
+	// Expect exactly 1 spec Patch + 1 status Patch (applyPackageRevisionCRD only).
+	// No additional Patch calls from applySeedFields.
+	var specPatchObj *porchv1alpha2.PackageRevision
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			specPatchObj = obj.(*porchv1alpha2.PackageRevision)
+		}).Return(nil).Once()
+	sw := mockclient.NewMockSubResourceWriter(t)
+	mockClient.EXPECT().Status().Return(sw).Once()
+	var statusPatchObj *porchv1alpha2.PackageRevision
+	sw.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
+			statusPatchObj = obj.(*porchv1alpha2.PackageRevision)
+		}).Return(nil).Once()
+
+	r := &RepositoryReconciler{Client: mockClient}
+	err := r.syncPackageRevisionCRDs(ctx, repo, []repository.PackageRevision{pkgRev})
+	assert.NoError(t, err)
+
+	// Verify the spec apply does not include lifecycle.
+	assert.Empty(t, specPatchObj.Spec.Lifecycle, "update path must not set spec.lifecycle")
+
+	// Verify the status apply does not include revision or publish metadata.
+	assert.Equal(t, 0, statusPatchObj.Status.Revision, "update path must not set status.revision")
+	assert.Empty(t, statusPatchObj.Status.PublishedBy, "update path must not set status.publishedBy")
+	assert.Nil(t, statusPatchObj.Status.PublishedAt, "update path must not set status.publishedAt")
+}
+
+// TestSeedFieldsNotCalledOnUpdate verifies that applySeedFields is only
+// called on the create path (!isUpdate), not on the update path.
+func TestSeedFieldsNotCalledOnUpdate(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestCRDRepo()
+
+	pkgRev := newFakePkgRev("pkg1", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
+	pkgRev.key.Revision = 1
+
+	// Simulate existing CRD with different labels to force an update.
+	existingCRD, _ := buildPackageRevisionCRD(ctx, repo, pkgRev)
+	existingCRD.Labels["extra"] = "label"
+
+	mockClient := mockclient.NewMockClient(t)
+	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingCRD})
+
+	// Only applyPackageRevisionCRD calls expected (1 spec Patch + 1 status Patch).
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	sw := mockclient.NewMockSubResourceWriter(t)
+	mockClient.EXPECT().Status().Return(sw).Once()
+	sw.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+	// If applySeedFields were called, there would be additional Patch calls
+	// which would cause the mock to fail with unexpected calls.
+
+	r := &RepositoryReconciler{Client: mockClient}
+	err := r.syncPackageRevisionCRDs(ctx, repo, []repository.PackageRevision{pkgRev})
+	assert.NoError(t, err)
 }

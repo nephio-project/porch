@@ -161,7 +161,7 @@ type PackageRevisionStatus struct {
 
 	// Revision identifies the version of the package.
 	// This is assigned by the system when the package is published.
-	Revision int `json:"revision"`
+	Revision int `json:"revision,omitempty"`
 
 	// UpstreamLock identifies the upstream data for this package.
 	UpstreamLock *Locator `json:"upstreamLock,omitempty"`

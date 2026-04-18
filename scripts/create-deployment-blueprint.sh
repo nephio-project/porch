@@ -238,6 +238,24 @@ function enable_v1alpha2_packagerevisions() {
 
     # Enable the PR controller that reconciles v1alpha2 CRDs
     ENABLED_RECONCILERS="${ENABLED_RECONCILERS},packagerevisions"
+
+    # Wire the fn-runner address so the PR controller can render packages
+    kpt fn eval ${DESTINATION} \
+      --image ${STARLARK_IMG} \
+      --match-kind Deployment \
+      --match-name porch-controllers \
+      --match-namespace porch-system \
+      -- 'source=
+for resource in ctx.resource_list["items"]:
+  for container in resource["spec"]["template"]["spec"]["containers"]:
+    if container["name"] == "porch-controllers":
+      if container["env"] == None:
+        container["env"] = []
+      container["env"].append({
+        "name": "FUNCTION_RUNNER_ADDRESS",
+        "value": "function-runner.porch-system.svc.cluster.local:9445"
+      })
+'
 }
 
 function configure_porch_cache() {
