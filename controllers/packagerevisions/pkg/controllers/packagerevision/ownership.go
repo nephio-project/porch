@@ -32,10 +32,19 @@ import (
 // DeletionProposed first, unless the owner Repository is already gone
 // (GC cascade). For all other lifecycles the finalizer is removed immediately.
 func (r *PackageRevisionReconciler) handleDeletion(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
-	if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished && r.ownerRepoExists(ctx, pr) {
-		log.FromContext(ctx).Info("blocking deletion: published package must be DeletionProposed first", "lifecycle", pr.Spec.Lifecycle)
-		return &ctrl.Result{}, nil
+	if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished {
+		if r.ownerRepoExists(ctx, pr) {
+			log.FromContext(ctx).Info("blocking deletion: published package must be DeletionProposed first", "lifecycle", pr.Spec.Lifecycle)
+			return &ctrl.Result{}, nil
+		}
+		// Repo is gone — allow deletion but skip label update since all
+		// sibling revisions are being garbage-collected too.
+		return r.removeFinalizer(ctx, pr, false)
 	}
+	return r.removeFinalizer(ctx, pr, true)
+}
+
+func (r *PackageRevisionReconciler) removeFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision, updateLabels bool) (*ctrl.Result, error) {
 	patch := client.MergeFrom(pr.DeepCopy())
 	if controllerutil.RemoveFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
 		if err := r.Patch(ctx, pr, patch); client.IgnoreNotFound(err) != nil {
@@ -43,9 +52,9 @@ func (r *PackageRevisionReconciler) handleDeletion(ctx context.Context, pr *porc
 		}
 	}
 
-	// Re-evaluate latest-revision labels for the remaining revisions of
-	// the same package, so the previous revision gets promoted to latest.
-	r.updateLatestRevisionLabels(ctx, pr)
+	if updateLabels {
+		r.updateLatestRevisionLabels(ctx, pr)
+	}
 
 	return &ctrl.Result{}, nil
 }

@@ -231,6 +231,7 @@ func TestReconcileDeletionAllowedWhenPublishedButRepoGone(t *testing.T) {
 			patched = true
 			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
 		}).Return(nil)
+	// No List expected — updateLatestRevisionLabels is skipped when repo is gone.
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
 	result, err := r.Reconcile(ctx, req)
@@ -268,6 +269,8 @@ func TestReconcileDeletionAllowedForDraft(t *testing.T) {
 			patched = true
 			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
 		}).Return(nil)
+	// updateLatestRevisionLabels is called after finalizer removal
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
 	result, err := r.Reconcile(ctx, req)
@@ -305,6 +308,8 @@ func TestReconcileDeletionAllowedWhenDeletionProposed(t *testing.T) {
 			patched = true
 			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
 		}).Return(nil)
+	// updateLatestRevisionLabels is called after finalizer removal
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
 	result, err := r.Reconcile(ctx, req)
@@ -368,6 +373,9 @@ func TestReconcileDeletionProposedNoFinalizer(t *testing.T) {
 			*obj.(*porchv1alpha2.PackageRevision) = *pr
 		}).Return(nil)
 	// No Patch expected — finalizer already absent.
+	
+	// updateLatestRevisionLabels is called after finalizer removal
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
 	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
 	result, err := r.Reconcile(ctx, req)

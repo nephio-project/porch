@@ -128,12 +128,10 @@ func TestUpdateLifecycle_DraftCycle_ProposedToDraft(t *testing.T) {
 }
 
 func TestUpdateLifecycle_DraftCycle_ProposedToPublished(t *testing.T) {
-	cc, _, mockRepo, mockPkgRev := setupCacheWithPkgRev(t, porchapi.PackageRevisionLifecycleProposed)
+	cc, _, _, mockPkgRev := setupCacheWithPkgRev(t, porchapi.PackageRevisionLifecycleProposed)
 
-	mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
-	mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockPkgRev).Return(mockDraft, nil)
-	mockDraft.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil)
-	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockDraft, 0).Return(mockPkgRev, nil)
+	// Proposed → Published uses direct UpdateLifecycle (no draft cycle).
+	mockPkgRev.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil)
 
 	content, err := cc.UpdateLifecycle(context.Background(), testRepoKey, testPkg, testWS, "Published")
 	assert.NoError(t, err)

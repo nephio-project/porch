@@ -72,7 +72,7 @@ func TestInit_SetsCredResolverAndFetcher(t *testing.T) {
 	err := r.Init(mgr)
 	require.NoError(t, err)
 	assert.NotNil(t, r.ExternalPackageFetcher, "ExternalPackageFetcher should be set")
-	assert.Nil(t, r.Renderer, "Renderer should be nil when FUNCTION_RUNNER_ADDRESS is not set")
+	assert.NotNil(t, r.Renderer, "Renderer should be set (builtin-only when FUNCTION_RUNNER_ADDRESS is not set)")
 }
 
 func TestInit_RendererEnabledWithFnRunner(t *testing.T) {
