@@ -989,3 +989,55 @@ func TestApplySourceUpgradeIdempotent(t *testing.T) {
 	assert.Nil(t, resources)
 	assert.Empty(t, source)
 }
+
+func TestStripKptfileStatus(t *testing.T) {
+	kfWithStatus := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: pkg
+status:
+  conditions:
+  - type: Rendered
+    status: "True"
+    reason: Rendered
+`
+	resources := map[string]string{"Kptfile": kfWithStatus, "other.yaml": "data"}
+	stripKptfileStatus(resources)
+
+	assert.NotContains(t, resources["Kptfile"], "status:")
+	assert.NotContains(t, resources["Kptfile"], "Rendered")
+	assert.Contains(t, resources["Kptfile"], "name: pkg")
+	assert.Equal(t, "data", resources["other.yaml"])
+}
+
+func TestStripKptfileStatusNoKptfile(t *testing.T) {
+	resources := map[string]string{"other.yaml": "data"}
+	stripKptfileStatus(resources)
+	assert.Equal(t, "data", resources["other.yaml"])
+}
+
+func TestStripKptfileStatusNoStatus(t *testing.T) {
+	kf := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: pkg
+`
+	resources := map[string]string{"Kptfile": kf}
+	stripKptfileStatus(resources)
+	assert.Equal(t, kf, resources["Kptfile"])
+}
+
+func TestStripKptfileStatusMalformed(t *testing.T) {
+	resources := map[string]string{"Kptfile": "not: valid: yaml: ["}
+	stripKptfileStatus(resources)
+	assert.Equal(t, "not: valid: yaml: [", resources["Kptfile"])
+}
+
+func TestCopyResources(t *testing.T) {
+	src := map[string]string{"a": "1", "b": "2"}
+	dst := copyResources(src)
+
+	assert.Equal(t, src, dst)
+	dst["a"] = "modified"
+	assert.Equal(t, "1", src["a"], "original should not be modified")
+}

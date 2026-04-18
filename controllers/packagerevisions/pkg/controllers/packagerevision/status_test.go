@@ -223,3 +223,65 @@ func TestUpdateKptfileFields(t *testing.T) {
 	assert.Len(t, statusPatch.PackageConditions, 1)
 	assert.Equal(t, "Ready", statusPatch.PackageConditions[0].Type)
 }
+
+func TestUpdateKptfileFieldsSkipsWhenEmpty(t *testing.T) {
+	mockClient := mockclient.NewMockClient(t)
+	// No Patch or Status calls expected — should be a no-op.
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+	pr := basePR()
+
+	kf := kptfilev1.KptFile{}
+	r.updateKptfileFields(t.Context(), pr, kf)
+}
+
+func TestUpdateKptfileFieldsConditionsOnly(t *testing.T) {
+	mockClient := mockclient.NewMockClient(t)
+
+	// Only status patch expected (no spec patch since no gates/meta).
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	var statusPatch porchv1alpha2.PackageRevisionStatus
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
+			statusPatch = obj.(*porchv1alpha2.PackageRevision).Status
+		}).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+	pr := basePR()
+
+	kf := kptfilev1.KptFile{
+		Status: &kptfilev1.Status{
+			Conditions: []kptfilev1.Condition{
+				{Type: "MyGate", Status: kptfilev1.ConditionTrue, Reason: "OK"},
+			},
+		},
+	}
+
+	r.updateKptfileFields(t.Context(), pr, kf)
+	assert.Len(t, statusPatch.PackageConditions, 1)
+	assert.Equal(t, "MyGate", statusPatch.PackageConditions[0].Type)
+}
+
+func TestUpdateKptfileFieldsGatesOnly(t *testing.T) {
+	mockClient := mockclient.NewMockClient(t)
+
+	// Only spec patch expected (no status patch since no conditions).
+	var specPatch porchv1alpha2.PackageRevisionSpec
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			specPatch = obj.(*porchv1alpha2.PackageRevision).Spec
+		}).Return(nil)
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+	pr := basePR()
+
+	kf := kptfilev1.KptFile{
+		Info: &kptfilev1.PackageInfo{
+			ReadinessGates: []kptfilev1.ReadinessGate{{ConditionType: "Ready"}},
+		},
+	}
+
+	r.updateKptfileFields(t.Context(), pr, kf)
+	assert.Len(t, specPatch.ReadinessGates, 1)
+}
