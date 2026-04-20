@@ -23,6 +23,7 @@ import (
 	"github.com/kptdev/kpt/pkg/printer"
 	fakeprint "github.com/kptdev/kpt/pkg/printer/fake"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -33,7 +34,7 @@ func TestCmd(t *testing.T) {
 	pkgRevName := "repo-fjdos9u2nfe2f32"
 	ns := "ns"
 
-	scheme, err := createScheme()
+	scheme, err := util.CreateScheme()
 	if err != nil {
 		t.Fatalf("error creating scheme: %v", err)
 	}

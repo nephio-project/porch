@@ -31,7 +31,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/kio"
@@ -81,7 +80,7 @@ func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 		return errors.E(op, err)
 	}
 
-	scheme, err := createScheme()
+	scheme, err := util.CreateScheme()
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -185,19 +184,6 @@ func writeToWriter(resources map[string]string, out io.Writer) error {
 			},
 		},
 	}.Execute()
-}
-
-func createScheme() (*runtime.Scheme, error) {
-	scheme := runtime.NewScheme()
-
-	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
-	}) {
-		if err := api(scheme); err != nil {
-			return nil, err
-		}
-	}
-	return scheme, nil
 }
 
 var matchResourceContents = append(kio.MatchAll, kptfilev1.KptFileName, kptfilev1.RevisionMetaDataFileName)
