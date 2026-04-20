@@ -21,6 +21,7 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -211,6 +212,127 @@ func TestFunctionConfigReconciler(t *testing.T) {
 			if tt.check != nil {
 				tt.check(t, reconciler)
 			}
+		})
+	}
+}
+
+func schemeWithFunctionConfig(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := configapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("unable to add configapi to scheme: %v", err)
+	}
+	return scheme
+}
+
+func TestFinalizersAdded(t *testing.T) {
+	cases := map[string]struct {
+		forValue  ReconcilerFor
+		finalizer string
+	}{
+		string(ReconcilerForFunctionRunner): {
+			forValue:  ReconcilerForFunctionRunner,
+			finalizer: FunctionRunnerFinalizer,
+		},
+		string(ReconcilerForServer): {
+			forValue:  ReconcilerForServer,
+			finalizer: ServerFinalizer,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			objName := "fn-add-" + string(tc.forValue)
+			obj := &configapi.FunctionConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       objName,
+					Namespace:  testNamespace,
+					Generation: 1,
+				},
+				Spec: configapi.FunctionConfigSpec{
+					Image:    objName,
+					Prefixes: []string{""},
+				},
+			}
+
+			c := fake.NewClientBuilder().WithScheme(schemeWithFunctionConfig(t)).WithObjects(obj).Build()
+			r := &FunctionConfigReconciler{
+				Client:              c,
+				FunctionConfigStore: NewFunctionConfigStore(defaultImagePrefix, functionCacheDir),
+				For:                 tc.forValue,
+			}
+
+			_, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: types.NamespacedName{Name: objName, Namespace: testNamespace},
+			})
+			require.NoError(t, err)
+
+			got := &configapi.FunctionConfig{}
+			err = c.Get(context.Background(), types.NamespacedName{Name: objName, Namespace: testNamespace}, got)
+			require.NoError(t, err)
+			assert.Contains(t, got.Finalizers, tc.finalizer)
+		})
+	}
+}
+
+func TestFinalizersRemoved(t *testing.T) {
+	now := metav1.Now()
+	const testFinalizer = "config.porch.kpt.dev/test-hold"
+
+	cases := map[string]struct {
+		forValue  ReconcilerFor
+		finalizer string
+	}{
+		string(ReconcilerForFunctionRunner): {
+			forValue:  ReconcilerForFunctionRunner,
+			finalizer: FunctionRunnerFinalizer,
+		},
+		string(ReconcilerForServer): {
+			forValue:  ReconcilerForServer,
+			finalizer: ServerFinalizer,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			objName := "fn-del-" + string(tc.forValue)
+			obj := &configapi.FunctionConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              objName,
+					Namespace:         testNamespace,
+					DeletionTimestamp: &now,
+					// Keep a second finalizer so the fake client retains the object, and we can assert metadata.
+					Finalizers: []string{tc.finalizer, testFinalizer},
+				},
+				Spec: configapi.FunctionConfigSpec{
+					Image:    objName,
+					Prefixes: []string{""},
+				},
+			}
+
+			c := fake.NewClientBuilder().WithScheme(schemeWithFunctionConfig(t)).WithObjects(obj).Build()
+			store := NewFunctionConfigStore(defaultImagePrefix, functionCacheDir)
+			store.UpsertFunctionConfig(objName, obj)
+
+			r := &FunctionConfigReconciler{
+				Client:              c,
+				FunctionConfigStore: store,
+				For:                 tc.forValue,
+			}
+
+			_, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: types.NamespacedName{Name: objName, Namespace: testNamespace},
+			})
+			require.NoError(t, err)
+
+			got := &configapi.FunctionConfig{}
+			err = c.Get(context.Background(), types.NamespacedName{Name: objName, Namespace: testNamespace}, got)
+			require.NoError(t, err)
+			assert.NotContains(t, got.Finalizers, tc.finalizer)
+			assert.Contains(t, got.Finalizers, testFinalizer)
+
+			_, exists := store.GetFunctionConfig(objName)
+			assert.False(t, exists, "FunctionConfig should be removed from the store when deletion completes")
 		})
 	}
 }
