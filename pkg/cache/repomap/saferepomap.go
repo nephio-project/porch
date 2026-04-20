@@ -16,6 +16,7 @@
 package repomap
 
 import (
+	"context"
 	"sync"
 
 	"github.com/nephio-project/porch/pkg/repository"
@@ -68,6 +69,10 @@ func (s *SafeRepoMap) LoadOrCreate(key repository.RepositoryKey, create func() (
 		if l.err != nil && !loaded {
 			// Remove failed entry only if this thread created it, so subsequent calls can retry
 			s.syncMap.Delete(key)
+			// Close any partially created repo to release resources (e.g. git cache dir)
+			if l.repo != nil {
+				l.repo.Close(context.Background())
+			}
 		}
 	})
 

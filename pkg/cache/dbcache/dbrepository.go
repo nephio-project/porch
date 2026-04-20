@@ -85,11 +85,13 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 		return nil
 	} else if err != sql.ErrNoRows {
 		klog.Warningf("dbRepository:OpenRepository: %+v DB read failed with error %q", r.Key(), err)
+		externalRepo.Close(ctx)
 		return err
 	}
 
 	if err = repoWriteToDB(ctx, r); err != nil {
 		klog.Warningf("dbRepository:OpenRepository: %+v DB write failed with error %q", r.Key(), err)
+		externalRepo.Close(ctx)
 		return err
 	}
 
@@ -106,6 +108,14 @@ func (r *dbRepository) Close(ctx context.Context) error {
 
 	r.repositorySync.Stop()
 
+	defer func() {
+		if err := r.externalRepo.Close(ctx); err != nil {
+			klog.Warningf("dbRepository:close: close of external repository %+v failed: %q", r.Key(), err)
+		} else {
+			klog.V(5).Infof("dbRepository:close: closed repository %+v", r.Key())
+		}
+	}()
+
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
 		return err
@@ -118,20 +128,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 		}
 	}
 
-	err = repoDeleteFromDB(ctx, r.Key())
-	if err != nil {
-		return err
-	}
-
-	err = r.externalRepo.Close(ctx)
-
-	if err == nil {
-		klog.V(5).Infof("dbRepository:close: closed repository %+v", r.Key())
-	} else {
-		klog.Warningf("dbRepository:close: close of repository %+v failed: %q", r.Key(), err)
-	}
-
-	return err
+	return repoDeleteFromDB(ctx, r.Key())
 }
 
 func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {

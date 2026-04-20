@@ -94,7 +94,7 @@ type background struct {
 	MaxConcurrentLists         int
 	repoMutexes                map[string]*sync.Mutex // Per-repository mutexes for event ordering
 	repoMutexesLock            sync.RWMutex           // Protects repoMutexes map
-	workerSemaphore            *semaphore.Weighted // Rate limit Git server operations
+	workerSemaphore            *semaphore.Weighted    // Rate limit Git server operations
 }
 
 const (
@@ -239,18 +239,12 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 }
 
 func (b *background) getRepositoryMutex(repoKey string) *sync.Mutex {
-	b.repoMutexesLock.RLock()
+	b.repoMutexesLock.Lock()
+	defer b.repoMutexesLock.Unlock()
 	mutex, exists := b.repoMutexes[repoKey]
-	b.repoMutexesLock.RUnlock()
-	
 	if !exists {
-		b.repoMutexesLock.Lock()
-		// Double-check after acquiring write lock
-		if mutex, exists = b.repoMutexes[repoKey]; !exists {
-			mutex = &sync.Mutex{}
-			b.repoMutexes[repoKey] = mutex
-		}
-		b.repoMutexesLock.Unlock()
+		mutex = &sync.Mutex{}
+		b.repoMutexes[repoKey] = mutex
 	}
 	return mutex
 }
@@ -258,25 +252,14 @@ func (b *background) getRepositoryMutex(repoKey string) *sync.Mutex {
 func (b *background) processRepositoryEvent(ctx context.Context, event watch.EventType, repository *configapi.Repository) {
 	// Create unique key for the repository
 	repoKey := fmt.Sprintf("%s/%s", repository.Namespace, repository.Name)
-
 	go func() {
-		// Get per-repository mutex to ensure event ordering
 		mutex := b.getRepositoryMutex(repoKey)
 		mutex.Lock()
-		defer func() {
-			mutex.Unlock()
-			// Clean up mutex for deleted repositories
-			if event == watch.Deleted {
-				b.repoMutexesLock.Lock()
-				delete(b.repoMutexes, repoKey)
-				b.repoMutexesLock.Unlock()
-			}
-		}()
+		defer mutex.Unlock()
 		if err := b.handleRepositoryEvent(ctx, repository, event); err != nil {
 			klog.Warningf("Processing error for %s:%s: %v", repository.Namespace, repository.Name, err)
 		}
 	}()
-
 }
 
 func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
@@ -342,27 +325,32 @@ func (b *background) runOnce(ctx context.Context) error {
 
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
+		func() {
+			repoKey := fmt.Sprintf("%s/%s", repo.Namespace, repo.Name)
+			mutex := b.getRepositoryMutex(repoKey)
+			mutex.Lock()
+			defer mutex.Unlock()
 
-		// Check repository connectivity
-		if err := b.checkRepositoryConnectivity(ctx, repo); err != nil {
-			klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
-			condition := v1.Condition{
-				Type:               configapi.RepositoryReady,
-				Status:             v1.ConditionFalse,
-				ObservedGeneration: repo.Generation,
-				LastTransitionTime: v1.Now(),
-				Reason:             configapi.ReasonError,
-				Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+			if err := b.checkRepositoryConnectivity(ctx, repo); err != nil {
+				klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
+				condition := v1.Condition{
+					Type:               configapi.RepositoryReady,
+					Status:             v1.ConditionFalse,
+					ObservedGeneration: repo.Generation,
+					LastTransitionTime: v1.Now(),
+					Reason:             configapi.ReasonError,
+					Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+				}
+				if err := b.updateRepositoryStatusCondition(ctx, repo, condition); err != nil {
+					klog.Errorf("Failed to update repository status for %s: %v", repo.Name, err)
+				}
+				return
 			}
-			if err := b.updateRepositoryStatusCondition(ctx, repo, condition); err != nil {
-				klog.Errorf("Failed to update repository status for %s: %v", repo.Name, err)
-			}
-			continue // Skip cacheRepository if connectivity fails
-		}
 
-		if err := b.cacheRepository(ctx, repo); err != nil {
-			klog.Errorf("Failed to cache repository: %v", err)
-		}
+			if err := b.cacheRepository(ctx, repo); err != nil {
+				klog.Errorf("Failed to cache repository: %v", err)
+			}
+		}()
 	}
 
 	return nil
