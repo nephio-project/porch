@@ -148,7 +148,7 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions, cl client.Clien
 				registryAuthSecretName:     o.RegistryAuthSecretName,
 				enablePrivateRegistriesTls: o.EnablePrivateRegistriesTls,
 				tlsSecretPath:              o.TlsSecretPath,
-				imageResolver:              (&runneroptions.RunnerOptions{}).ResolveToImageForCLIFunc(o.DefaultImagePrefix), // TODO: fix in kpt
+				imageResolver:              runneroptions.ResolveToImageForCLIFunc(o.DefaultImagePrefix),
 			},
 		},
 	}

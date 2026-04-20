@@ -347,7 +347,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
-			PodNameSpace:             o.PodNamespace,
+			PodNameSpace: o.PodNamespace,
 		},
 	}
 	return config, nil

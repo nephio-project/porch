@@ -515,7 +515,7 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, 
 	var de *digestAndEntrypoint
 	var err error
 	if pm.imageResolver != nil {
-		image, _ = pm.imageResolver(nil, image)
+		image = pm.imageResolver(image)
 	}
 	de, err = pm.imageDigestAndEntrypoint(ctx, image)
 	if err != nil {
