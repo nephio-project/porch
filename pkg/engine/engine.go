@@ -48,7 +48,7 @@ type CaDEngine interface {
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
 
-	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
+	ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
@@ -93,26 +93,11 @@ func (cad *cadEngine) OpenRepository(ctx context.Context, repositorySpec *config
 	return cad.cache.OpenRepository(ctx, repositorySpec)
 }
 
-func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+func (cad *cadEngine) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(3).InfoS("[CaD Engine] Opening cached repository for listing",
-		context1.LogMetadataFromWithExtras(ctx, "repository", repositorySpec.Name)...)
-	defer func() {
-		klog.V(3).InfoS("[CaD Engine] Completed listing from cached repository",
-			context1.LogMetadataFromWithExtras(ctx, "repository", repositorySpec.Name)...)
-	}()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositorySpec)
-	if err != nil {
-		return nil, err
-	}
-	if repo == nil {
-		return nil, pkgerrors.New("cache OpenRepository returned nil")
-	}
-
-	return repo.ListPackageRevisions(ctx, filter)
+	return cad.cache.ListPackageRevisions(ctx, filter)
 }
 
 func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {

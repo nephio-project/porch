@@ -329,6 +329,7 @@ For more details, run `porchctl rpkg upgrade --help`.
 
 *   **Separate Repositories:** For better organization and access control, keep blueprint packages and deployment packages in separate Git repositories.
 *   **Understand Your Strategy:** Before upgrading, be certain which merge strategy fits your use case to avoid accidentally losing important local customizations. When in doubt, the default `resource-merge` is the safest and most intelligent option.
+*   **Use Fixed Revisions:** Do not upgrade packages' placeholder/main package revisions or attempt to use them as upstream for an upgrade - this is not supported. Select defined package revisions instead - see [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder package revision
 
 ### Cleanup
 

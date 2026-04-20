@@ -51,6 +51,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -98,6 +103,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -126,7 +136,7 @@ commands:
       - fn
       - eval
       - --image
-      - ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0
+      - ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.3
       - --match-kind
       - Kptfile
       - /tmp/porch-e2e/rpkg-push-git.test-package.push
@@ -134,7 +144,7 @@ commands:
       - by-path=info.description
       - put-value=Updated Test Package Description
     stderr: |
-      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0" on 1 resource(s)
+      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.3" on 1 resource(s)
       [Results]: [info] info.description: Mutated field value to "Updated Test Package Description"
   - args:
       - porchctl
@@ -177,6 +187,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -225,6 +240,11 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - reason: RenderSuccess
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example

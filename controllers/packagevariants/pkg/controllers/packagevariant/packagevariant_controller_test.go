@@ -1615,11 +1615,11 @@ func TestIsValidUpstram(t *testing.T) {
 }
 
 func TestGetUpstreamPr(t *testing.T) {
-	pvReconcier := PackageVariantReconciler{}
+	pvReconciler := PackageVariantReconciler{}
 	upstream := api.Upstream{}
 	prList := porchapi.PackageRevisionList{}
 
-	_, err := pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err := pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
 	upstream.Repo = "my-repo"
@@ -1627,7 +1627,7 @@ func TestGetUpstreamPr(t *testing.T) {
 	upstream.WorkspaceName = "my-workspace"
 
 	prList.Items = append(prList.Items, porchapi.PackageRevision{})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
 	prList.Items = append(prList.Items, porchapi.PackageRevision{
@@ -1638,7 +1638,7 @@ func TestGetUpstreamPr(t *testing.T) {
 			Revision:       1,
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
 	prList.Items = append(prList.Items, porchapi.PackageRevision{
@@ -1649,10 +1649,10 @@ func TestGetUpstreamPr(t *testing.T) {
 			Revision:       1,
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 	prList.Items = append(prList.Items, porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
@@ -1662,14 +1662,14 @@ func TestGetUpstreamPr(t *testing.T) {
 			Revision:       1,
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err == nil)
 
 	upstream.WorkspaceName = ""
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
 	prList.Items = append(prList.Items, porchapi.PackageRevision{
@@ -1679,11 +1679,11 @@ func TestGetUpstreamPr(t *testing.T) {
 			WorkspaceName:  "main",
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err == nil)
 
 	upstream.Revision = -1
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err == nil)
 
 	upstream.Repo = "my-repo2"
@@ -1713,7 +1713,7 @@ func TestGetUpstreamPr(t *testing.T) {
 			Revision:       -1,
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err != nil)
 
 	prList.Items = append(prList.Items, porchapi.PackageRevision{
@@ -1724,7 +1724,7 @@ func TestGetUpstreamPr(t *testing.T) {
 			Revision:       -1,
 		},
 	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	_, err = pvReconciler.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err == nil)
 }
 

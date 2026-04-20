@@ -108,8 +108,8 @@ func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
 	mockPkgRev.On("Lifecycle", mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft)
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{}, nil)
 	mockPkgRev.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil)
-	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
-	mockPkgRev.On("GetLock").Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
+	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
+	mockPkgRev.On("GetLock", mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
 	mockPkgRev.On("ResourceVersion").Return("1")
 	mockPkgRev.On("ToMainPackageRevision", mock.Anything).Return(mockPkgRev)
 	mockPkgRev.On("SetMeta", mock.Anything, mock.Anything).Return(nil)
@@ -290,6 +290,11 @@ func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositoryS
 func (m *mockCache) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
 	args := m.Called(ctx, namespace, prName)
 	return args.String(0), args.Error(1)
+}
+
+func (m *mockCache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).([]repository.PackageRevision), args.Error(1)
 }
 
 func TestCreatePRWith2Tasks(t *testing.T) {

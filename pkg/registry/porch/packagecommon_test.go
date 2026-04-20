@@ -18,8 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,13 +34,11 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestNamespaceFilteringWatcher(t *testing.T) {
@@ -253,10 +249,6 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 }
 
 func TestListPackageRevisions(t *testing.T) {
-	var currentConcurrent int32
-	var maxConcurrent int32
-	var mutex sync.Mutex
-
 	tests := []struct {
 		name          string
 		setupMocks    func(*mockclient.MockClient, *mockrepo.MockPackageRevision, *mockcad.MockCaDEngine)
@@ -268,19 +260,7 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name: "Successful package revision listing",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{
-							{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "repo1",
-								},
-							},
-						}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
@@ -291,15 +271,7 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name: "Successful namespace filtering",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, client.InNamespace("test-namespace")).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo1", Namespace: "test-ns"}},
-						}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter: repository.ListPackageRevisionFilter{
@@ -316,155 +288,14 @@ func TestListPackageRevisions(t *testing.T) {
 			ctx:           genericapirequest.WithNamespace(context.Background(), "test-namespace"),
 		},
 		{
-			name:       "Conflicting namespaces",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {},
-			filter: repository.ListPackageRevisionFilter{
-				Key: repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
-							Namespace: "namespace-1",
-						},
-					},
-				},
-			},
-			expectedError: fmt.Errorf("conflicting namespaces specified: %q and %q", "namespace-2", "namespace-1"),
-			expectedCalls: 0,
-			ctx:           genericapirequest.WithNamespace(context.Background(), "namespace-2"),
-		},
-		{
-			name: "Failed repository listing",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Return(fmt.Errorf("list error"))
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			expectedError: fmt.Errorf("error listing repository objects: list error"),
-			expectedCalls: 0,
-			ctx:           context.Background(),
-		}, {
-			name: "Successful repository filtering",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
-						}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter: repository.ListPackageRevisionFilter{
-				Key: repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
-							Name: "repo1",
-						},
-					},
-				},
-			},
-			expectedError: nil,
-			expectedCalls: 1,
-			ctx:           context.Background(),
-		},
-		{
-			name: "Label selector filtering",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter:        repository.ListPackageRevisionFilter{Label: labels.SelectorFromSet(labels.Set{"test": "true"})},
-			expectedError: nil,
-			expectedCalls: 1,
-			ctx:           context.Background(),
-		},
-		{
-			name: "Timeout error",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{}, context.DeadlineExceeded)
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			expectedError: nil,
-			expectedCalls: 0,
-		},
-		{
 			name: "CaD engine error",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			expectedError: nil,
+			expectedError: fmt.Errorf("CaD engine error"),
 			expectedCalls: 0,
-			ctx:           context.Background(),
-		},
-		{
-			name: "Callback error",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			expectedError: nil,
-			expectedCalls: 1,
-			ctx:           context.Background(),
-		},
-		{
-			name: "Concurrent listing",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo2"}},
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo3"}},
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo4"}},
-						}
-					}).Return(nil)
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Run(func(args mock.Arguments) {
-						atomic.AddInt32(&currentConcurrent, 1)
-						mutex.Lock()
-						if currentConcurrent > maxConcurrent {
-							maxConcurrent = currentConcurrent
-						}
-						mutex.Unlock()
-						time.Sleep(500 * time.Millisecond)
-						atomic.AddInt32(&currentConcurrent, -1)
-					}).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			expectedError: nil,
-			expectedCalls: 4,
 			ctx:           context.Background(),
 		},
 	}
@@ -476,10 +307,8 @@ func TestListPackageRevisions(t *testing.T) {
 			mockCaD := &mockcad.MockCaDEngine{}
 
 			pc := &packageCommon{
-				cad:                      mockCaD,
-				coreClient:               mockCoreClient,
-				ListTimeoutPerRepository: 1 * time.Second,
-				MaxConcurrentLists:       3,
+				cad:        mockCaD,
+				coreClient: mockCoreClient,
 			}
 
 			mockCaD.ExpectedCalls = nil
@@ -510,7 +339,6 @@ func TestListPackageRevisions(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.expectedCalls, callCount)
-			assert.LessOrEqual(t, maxConcurrent, int32(pc.MaxConcurrentLists), "Maximum concurrent operations exceeded limit of 2")
 			mockCaD.AssertExpectations(t)
 			mockCoreClient.AssertExpectations(t)
 			mockPkgRev.AssertExpectations(t)
@@ -532,8 +360,6 @@ func TestGetRepoPkgRev(t *testing.T) {
 			pkgRevName: "repo.pkg.wsn",
 			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				repo := &configapi.Repository{}
-
 				pkgRev := &fakeextrepo.FakePackageRevision{
 					PrKey: repository.PackageRevisionKey{
 						PkgKey: repository.PackageKey{
@@ -544,15 +370,8 @@ func TestGetRepoPkgRev(t *testing.T) {
 					},
 				}
 
-				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
-					&configapi.Repository{}).
-					Run(func(args mock.Arguments) {
-						arg := args.Get(2).(*configapi.Repository)
-						*arg = *repo
-					}).Return(nil)
-
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, repo,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
@@ -591,13 +410,14 @@ func TestGetRepoPkgRev(t *testing.T) {
 			expectedErrorMessage: "package revision kubernetes resource name invalid",
 		},
 		{
-			name:       "Repository not found",
+			name:       "Package revision not found",
 			pkgRevName: "repo.pkg.wsn",
 			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
-					&configapi.Repository{}, mock.Anything).
-					Return(apierrors.NewNotFound(schema.GroupResource{}, "repo"))
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
+				cad.On("ListPackageRevisions", mock.Anything,
+					repository.ListPackageRevisionFilter{Key: prKey}).
+					Return([]repository.PackageRevision{}, nil)
 			},
 			expectedFailure:      true,
 			expectedErrorMessage: "not found",
@@ -607,21 +427,11 @@ func TestGetRepoPkgRev(t *testing.T) {
 			pkgRevName: "repo.pkg.wsn",
 			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				repo := &configapi.Repository{}
-
-				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
-					&configapi.Repository{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						arg := args.Get(2).(*configapi.Repository)
-						*arg = *repo
-					}).Return(nil)
-
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, repo,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					After(2*time.Second).
 					Return([]repository.PackageRevision{}, fmt.Errorf("seconds trying to list package revisions"))
-
 			},
 			expectedFailure:      true,
 			expectedErrorMessage: "seconds trying to list package revisions",
@@ -631,20 +441,10 @@ func TestGetRepoPkgRev(t *testing.T) {
 			pkgRevName: "repo.pkg.wsn",
 			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				repo := &configapi.Repository{}
-
-				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
-					&configapi.Repository{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						arg := args.Get(2).(*configapi.Repository)
-						*arg = *repo
-					}).Return(nil)
-
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, repo,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{}, fmt.Errorf("list error"))
-
 			},
 			expectedFailure:      true,
 			expectedErrorMessage: "list error",
@@ -657,9 +457,8 @@ func TestGetRepoPkgRev(t *testing.T) {
 			mockCaDEngine := &mockcad.MockCaDEngine{}
 
 			pc := &packageCommon{
-				coreClient:               mockCoreClient,
-				cad:                      mockCaDEngine,
-				ListTimeoutPerRepository: 1 * time.Second,
+				coreClient: mockCoreClient,
+				cad:        mockCaDEngine,
 			}
 
 			tt.setupMocks(mockCoreClient, mockCaDEngine)
@@ -924,10 +723,10 @@ func TestUpdatePackageRevision(t *testing.T) {
 				}
 
 				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
-					Return(nil).Twice()
+					Return(nil).Once()
 
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{pkgRev}, nil).Once()
 
@@ -955,11 +754,8 @@ func TestUpdatePackageRevision(t *testing.T) {
 			name:       "Package not found - no forceAllowCreate",
 			pkgRevName: "repo.pkg.wsn",
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine, pkgRev *mockrepo.MockPackageRevision) {
-				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
-					Return(nil).Once()
-
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{}, nil).Once()
 			},
@@ -977,10 +773,10 @@ func TestUpdatePackageRevision(t *testing.T) {
 				}
 
 				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"}, mock.Anything).
-					Return(nil).Twice()
+					Return(nil).Once()
 
 				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything,
+				cad.On("ListPackageRevisions", mock.Anything,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{pkgRev}, nil).Once()
 

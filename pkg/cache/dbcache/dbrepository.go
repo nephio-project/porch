@@ -206,10 +206,7 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 			klog.V(4).Infof("ListPackageRevisions: skipping package revision %+v with nil repository", pkgRev.Key())
 			continue
 		}
-		genericPkgRev := repository.PackageRevision(pkgRev)
-		if filter.MatchesLabels(ctx, genericPkgRev) {
-			genericPkgRevs[i] = genericPkgRev
-		}
+		genericPkgRevs[i] = pkgRev
 	}
 	genericPkgRevs = slices.DeleteFunc(genericPkgRevs, func(rev repository.PackageRevision) bool {
 		return rev == nil
@@ -244,16 +241,17 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      newPR.ObjectMeta,
-		spec:      &newPR.Spec,
-		lifecycle: porchapi.PackageRevisionLifecycleDraft,
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
+		meta:       newPR.ObjectMeta,
+		spec:       &newPR.Spec,
+		lifecycle:  porchapi.PackageRevisionLifecycleDraft,
+		updated:    time.Now(),
+		updatedBy:  getCurrentUser(),
+		deployment: r.deployment,
 	}
 
 	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
-	dbPkgRev.extPRID = kptfilev1.UpstreamLock{
+	dbPkgRev.extPRID = kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
 			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,

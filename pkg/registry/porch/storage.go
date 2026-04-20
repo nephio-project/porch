@@ -15,8 +15,6 @@
 package porch
 
 import (
-	"time"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,65 +27,55 @@ import (
 )
 
 type RESTStorageOptions struct {
-	Scheme               *runtime.Scheme
-	Codecs               serializer.CodecFactory
-	CaD                  engine.CaDEngine
-	CoreClient           client.WithWatch
-	TimeoutPerRepository time.Duration
-	MaxConcurrentLists   int
+	Scheme     *runtime.Scheme
+	Codecs     serializer.CodecFactory
+	CaD        engine.CaDEngine
+	CoreClient client.WithWatch
 }
 
 func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, error) {
 	packages := &packages{
 		TableConvertor: packageTableConvertor,
 		packageCommon: packageCommon{
-			scheme:                   r.Scheme,
-			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packages"),
-			coreClient:               r.CoreClient,
-			updateStrategy:           packageStrategy{},
-			createStrategy:           packageStrategy{},
-			ListTimeoutPerRepository: r.TimeoutPerRepository,
-			MaxConcurrentLists:       r.MaxConcurrentLists,
+			scheme:         r.Scheme,
+			cad:            r.CaD,
+			gr:             porchapi.Resource("packages"),
+			coreClient:     r.CoreClient,
+			updateStrategy: packageStrategy{},
+			createStrategy: packageStrategy{},
 		},
 	}
 
 	packageRevisions := &packageRevisions{
 		TableConvertor: packageRevisionTableConvertor,
 		packageCommon: packageCommon{
-			scheme:                   r.Scheme,
-			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packagerevisions"),
-			coreClient:               r.CoreClient,
-			updateStrategy:           packageRevisionStrategy{},
-			createStrategy:           packageRevisionStrategy{},
-			ListTimeoutPerRepository: r.TimeoutPerRepository,
-			MaxConcurrentLists:       r.MaxConcurrentLists,
+			scheme:         r.Scheme,
+			cad:            r.CaD,
+			gr:             porchapi.Resource("packagerevisions"),
+			coreClient:     r.CoreClient,
+			updateStrategy: packageRevisionStrategy{},
+			createStrategy: packageRevisionStrategy{},
 		},
 	}
 
 	packageRevisionsApproval := &packageRevisionApproval{
 		packageCommon: packageCommon{
-			scheme:                   r.Scheme,
-			cad:                      r.CaD,
-			coreClient:               r.CoreClient,
-			gr:                       porchapi.Resource("packagerevisions"),
-			updateStrategy:           packageRevisionApprovalStrategy{},
-			createStrategy:           packageRevisionApprovalStrategy{},
-			ListTimeoutPerRepository: r.TimeoutPerRepository,
-			MaxConcurrentLists:       r.MaxConcurrentLists,
+			scheme:         r.Scheme,
+			cad:            r.CaD,
+			coreClient:     r.CoreClient,
+			gr:             porchapi.Resource("packagerevisions"),
+			updateStrategy: packageRevisionApprovalStrategy{},
+			createStrategy: packageRevisionApprovalStrategy{},
 		},
 	}
 
 	packageRevisionResources := &packageRevisionResources{
 		TableConvertor: packageRevisionResourcesTableConvertor,
 		packageCommon: packageCommon{
-			scheme:                   r.Scheme,
-			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packagerevisionresources"),
-			coreClient:               r.CoreClient,
-			ListTimeoutPerRepository: r.TimeoutPerRepository,
-			MaxConcurrentLists:       r.MaxConcurrentLists,
+			scheme:     r.Scheme,
+			cad:        r.CaD,
+			gr:         porchapi.Resource("packagerevisionresources"),
+			coreClient: r.CoreClient,
 		},
 	}
 

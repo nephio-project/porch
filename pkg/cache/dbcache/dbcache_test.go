@@ -51,7 +51,7 @@ func Test_DbTestSuite(t *testing.T) {
 	if u, err := user.Current(); err == nil && u.Username == "root" {
 		t.Fatalf("This test cannot run as %q user", u.Username)
 	}
-	
+
 	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: t.Context()})
 }
 
@@ -277,6 +277,22 @@ func (t *DbTestSuite) createTestPkg(repoKey repository.RepositoryKey, name strin
 		pkgKey: repository.PackageKey{
 			RepoKey: repoKey,
 			Package: name,
+		},
+	}
+
+	err := pkgWriteToDB(t.Context(), &dbPkg)
+	t.NoError(err)
+
+	return dbPkg
+}
+
+func (t *DbTestSuite) createTestPkgWithPath(repoKey repository.RepositoryKey, name, path string) dbPackage {
+	dbPkg := dbPackage{
+		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
+		pkgKey: repository.PackageKey{
+			RepoKey: repoKey,
+			Package: name,
+			Path:    path,
 		},
 	}
 

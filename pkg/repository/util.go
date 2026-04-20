@@ -15,13 +15,16 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -122,7 +125,7 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.Locator {
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.Locator) *porchapi.Locator {
 	porchLock := &porchapi.Locator{}
 
 	porchLock.Type = porchapi.OriginType(kptLock.Type)
@@ -138,7 +141,7 @@ func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.L
 	return porchLock
 }
 
-func KptUpstreamLock2KptUpstream(kptLock kptfilev1.UpstreamLock) kptfilev1.Upstream {
+func KptUpstreamLock2KptUpstream(kptLock kptfilev1.Locator) kptfilev1.Upstream {
 	kptUpstream := kptfilev1.Upstream{}
 
 	kptUpstream.Type = kptLock.Type
@@ -187,4 +190,22 @@ func PathsOverlap(path1, path2 string) bool {
 		return true
 	}
 	return false
+}
+
+func PackageRevisionIsPlaceholder(ctx context.Context, namespace string, referenceResolver ReferenceResolver, packageRevision PackageRevision) (bool, error) {
+	if packageRevision.Key().Revision != -1 {
+		return false, nil
+	}
+
+	var upstreamRepo configapi.Repository
+	err := referenceResolver.ResolveReference(ctx, namespace, packageRevision.Key().RKey().Name, &upstreamRepo)
+	if err != nil {
+		return false, pkgerrors.Wrapf(err, "failed to resolve repository reference for %q when checking placeholder revision: %v", packageRevision.Key().RKey().Name, err)
+	}
+
+	if upstreamRepo.Spec.Git != nil && packageRevision.Key().WorkspaceName == upstreamRepo.Spec.Git.Branch {
+		return true, nil
+	}
+
+	return false, nil
 }

@@ -269,6 +269,12 @@ Common issues when cloning PackageRevisions and how to resolve them.
 - Check the exact name including repository, package, and workspace
 - Ensure you have permission to read the source PackageRevision
 
+**Clone fails with "upstream revision may not be the placeholder package revision":**
+
+- Using the upstream package's placeholder PackageRevision as the upstream PackageRevision is not supported
+- See [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder PackageRevision
+- Choose a different PackageRevision from the same package to use as the upstream PackageRevision
+
 **Clone fails with "workspace already exists"?**
 
 - The workspace name must be unique within the package in the target repository

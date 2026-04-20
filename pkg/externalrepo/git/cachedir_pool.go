@@ -24,28 +24,28 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// DirectoryPool manages shared access to cached git directories
-type DirectoryPool struct {
+// directoryPool manages shared access to cached git directories
+type directoryPool struct {
 	directories sync.Map
 	mutex       sync.Mutex
 }
 
-type SharedDirectory struct {
+type sharedDirectory struct {
 	repo     *git.Repository
 	mutex    sync.RWMutex
 	refCount int // number of gitRepository instances using this directory
 }
 
-var globalDirectoryPool = &DirectoryPool{
+var globalDirectoryPool = &directoryPool{
 	directories: sync.Map{},
 }
 
-// GetOrCreateSharedRepository safely initializes or reuses a cached git directory
-func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*SharedDirectory, error) {
+// getOrCreateSharedRepository safely initializes or reuses a cached git directory
+func (p *directoryPool) getOrCreateSharedRepository(dir, reponame string) (*sharedDirectory, error) {
 	// Fast path: check if directory already exists
 	if sharedDir, exists := p.directories.Load(dir); exists {
 		p.mutex.Lock()
-		shared := sharedDir.(*SharedDirectory)
+		shared := sharedDir.(*sharedDirectory)
 		shared.refCount++
 		klog.V(2).Infof("Repo %s is reusing shared directory %s, refCount now: %d", reponame, dir, shared.refCount)
 		p.mutex.Unlock()
@@ -58,7 +58,7 @@ func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*Shar
 
 	// Double-check after acquiring lock
 	if sharedDir, exists := p.directories.Load(dir); exists {
-		shared := sharedDir.(*SharedDirectory)
+		shared := sharedDir.(*sharedDirectory)
 		shared.refCount++
 		klog.V(2).Infof("Repo %s is reusing shared directory %s, refCount now: %d", reponame, dir, shared.refCount)
 		return shared, nil
@@ -93,7 +93,7 @@ func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*Shar
 		}
 	}
 
-	shared := &SharedDirectory{
+	shared := &sharedDirectory{
 		repo:     repo,
 		refCount: 1,
 	}
@@ -102,13 +102,13 @@ func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*Shar
 	return shared, nil
 }
 
-// ReleaseSharedRepository decrements reference count and cleans up cached git directory if needed
-func (p *DirectoryPool) ReleaseSharedRepository(dir, reponame string) {
+// releaseSharedRepository decrements reference count and cleans up cached git directory if needed
+func (p *directoryPool) releaseSharedRepository(dir, reponame string) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	if sharedDir, exists := p.directories.Load(dir); exists {
-		shared := sharedDir.(*SharedDirectory)
+		shared := sharedDir.(*sharedDirectory)
 		shared.refCount--
 		klog.V(2).Infof("Released repo %s from %s, refCount now: %d", reponame, filepath.Base(dir), shared.refCount)
 
@@ -131,15 +131,15 @@ func (p *DirectoryPool) ReleaseSharedRepository(dir, reponame string) {
 	}
 }
 
-// WithLock executes function with exclusive access to the cached git directory
-func (s *SharedDirectory) WithLock(fn func(*git.Repository) error) error {
+// withLock executes function with exclusive access to the cached git directory
+func (s *sharedDirectory) withLock(fn func(*git.Repository) error) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return fn(s.repo)
 }
 
-// WithRLock executes function with read-only access to the cached git directory
-func (s *SharedDirectory) WithRLock(fn func(*git.Repository) error) error {
+// withRLock executes function with read-only access to the cached git directory
+func (s *sharedDirectory) withRLock(fn func(*git.Repository) error) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return fn(s.repo)

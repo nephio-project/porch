@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package gitserver
 
 import (
 	"context"
@@ -36,7 +36,7 @@ type StaticRepos struct {
 	repos map[string]*Repo
 }
 
-// NewRepos constructs an instance of Repos
+// NewStaticRepos constructs an instance of StaticRepos
 func NewStaticRepos() *StaticRepos {
 	return &StaticRepos{
 		repos: make(map[string]*Repo),

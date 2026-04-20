@@ -30,30 +30,14 @@ Package revisions use simple integer sequence versioning (`1`, `2`, `3`, etc.):
 - **3**: Third published revision
 - And so on...
 
-This simple scheme enables:
-- Easy comparison (`3` is newer than `2`)
-- Automatic version assignment on publication
-- Optimistic concurrency control (detect conflicting edits)
-- Simple automation without parsing semantic versions
+This simple scheme enables easy comparison (`3` is newer than `2`), automatic version assignment on publication, optimistic concurrency control (to detect conflicting edits), and straightforward automation without parsing semantic versions.
 
 ## Draft vs Published Revisions
 
 Package revisions exist in different [lifecycle stages]({{% relref "package-revision-lifecycle" %}}):
 
-**Draft revisions**:
-- Work-in-progress versions
-- **Not yet assigned a revision number** - automatically set to `0`
-- Identified by workspace name only (e.g., `our-repo.my-package.firststab` where `firststab` is the workspace)
-- Can be freely modified or deleted
-- Not visible to downstream consumers
-
-**Published revisions**:
-- Finalized, immutable versions
-- Identified by an automatically-assigned integer revision number (`1`, `2`, `3`)
-- Cannot be modified (must create new draft to make changes)
-- Cannot be directly deleted (must first be proposed for deletion)
-- Visible to downstream consumers
-- Can be cloned or deployed
+- **Draft revisions** are work-in-progress versions that are **not yet assigned a revision number**, they are automatically set to `0`. They are identified by workspace name only (for example, `our-repo.my-package.firststab`, where `firststab` is the workspace), can be freely modified or deleted, and are not visible to downstream consumers.
+- **Published revisions** are finalized, immutable versions identified by an automatically-assigned integer revision number (`1`, `2`, `3`). They cannot be modified (you must create a new draft to make changes) or directly deleted (you must first propose deletion). They are visible to downstream consumers and can be cloned or deployed.
 
 ## The Latest Revision
 
@@ -64,17 +48,11 @@ Kubernetes label:
 kpt.dev/latest-revision: "true"
 ```
 
-This label makes it easy to:
-- Query for the latest revision using label selectors
-- Automatically track the newest version of a kpt package
-- Build automation that follows the latest published revision
+This label makes it easy to query for the latest revision using label selectors, automatically track the newest version of a kpt package, and build automation that follows the latest published revision.
 
 ## Package Revision Identity
 
-A package revision is uniquely identified by:
-- **Repository name**: Which Repository resource it belongs to
-- **Package name**: The kpt package directory name
-- **Workspace name**: Identifier for the package revision, user-defined at creation time
+A package revision is uniquely identified by three parts: the **repository name** (which Repository resource it belongs to), the **package name** (the kpt package directory name), and the **workspace name** (an identifier for the package revision that is user-defined at creation time).
 
 Example package revision names:
 - `blueprints.abc123.firststab` - Draft in workspace `firststab` of package `abc123` in repository `blueprints`

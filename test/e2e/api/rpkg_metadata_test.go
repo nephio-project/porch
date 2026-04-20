@@ -117,7 +117,7 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 			Validate: func(t *PorchSuite, pr *porchapi.PackageRevision) {
 				// Validate initial state has no custom labels/annotations
 				t.ValidateLabelsAndAnnos(pr.Name, nil, nil)
-				
+
 				// Add labels and annotations
 				if pr.Labels == nil {
 					pr.Labels = make(map[string]string)
@@ -128,7 +128,7 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 				}
 				pr.Annotations["kpt.dev/anno"] = "foo"
 				t.UpdateF(pr)
-				
+
 				// Validate updated labels and annotations
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/label": "foo"}, map[string]string{"kpt.dev/anno": "foo"})
 			},

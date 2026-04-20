@@ -78,6 +78,8 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 
 	klog.V(3).InfoS("[API] List operation started for PackageRevisions", context1.LogMetadataFrom(ctx)...)
 
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
 	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionList",
@@ -85,7 +87,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		},
 	}
 
-	filter, err := parsePackageRevisionFieldSelector(options)
+	filter, err := parsePackageRevisionFieldSelector(options, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +280,11 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
 
-	return r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	runTimeObj, ok, err := r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	if err != nil {
+		klog.ErrorS(err, "[API] PackageRevision update operation failed", context1.LogMetadataFrom(ctx)...)
+	}
+	return runTimeObj, ok, err
 }
 
 // Delete implements the GracefulDeleter interface.

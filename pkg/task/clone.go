@@ -118,6 +118,15 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 		return repository.PackageResources{}, fmt.Errorf("failed to fetch package revision %q: %w", ref.Name, err)
 	}
 
+	upstreamIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, upstreamRevision)
+	if err != nil {
+		return repository.PackageResources{}, pkgerrors.Wrap(err, "error checking for placeholder package revision")
+	}
+	if upstreamIsPlaceholder {
+		// We only allow clone to create new revisions from non-placeholder package revisions
+		return repository.PackageResources{}, fmt.Errorf("upstream revision may not be the placeholder package revision %s/%s", upstreamRevision.Key().RKey().Name, upstreamRevision.KubeObjectName())
+	}
+
 	resources, err := upstreamRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("cannot read contents of package %q: %w", ref.Name, err)
@@ -187,7 +196,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *por
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, kptfilev1.UpstreamLock{
+	}, kptfilev1.Locator{
 		Type: kptfilev1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
