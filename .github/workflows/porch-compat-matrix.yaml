@@ -26,6 +26,9 @@ concurrency:
 env:
   KIND_CONTEXT_NAME: porch-test
 
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # 1. Resolve the last 4 published releases and build the server matrix
@@ -78,14 +81,14 @@ jobs:
 
       - name: Checkout upstream latest (1.5 branch)
         if: matrix.server_version == 'latest'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: nephio-project/porch
           ref: '1.5' # NOTE this should revert back to main when we merge back
 
       - name: Checkout upstream tag ${{ matrix.server_version }}
         if: matrix.server_version != 'latest'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: nephio-project/porch
           ref: ${{ matrix.server_version }}
@@ -93,7 +96,7 @@ jobs:
       # --- Step 2: Setup tooling ---
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
           cache: true
@@ -116,7 +119,7 @@ jobs:
       # --- Install's Kind without deploying a cluster ---
 
       - name: Install Kind
-        uses: helm/kind-action@v1
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1
         with:
           version: v0.30.0
           install_only: true
@@ -221,7 +224,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: "compat-results-${{ matrix.server_version }}"
           path: .build/compat-results/
@@ -236,7 +239,7 @@ jobs:
           fi
       - name: Archive server logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: "server-log-${{ matrix.server_version }}"
           path: server.log
@@ -254,7 +257,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: compat-results-*
           path: results/
