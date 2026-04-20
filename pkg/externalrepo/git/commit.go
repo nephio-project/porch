@@ -36,6 +36,9 @@ const (
 	porchSignatureEmail = "porch@kpt.dev"
 )
 
+// emptyGitTreeHash is the well-known git hash for an empty tree object.
+var emptyGitTreeHash = plumbing.NewHash("4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+
 type commitHelper struct {
 	repository *git.Repository
 
@@ -337,33 +340,34 @@ func (h *commitHelper) storeBlobHashInTrees(fullPath string, hash plumbing.Hash)
 }
 
 // storeTrees writes the tree at treePath to git, first writing all child trees.
+// Empty subtrees are pruned so that deleting a package does not leave behind empty ancestor directories
 func (h *commitHelper) storeTrees(treePath string) (plumbing.Hash, error) {
 	tree, ok := h.trees[treePath]
 	if !ok {
 		return plumbing.Hash{}, fmt.Errorf("failed to find a tree %q", treePath)
 	}
-
 	entries := tree.Entries
 	sort.Slice(entries, func(i, j int) bool {
 		return entrySortKey(&entries[i]) < entrySortKey(&entries[j])
 	})
 
-	// Store all child trees and get their hashes
+	// Store all child trees, pruning any that resolve to empty
+	pruned := entries[:0]
 	for i := range entries {
 		e := &entries[i]
-		if e.Mode != filemode.Dir {
-			continue
+		if e.Mode == filemode.Dir && e.Hash.IsZero() {
+			hash, err := h.storeTrees(path.Join(treePath, e.Name))
+			if err != nil {
+				return plumbing.Hash{}, err
+			}
+			if hash == emptyGitTreeHash {
+				continue
+			}
+			e.Hash = hash
 		}
-		if !e.Hash.IsZero() {
-			continue
-		}
-
-		hash, err := h.storeTrees(path.Join(treePath, e.Name))
-		if err != nil {
-			return plumbing.Hash{}, err
-		}
-		e.Hash = hash
+		pruned = append(pruned, *e)
 	}
+	tree.Entries = pruned
 
 	treeHash, err := storeTree(h.repository, tree)
 	if err != nil {
