@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -239,5 +240,97 @@ func TestCommitWithUser(t *testing.T) {
 		if got, want := commit.Message, message; got != want {
 			t.Errorf("Commit.Message: got %q, want %q", got, want)
 		}
+	}
+}
+
+func createPackageCommit(t *testing.T, repo *gogit.Repository, parentHash plumbing.Hash, packagePath string) plumbing.Hash {
+	t.Helper()
+	ch, err := newCommitHelper(repo, nil, parentHash, packagePath, plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("newCommitHelper(%q) failed: %v", packagePath, err)
+	}
+	if err := ch.storeFile(path.Join(packagePath, "Kptfile"), "apiVersion: kpt.dev/v1"); err != nil {
+		t.Fatalf("storeFile failed: %v", err)
+	}
+	hash, _, err := ch.commit(context.Background(), fmt.Sprintf("Create %s", packagePath), packagePath)
+	if err != nil {
+		t.Fatalf("commit failed: %v", err)
+	}
+	return hash
+}
+
+func deletePackageCommit(t *testing.T, repo *gogit.Repository, parentHash plumbing.Hash, packagePath string) plumbing.Hash {
+	t.Helper()
+	ch, err := newCommitHelper(repo, nil, parentHash, packagePath, plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("newCommitHelper(%q) for deletion failed: %v", packagePath, err)
+	}
+	hash, _, err := ch.commit(context.Background(), fmt.Sprintf("Delete %s", packagePath), packagePath)
+	if err != nil {
+		t.Fatalf("delete commit failed: %v", err)
+	}
+	return hash
+}
+
+func TestStoreTreesPrunesEmptySubdirectory(t *testing.T) {
+	tempdir := t.TempDir()
+	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "empty-repository.tar"), tempdir)
+
+	createHash := createPackageCommit(t, gitRepo, plumbing.ZeroHash, "subdir/testpkg")
+	deleteHash := deletePackageCommit(t, gitRepo, createHash, "subdir/testpkg")
+
+	root := getCommitTree(t, gitRepo, deleteHash)
+	for _, entry := range root.Entries {
+		if entry.Name == "subdir" {
+			t.Errorf("expected 'subdir' to be pruned from root tree, but it still exists")
+		}
+	}
+}
+
+func TestStoreTreesPrunesNestedEmptySubdirectories(t *testing.T) {
+	tempdir := t.TempDir()
+	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "empty-repository.tar"), tempdir)
+
+	createHash := createPackageCommit(t, gitRepo, plumbing.ZeroHash, "level1/level2/testpkg")
+	deleteHash := deletePackageCommit(t, gitRepo, createHash, "level1/level2/testpkg")
+
+	root := getCommitTree(t, gitRepo, deleteHash)
+	for _, entry := range root.Entries {
+		if entry.Name == "level1" {
+			t.Errorf("expected 'level1' to be pruned from root tree, but it still exists")
+		}
+	}
+}
+
+func TestStoreTreesRetainsNonEmptySubdirectory(t *testing.T) {
+	tempdir := t.TempDir()
+	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "empty-repository.tar"), tempdir)
+
+	commitA := createPackageCommit(t, gitRepo, plumbing.ZeroHash, "subdir/pkg-a")
+	commitB := createPackageCommit(t, gitRepo, commitA, "subdir/pkg-b")
+	deleteHash := deletePackageCommit(t, gitRepo, commitB, "subdir/pkg-a")
+
+	root := getCommitTree(t, gitRepo, deleteHash)
+	subdirEntry := findTreeEntry(t, root, "subdir")
+	if subdirEntry == nil {
+		t.Fatalf("expected 'subdir' to still exist since pkg-b is still there")
+	}
+
+	subdirTree, err := object.GetTree(gitRepo.Storer, subdirEntry.Hash)
+	if err != nil {
+		t.Fatalf("failed to get subdir tree: %v", err)
+	}
+
+	foundPkgB := false
+	for _, entry := range subdirTree.Entries {
+		if entry.Name == "pkg-a" {
+			t.Errorf("expected 'pkg-a' to be deleted but it still exists")
+		}
+		if entry.Name == "pkg-b" {
+			foundPkgB = true
+		}
+	}
+	if !foundPkgB {
+		t.Errorf("expected 'pkg-b' to still exist in subdir")
 	}
 }
