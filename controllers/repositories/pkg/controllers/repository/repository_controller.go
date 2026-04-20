@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	porchcontext "github.com/nephio-project/porch/pkg/util/context"
@@ -64,7 +65,8 @@ type RepositoryReconciler struct {
 	useUserDefinedCaBundle bool   // Whether to use custom CA bundles from secrets
 
 	// Private implementation details
-	syncLimiter chan struct{} // Semaphore for sync concurrency
+	syncLimiter    chan struct{} // Semaphore for sync concurrency
+	coldStartRepos sync.Map     // Tracks repos that have synced since startup
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
