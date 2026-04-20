@@ -386,6 +386,9 @@ func (r *runner) findUpstreamName(pr *porchapi.PackageRevision) string {
 			return n
 		}
 		if pr.Status.UpstreamLock != nil {
+			if err := r.listPackageRevisions(); err != nil {
+				return ""
+			}
 			if up := r.findUpstreamByLock(pr.Status.UpstreamLock); up != nil {
 				return up.Name
 			}
@@ -402,18 +405,28 @@ func (r *runner) findEditOrigin(currentPr *porchapi.PackageRevision) string {
 	pr := currentPr
 	for pr != nil && pr.Spec.Tasks[0].Type == porchapi.TaskTypeEdit {
 		sourceName := pr.Spec.Tasks[0].Edit.Source.Name
-		pr = nil
-		for _, p := range r.prs {
-			if p.Name == sourceName {
-				pr = &p
-				break
-			}
-		}
+		pr = r.findPackageRevision(sourceName)
 	}
 	if pr != nil {
 		return r.findUpstreamName(pr)
 	}
 	return ""
+}
+
+func (r *runner) listPackageRevisions() error {
+	if len(r.prs) > 0 {
+		return nil
+	}
+	packageRevisionList := porchapi.PackageRevisionList{}
+	listOpts := []client.ListOption{}
+	if r.cfg.Namespace != nil && *r.cfg.Namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(*r.cfg.Namespace))
+	}
+	if err := r.client.List(r.ctx, &packageRevisionList, listOpts...); err != nil {
+		return err
+	}
+	r.prs = packageRevisionList.Items
+	return nil
 }
 
 func (r *runner) findUpstreamByLock(lock *porchapi.Locator) *porchapi.PackageRevision {

@@ -335,7 +335,8 @@ func TestFindEditOrigin(t *testing.T) {
 	const ns = "ns"
 	downstreamv1 := porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "downstream.v1",
+			Name:      "downstream.v1",
+			Namespace: ns,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			Tasks: []porchapi.Task{
@@ -354,7 +355,8 @@ func TestFindEditOrigin(t *testing.T) {
 	}
 	downstreamv2 := porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "downstream.v2",
+			Name:      "downstream.v2",
+			Namespace: ns,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			Tasks: []porchapi.Task{
@@ -372,13 +374,18 @@ func TestFindEditOrigin(t *testing.T) {
 	downstreamv3 := *downstreamv2.DeepCopy()
 	downstreamv3.Name = "downstream.v3"
 	downstreamv3.Spec.Tasks[0].Edit.Source = &porchapi.PackageRevisionRef{Name: "downstream.v2"}
-	prs := []porchapi.PackageRevision{
-		downstreamv1,
-		downstreamv2,
-		downstreamv3,
-	}
 
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&downstreamv1, &downstreamv2, &downstreamv3).
+		Build()
+
+	// empty prs to force GET-based traversal in findEditOrigin
+	r := createRunner(context.Background(), c, []porchapi.PackageRevision{}, ns, 0)
 
 	found := r.findUpstreamName(&downstreamv3)
 	assert.Equal(t, "upstream.v1", found)
@@ -901,7 +908,8 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 
 	editPr := porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "broken-edit-pr",
+			Name:      "broken-edit-pr",
+			Namespace: ns,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			Tasks: []porchapi.Task{
@@ -928,7 +936,8 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 
 	upstreamPr := porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "upstream-pr-v2",
+			Name:      "upstream-pr-v2",
+			Namespace: ns,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			Revision:  2,
@@ -945,8 +954,26 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 		},
 	}
 
-	prs := []porchapi.PackageRevision{editPr, upstreamPr}
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
+	interceptorFuncs := interceptor.Funcs{
+		List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if prList, ok := list.(*porchapi.PackageRevisionList); ok {
+				prList.Items = []porchapi.PackageRevision{editPr, upstreamPr}
+			}
+			return nil
+		},
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&editPr, &upstreamPr).
+		WithInterceptorFuncs(interceptorFuncs).
+		Build()
+
+	// empty prs to force listPackageRevisions call
+	r := createRunner(context.Background(), c, []porchapi.PackageRevision{}, ns, 0)
 
 	result := r.findUpstreamName(&editPr)
 
