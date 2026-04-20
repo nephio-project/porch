@@ -414,9 +414,6 @@ func (r *runner) findEditOrigin(currentPr *porchapi.PackageRevision) string {
 }
 
 func (r *runner) listPackageRevisions() error {
-	if len(r.prs) > 0 {
-		return nil
-	}
 	packageRevisionList := porchapi.PackageRevisionList{}
 	listOpts := []client.ListOption{}
 	if r.cfg.Namespace != nil && *r.cfg.Namespace != "" {
