@@ -58,6 +58,7 @@ type RepositoryReconciler struct {
 
 	// Feature flags
 	CreateV1Alpha2Rpkg bool // Create v1alpha2 PackageRevision CRDs during repo sync
+	PushDraftsToGit    bool // Push draft/proposed branches to git (DB cache only)
 
 	// Configuration (set via flags or defaults)
 	cacheType              string // Cache type (DB or CR)

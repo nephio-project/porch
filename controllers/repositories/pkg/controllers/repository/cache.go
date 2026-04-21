@@ -155,6 +155,7 @@ func (r *RepositoryReconciler) buildCacheOptions(
 			RepoOperationRetryAttempts: r.RepoOperationRetryAttempts,
 		},
 		RepoPRChangeNotifier: cachetypes.NewNoOpRepoPRChangeNotifier(),
+		DbPushDraftsToGit:    r.PushDraftsToGit,
 	}
 }
 
