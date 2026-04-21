@@ -85,7 +85,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 	for _, name := range args {
 		key := client.ObjectKey{
-			Namespace: util.EnsureNamespace(r.ctx, r.cfg.Namespace),
+			Namespace: util.EnsureNamespace(r.cfg.Namespace),
 			Name:      name,
 		}
 		var lastErr error

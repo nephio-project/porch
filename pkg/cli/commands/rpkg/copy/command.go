@@ -84,7 +84,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
 
-	r.namespace = util.EnsureNamespace(r.ctx, r.cfg.Namespace)
+	r.namespace = util.EnsureNamespace(r.cfg.Namespace)
 
 	r.copy.Source = &porchapi.PackageRevisionRef{
 		Name: args[0],

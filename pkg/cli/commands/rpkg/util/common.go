@@ -15,14 +15,12 @@
 package util
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 const (
@@ -82,17 +80,13 @@ func RemoveRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
 	return nil
 }
 
-func EnsureNamespace(ctx context.Context, namespace *string) string {
+func EnsureNamespace(namespace *string) string {
 	if namespace != nil && *namespace != "" {
 		return *namespace
 	}
 
 	if envNs := os.Getenv("NAMESPACE"); envNs != "" {
 		return envNs
-	}
-
-	if ctxNs, ok := request.NamespaceFrom(ctx); ok {
-		return ctxNs
 	}
 
 	return "default"
