@@ -129,7 +129,7 @@ func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockeng
 
 func TestList(t *testing.T) {
 	_, mockEngine := setup(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -148,7 +148,7 @@ func TestList(t *testing.T) {
 	//=========================================================================================
 
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
 	mockPkgRev.On("KubeObjectName").Return("test-package").Maybe()
@@ -161,12 +161,11 @@ func TestList(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	mockClient, mockEngine := setup(t)
+	_, mockEngine := setup(t)
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 
@@ -179,8 +178,7 @@ func TestGet(t *testing.T) {
 	//=========================================================================================
 
 	// Not found case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
 	result, err = packagerevisions.Get(ctx, pkgRevName, &metav1.GetOptions{})
 	assert.Error(t, err)
@@ -191,8 +189,7 @@ func TestGet(t *testing.T) {
 
 	// Error from GetPackageRevision
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil).Once()
 	mockPkgRev.On("KubeObjectName").Return(pkgRevName)
@@ -276,10 +273,9 @@ func TestDelete(t *testing.T) {
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		packageRevision,
-	}, nil).Once()
+		packageRevision}, nil).Once()
 	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()
 	mockEngine.On("DeletePackageRevision", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -301,8 +297,7 @@ func TestDelete(t *testing.T) {
 	//=========================================================================================
 
 	// Package not found
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
 	result, deleted, err = packagerevisions.Delete(ctx, pkgRevName, nil, &metav1.DeleteOptions{})
 	assert.Error(t, err)
@@ -313,8 +308,8 @@ func TestDelete(t *testing.T) {
 	//=========================================================================================
 
 	// Error from DeletePackageRevision
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
 	mockEngine.On("FindAllUpstreamReferencesInRepositories", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Once()

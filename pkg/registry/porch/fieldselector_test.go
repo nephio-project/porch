@@ -218,7 +218,7 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 				FieldSelector: fieldSelector,
 			}
 
-			gotFilter, err := parsePackageRevisionFieldSelector(options)
+			gotFilter, err := parsePackageRevisionFieldSelector(options, "")
 
 			require.EqualValues(t, &tt.wantFilter, gotFilter)
 			require.NoError(t, err)
@@ -259,7 +259,7 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 				FieldSelector: tt.selector,
 			}
 
-			gotFilter, err := parsePackageRevisionFieldSelector(options)
+			gotFilter, err := parsePackageRevisionFieldSelector(options, "")
 
 			wantFilter := &repository.ListPackageRevisionFilter{}
 			require.EqualValues(t, wantFilter, gotFilter)
@@ -308,7 +308,7 @@ func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
 				FieldSelector: fieldSelector,
 			}
 
-			gotFilter, err := parsePackageRevisionResourcesFieldSelector(options)
+			gotFilter, err := parsePackageRevisionResourcesFieldSelector(options, "")
 
 			require.EqualValues(t, &tt.wantFilter, gotFilter)
 			require.NoError(t, err)

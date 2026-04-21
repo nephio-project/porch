@@ -78,6 +78,8 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 
 	klog.V(3).InfoS("[API] List operation started for PackageRevisions", context1.LogMetadataFrom(ctx)...)
 
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
 	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionList",
@@ -85,7 +87,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		},
 	}
 
-	filter, err := parsePackageRevisionFieldSelector(options)
+	filter, err := parsePackageRevisionFieldSelector(options, ns)
 	if err != nil {
 		return nil, err
 	}

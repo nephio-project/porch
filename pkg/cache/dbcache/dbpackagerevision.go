@@ -43,18 +43,51 @@ var (
 	_ repository.PackageRevisionDraft = &dbPackageRevision{}
 )
 
+type kptfileStatus struct {
+	Conditions   []porchapi.Condition `json:"conditions,omitempty"`
+	UpstreamLock *kptfile.Locator     `json:"upstreamLock,omitempty"`
+}
+
+func extractKptfileStatus(resources map[string]string) kptfileStatus {
+	s, _, _ := extractFromKptfile(resources)
+	return s
+}
+
+func extractFromKptfile(resources map[string]string) (kptfileStatus, []porchapi.ReadinessGate, *porchapi.PackageMetadata) {
+	kfString, ok := resources[kptfile.KptFileName]
+	if !ok {
+		return kptfileStatus{}, nil, nil
+	}
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
+	if err != nil {
+		klog.Warningf("extractFromKptfile: failed to decode Kptfile: %v", err)
+		return kptfileStatus{}, nil, nil
+	}
+	var s kptfileStatus
+	if kf.Status != nil {
+		s.Conditions = repository.ToAPIConditions(*kf)
+	}
+	s.UpstreamLock = kf.UpstreamLock
+	return s, repository.ToAPIReadinessGates(*kf), &porchapi.PackageMetadata{
+		Labels:      kf.Labels,
+		Annotations: kf.Annotations,
+	}
+}
+
 type dbPackageRevision struct {
-	repo      *dbRepository
-	pkgRevKey repository.PackageRevisionKey
-	meta      metav1.ObjectMeta
-	spec      *porchapi.PackageRevisionSpec
-	updated   time.Time
-	updatedBy string
-	lifecycle porchapi.PackageRevisionLifecycle
-	extPRID   kptfile.Locator
-	latest    bool
-	tasks     []porchapi.Task
-	resources map[string]string
+	repo          *dbRepository
+	pkgRevKey     repository.PackageRevisionKey
+	meta          metav1.ObjectMeta
+	spec          *porchapi.PackageRevisionSpec
+	updated       time.Time
+	updatedBy     string
+	lifecycle     porchapi.PackageRevisionLifecycle
+	extPRID       kptfile.Locator
+	latest        bool
+	deployment    bool
+	tasks         []porchapi.Task
+	resources     map[string]string
+	kptfileStatus kptfileStatus
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
