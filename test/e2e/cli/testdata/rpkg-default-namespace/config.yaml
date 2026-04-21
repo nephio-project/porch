@@ -1,0 +1,57 @@
+usesPorchTestRepo: true
+defaultNamespace: true
+commands:
+  - args:
+      - porchctl
+      - repo
+      - register
+      - --name=git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --repository=git
+      - --workspace=push
+      - test-package
+    stdout: |
+      git.test-package.push created
+  - args:
+      - porchctl
+      - rpkg
+      - get
+      - --repository=git
+    stdout: |
+      NAME                    PACKAGE        WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.test-package.push   test-package   push            0          false    Draft       git
+  - args:
+    - porchctl
+    - rpkg
+    - pull
+    - git.test-package.push
+    - /tmp/porch-e2e/default-git.test-package.push
+  - args:
+    - kpt
+    - fn
+    - eval
+    - --image
+    - ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.3
+    - --match-kind
+    - Kptfile
+    - /tmp/porch-e2e/default-git.test-package.push
+    - --
+    - by-path=info.description
+    - put-value=Updated Test Package Description
+    stderr: |
+      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.3" on 1 resource(s)
+      [Results]: [info] info.description: Mutated field value to "Updated Test Package Description"
+  - args:
+    - porchctl
+    - rpkg
+    - push
+    - git.test-package.push
+    - /tmp/porch-e2e/default-git.test-package.push
+    stdout: |
+      git.test-package.push pushed
