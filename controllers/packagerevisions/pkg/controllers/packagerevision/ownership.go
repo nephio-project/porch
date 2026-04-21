@@ -20,6 +20,8 @@ import (
 
 	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,18 +32,48 @@ import (
 
 // handleDeletion gates deletion of Published packages: they must be
 // DeletionProposed first, unless the owner Repository is already gone
-// (GC cascade). For all other lifecycles the finalizer is removed immediately.
+// (GC cascade). For all other lifecycles, git refs are cleaned up before
+// the finalizer is removed.
 func (r *PackageRevisionReconciler) handleDeletion(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
 	if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished {
-		if r.ownerRepoExists(ctx, pr) {
+		repoGone, err := r.ownerRepoGone(ctx, pr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check owner repository: %w", err)
+		}
+		if !repoGone {
 			log.FromContext(ctx).Info("blocking deletion: published package must be DeletionProposed first", "lifecycle", pr.Spec.Lifecycle)
 			return &ctrl.Result{}, nil
 		}
-		// Repo is gone — allow deletion but skip label update since all
-		// sibling revisions are being garbage-collected too.
+		// Repo is gone — best-effort git cleanup, don't block on failure
+		// since all sibling revisions are being garbage-collected too.
+		if err := r.deleteFromGit(ctx, pr); err != nil {
+			log.FromContext(ctx).Error(err, "best-effort git cleanup failed during GC cascade")
+		}
 		return r.removeFinalizer(ctx, pr, false)
 	}
+
+	// Delete git refs before removing the finalizer. If this fails the
+	// finalizer stays and the controller retries on the next reconcile.
+	if err := r.deleteFromGit(ctx, pr); err != nil {
+		return nil, fmt.Errorf("failed to delete package from git: %w", err)
+	}
 	return r.removeFinalizer(ctx, pr, true)
+}
+
+// deleteFromGit removes the package's git refs (tags, branches) via the
+// shared content cache. "Not found" errors are treated as success — there
+// is nothing to clean up if the package or repo doesn't exist in the cache.
+func (r *PackageRevisionReconciler) deleteFromGit(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
+	repoKey := repository.RepositoryKey{
+		Namespace: pr.Namespace,
+		Name:      pr.Spec.RepositoryName,
+	}
+	err := r.ContentCache.DeletePackage(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	if repository.IsNotFoundError(err) {
+		log.FromContext(ctx).Info("package not found in git, nothing to clean up")
+		return nil
+	}
+	return err
 }
 
 func (r *PackageRevisionReconciler) removeFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision, updateLabels bool) (*ctrl.Result, error) {
@@ -104,8 +136,16 @@ func (r *PackageRevisionReconciler) setOwnerReference(ctx context.Context, pr *p
 	return nil
 }
 
-func (r *PackageRevisionReconciler) ownerRepoExists(ctx context.Context, pr *porchv1alpha2.PackageRevision) bool {
+// ownerRepoGone returns true only when the Repository is confirmed deleted
+// (NotFound). Transient errors are returned so the caller can retry.
+func (r *PackageRevisionReconciler) ownerRepoGone(ctx context.Context, pr *porchv1alpha2.PackageRevision) (bool, error) {
 	var repo configapi.Repository
 	err := r.Get(ctx, types.NamespacedName{Namespace: pr.Namespace, Name: pr.Spec.RepositoryName}, &repo)
-	return err == nil
+	if err == nil {
+		return false, nil
+	}
+	if apierrors.IsNotFound(err) {
+		return true, nil
+	}
+	return false, err
 }

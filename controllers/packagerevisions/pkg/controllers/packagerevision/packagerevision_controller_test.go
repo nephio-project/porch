@@ -233,7 +233,10 @@ func TestReconcileDeletionAllowedWhenPublishedButRepoGone(t *testing.T) {
 		}).Return(nil)
 	// No List expected — updateLatestRevisionLabels is skipped when repo is gone.
 
-	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)
 
 	assert.NoError(t, err)
@@ -272,7 +275,10 @@ func TestReconcileDeletionAllowedForDraft(t *testing.T) {
 	// updateLatestRevisionLabels is called after finalizer removal
 	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
-	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)
 
 	assert.NoError(t, err)
@@ -311,7 +317,10 @@ func TestReconcileDeletionAllowedWhenDeletionProposed(t *testing.T) {
 	// updateLatestRevisionLabels is called after finalizer removal
 	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
-	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)
 
 	assert.NoError(t, err)
@@ -343,7 +352,10 @@ func TestReconcileDeletionRemoveFinalizerPatchFails(t *testing.T) {
 		}).Return(nil)
 	mockClient.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("conflict"))
 
-	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
 	_, err := r.Reconcile(ctx, req)
 
 	assert.Error(t, err)
@@ -377,11 +389,291 @@ func TestReconcileDeletionProposedNoFinalizer(t *testing.T) {
 	// updateLatestRevisionLabels is called after finalizer removal
 	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
 
-	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)
 
 	assert.NoError(t, err)
 	assert.Equal(t, ctrl.Result{}, result)
+}
+
+func TestReconcileDeletionGitCleanupFailsBlocksFinalizer(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecycleDeletionProposed,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	// No Patch expected — git cleanup fails so finalizer must NOT be removed.
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("git push failed"))
+
+	r := newTestReconciler(mockClient, mockCache)
+	_, err := r.Reconcile(ctx, req)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete package from git")
+}
+
+func TestReconcileDeletionGitCleanupFailsBestEffortForPublishedRepoGone(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecyclePublished,
+			RepositoryName: "deleted-repo",
+		},
+	}
+
+	var patched bool
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "deleted-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Return(apierrors.NewNotFound(schema.GroupResource{}, "deleted-repo"))
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			patched = true
+			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+		}).Return(nil)
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	// Git cleanup fails, but since repo is gone this is best-effort — finalizer should still be removed.
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("repo not in cache"))
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.True(t, patched, "finalizer should be removed even when best-effort git cleanup fails")
+}
+
+func TestReconcileDeletionAllowedForProposed(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecycleProposed,
+		},
+	}
+
+	var patched bool
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			patched = true
+			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+		}).Return(nil)
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.True(t, patched, "finalizer should have been removed for Proposed package")
+}
+
+func TestReconcileDeletionPassesCorrectRepoKey(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "my-ns"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "my-ns",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecycleDeletionProposed,
+			RepositoryName: "my-repo",
+			PackageName:    "my-pkg",
+			WorkspaceName:  "ws-v1",
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).Return(nil)
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything,
+		repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo"},
+		"my-pkg", "ws-v1",
+	).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+}
+
+func TestReconcileDeletionPRAlreadyGoneOnPatch(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecycleDeletionProposed,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	// PR disappeared between DeletePackage and Patch — NotFound should be silently ignored.
+	mockClient.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything).
+		Return(apierrors.NewNotFound(schema.GroupResource{}, "test-pr"))
+
+	// updateLatestRevisionLabels is called after finalizer removal
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err, "NotFound on Patch should be silently ignored")
+	assert.Equal(t, ctrl.Result{}, result)
+}
+
+func TestReconcileDeletionPublishedTransientAPIError(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecyclePublished,
+			RepositoryName: "my-repo",
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	// Repo lookup returns a transient error — should NOT fall into best-effort path.
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"}, mock.AnythingOfType("*v1alpha1.Repository")).
+		Return(errors.New("api server timeout"))
+	// No Patch, no DeletePackage — error should propagate.
+
+	r := newTestReconciler(mockClient, mockrepository.NewMockContentCache(t))
+	_, err := r.Reconcile(ctx, req)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to check owner repository")
+}
+
+func TestReconcileDeletionGitPackageNotFoundIsNoop(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	now := metav1.Now()
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{porchv1alpha2.PackageRevisionFinalizer},
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecycleDraft,
+		},
+	}
+
+	var patched bool
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) {
+			patched = true
+			assert.NotContains(t, obj.GetFinalizers(), porchv1alpha2.PackageRevisionFinalizer)
+		}).Return(nil)
+	mockClient.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).Return(nil)
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	// Package never existed in git — "not found" should be treated as success.
+	mockCache.EXPECT().DeletePackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(errors.New("package revision /  not found in repository default/"))
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.True(t, patched, "finalizer should be removed when package doesn't exist in git")
 }
 
 func TestReconcileOwnerRefAlreadySet(t *testing.T) {
