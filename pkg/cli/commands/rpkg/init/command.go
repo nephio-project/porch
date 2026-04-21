@@ -22,6 +22,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -110,7 +111,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: *r.cfg.Namespace,
+			Namespace: util.EnsureNamespace(r.ctx, r.cfg.Namespace),
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    r.name,

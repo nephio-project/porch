@@ -22,6 +22,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,6 +65,7 @@ type runner struct {
 
 	copy porchapi.PackageEditTaskSpec
 
+	namespace string
 	workspace string // Target package revision workspaceName
 }
 
@@ -81,6 +83,8 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
+
+	r.namespace = util.EnsureNamespace(r.ctx, r.cfg.Namespace)
 
 	r.copy.Source = &porchapi.PackageRevisionRef{
 		Name: args[0],
@@ -102,7 +106,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: *r.cfg.Namespace,
+			Namespace: r.namespace,
 		},
 		Spec: *revisionSpec,
 	}
@@ -117,7 +121,7 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 	packageRevision := porchapi.PackageRevision{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.copy.Source.Name,
-		Namespace: *r.cfg.Namespace,
+		Namespace: r.namespace,
 	}, &packageRevision)
 	if err != nil {
 		return nil, err

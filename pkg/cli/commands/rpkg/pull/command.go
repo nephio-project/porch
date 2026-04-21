@@ -107,7 +107,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 	var resources porchapi.PackageRevisionResources
 	if err := r.client.Get(r.ctx, client.ObjectKey{
-		Namespace: *r.cfg.Namespace,
+		Namespace: util.EnsureNamespace(r.ctx, r.cfg.Namespace),
 		Name:      packageName,
 	}, &resources); err != nil {
 		return errors.E(op, err)

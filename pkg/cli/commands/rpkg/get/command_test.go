@@ -28,24 +28,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-func TestGetters(t *testing.T) {
-	cells := make([]any, 1)
-	cells[0] = int64(1234)
-
-	_, retVal1 := getInt64Cell(cells, -1)
-	assert.False(t, retVal1)
-
-	val, retVal2 := getInt64Cell(cells, 0)
-	assert.True(t, retVal2)
-	assert.Equal(t, int64(1234), val)
-}
 
 func TestRunnerPreRunE(t *testing.T) {
 	ns := "ns"
@@ -101,111 +88,6 @@ func TestGetCmd(t *testing.T) {
 				}
 			}()
 
-		})
-	}
-}
-
-type MockRunner struct {
-	*runner
-}
-
-func (r *MockRunner) packageRevisionMatches(o *unstructured.Unstructured) (bool, error) {
-	return r.runner.packageRevisionMatches(o)
-}
-
-func TestPackageRevisionMatches(t *testing.T) {
-	tests := []struct {
-		name       string
-		flags      runner
-		object     *unstructured.Unstructured
-		expected   bool
-		shouldFail bool
-	}{
-		{
-			name: "match all filters",
-			flags: runner{
-				packageName: "pkg1",
-				revision:    1,
-				workspace:   "ws1",
-			},
-			object: &unstructured.Unstructured{
-				Object: map[string]any{
-					"spec": map[string]any{
-						"packageName":   "pkg1",
-						"revision":      int64(1),
-						"workspaceName": "ws1",
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "package name mismatch",
-			flags: runner{
-				packageName: "pkg1",
-				revision:    1,
-				workspace:   "ws1",
-			},
-			object: &unstructured.Unstructured{
-				Object: map[string]any{
-					"spec": map[string]any{
-						"packageName":   "pkg2",
-						"revision":      int64(1),
-						"workspaceName": "ws1",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "revision mismatch",
-			flags: runner{
-				packageName: "pkg1",
-				revision:    2,
-				workspace:   "ws1",
-			},
-			object: &unstructured.Unstructured{
-				Object: map[string]any{
-					"spec": map[string]any{
-						"packageName":   "pkg1",
-						"revision":      int64(1),
-						"workspaceName": "ws1",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "workspace mismatch",
-			flags: runner{
-				packageName: "pkg1",
-				revision:    1,
-				workspace:   "ws2",
-			},
-			object: &unstructured.Unstructured{
-				Object: map[string]any{
-					"spec": map[string]any{
-						"packageName":   "pkg1",
-						"revision":      int64(1),
-						"workspaceName": "ws1",
-					},
-				},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRunner := &MockRunner{runner: &tt.flags}
-			match, err := mockRunner.packageRevisionMatches(tt.object)
-
-			if tt.shouldFail {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, match)
-			}
 		})
 	}
 }

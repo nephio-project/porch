@@ -28,14 +28,12 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/get"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -67,8 +65,8 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	// Create flags
 	cmd.Flags().StringVar(&r.packageName, "name", "", "Name of the packages to get. Any package whose name contains this value will be included in the results.")
 	cmd.Flags().Int64Var(&r.revision, "revision", -2, "Revision of the packages to get. Any package whose revision matches this value will be included in the results.")
-	cmd.Flags().StringVar(&r.workspace, "workspace", "",
-		"WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
+	cmd.Flags().StringVar(&r.workspace, "workspace", "", "WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
+	cmd.Flags().StringVar(&r.repository, "repository", "", "Repository of the packages to get. Any package residing in the specified repository will be included in the results.")
 	cmd.Flags().BoolVar(&r.showKptfile, "show-kptfile", false, "Display the root Kptfile of the specified package revision. Requires a single package revision name as an argument.")
 
 	r.getFlags.AddFlags(cmd)
@@ -86,6 +84,7 @@ type runner struct {
 	Command  *cobra.Command
 
 	// Flags
+	repository  string
 	packageName string
 	revision    int64
 	workspace   string
@@ -179,7 +178,6 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return r.showKptfileContent(cmd, args[0])
 	}
 
-	var objs []runtime.Object
 	b, err := r.getFlags.ResourceBuilder()
 	if err != nil {
 		return err
@@ -208,18 +206,21 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	}
 
 	if useSelectors {
-		fieldSelector := fields.Everything()
+		fieldSet := fields.Set{}
 		if r.revision != -2 {
-			fieldSelector = fields.OneTermEqualSelector("spec.revision", strconv.FormatInt(r.revision, 10))
+			fieldSet["spec.revision"] = strconv.FormatInt(r.revision, 10)
 		}
 		if r.workspace != "" {
-			fieldSelector = fields.OneTermEqualSelector("spec.workspaceName", r.workspace)
+			fieldSet["spec.workspaceName"] = r.workspace
 		}
 		if r.packageName != "" {
-			fieldSelector = fields.OneTermEqualSelector("spec.packageName", r.packageName)
+			fieldSet["spec.packageName"] = r.packageName
 		}
-		if s := fieldSelector.String(); s != "" {
-			b = b.FieldSelectorParam(s)
+		if r.repository != "" {
+			fieldSet["spec.repository"] = r.repository
+		}
+		if len(fieldSet) > 0 {
+			b = b.FieldSelectorParam(fieldSet.AsSelector().String())
 		} else {
 			b = b.SelectAllParam(true)
 		}
@@ -248,42 +249,10 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 
-	// Decode json objects in tables (likely PartialObjectMetadata)
-	for _, i := range infos {
-		if table, ok := i.Object.(*metav1.Table); ok {
-			for i := range table.Rows {
-				row := &table.Rows[i]
-				if row.Object.Object == nil && row.Object.Raw != nil {
-					u := &unstructured.Unstructured{}
-					if err := u.UnmarshalJSON(row.Object.Raw); err != nil {
-						klog.Warningf("error parsing raw object: %v", err)
-					}
-					row.Object.Object = u
-				}
-			}
-		}
-	}
-
-	// Apply any filters we couldn't pass down as field selectors
-	for _, i := range infos {
-		switch obj := i.Object.(type) {
-		case *unstructured.Unstructured:
-			match, err := r.packageRevisionMatches(obj)
-			if err != nil {
-				return errors.E(op, err)
-			}
-			if match {
-				objs = append(objs, obj)
-			}
-		case *metav1.Table:
-			// Technically we should have applied this as a field-selector, so this might not be necessary
-			if err := r.filterTableRows(obj); err != nil {
-				return err
-			}
-			objs = append(objs, obj)
-		default:
-			return errors.E(op, fmt.Sprintf("Unrecognized response %T", obj))
-		}
+	// Collect infos into Objects
+	objs := make([]runtime.Object, 0, len(infos))
+	for _, info := range infos {
+		objs = append(objs, info.Object)
 	}
 
 	printer, err := r.printFlags.ToPrinter()
@@ -301,88 +270,6 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 
-	return nil
-}
-
-func (r *runner) packageRevisionMatches(o *unstructured.Unstructured) (bool, error) {
-	packageName, _, err := unstructured.NestedString(o.Object, "spec", "packageName")
-	if err != nil {
-		return false, err
-	}
-	revision, _, err := unstructured.NestedInt64(o.Object, "spec", "revision")
-	if err != nil {
-		return false, err
-	}
-	workspace, _, err := unstructured.NestedString(o.Object, "spec", "workspaceName")
-	if err != nil {
-		return false, err
-	}
-	if r.packageName != "" && r.packageName != packageName {
-		return false, nil
-	}
-	if r.revision != -2 && r.revision != revision {
-		return false, nil
-	}
-	if r.workspace != "" && r.workspace != workspace {
-		return false, nil
-	}
-	return true, nil
-}
-
-func findColumn(cols []metav1.TableColumnDefinition, name string) int {
-	for i := range cols {
-		if cols[i].Name == name {
-			return i
-		}
-	}
-	return -1
-}
-
-func getStringCell(cells []interface{}, col int) (string, bool) {
-	if col < 0 {
-		return "", false
-	}
-	s, ok := cells[col].(string)
-	return s, ok
-}
-
-func getInt64Cell(cells []interface{}, col int) (int64, bool) {
-	if col < 0 {
-		return 0, false
-	}
-	i, ok := cells[col].(int64)
-	return i, ok
-}
-
-func (r *runner) filterTableRows(table *metav1.Table) error {
-	filtered := make([]metav1.TableRow, 0, len(table.Rows))
-	packageNameCol := findColumn(table.ColumnDefinitions, "Package")
-	revisionCol := findColumn(table.ColumnDefinitions, "Revision")
-	workspaceCol := findColumn(table.ColumnDefinitions, "WorkspaceName")
-
-	for i := range table.Rows {
-		row := &table.Rows[i]
-
-		if packageName, ok := getStringCell(row.Cells, packageNameCol); ok {
-			if r.packageName != "" && r.packageName != packageName {
-				continue
-			}
-		}
-		if revision, ok := getInt64Cell(row.Cells, revisionCol); ok {
-			if r.revision != -2 && r.revision != revision {
-				continue
-			}
-		}
-		if workspace, ok := getStringCell(row.Cells, workspaceCol); ok {
-			if r.workspace != "" && r.workspace != workspace {
-				continue
-			}
-		}
-
-		// Row matches
-		filtered = append(filtered, *row)
-	}
-	table.Rows = filtered
 	return nil
 }
 
