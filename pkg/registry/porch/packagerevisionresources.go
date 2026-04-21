@@ -82,7 +82,9 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		},
 	}
 
-	filter, err := parsePackageRevisionResourcesFieldSelector(options)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -224,16 +226,11 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 
 	ctx = context1.WithNewRequestID(ctx)
 
-	filter, err := parsePackageRevisionResourcesFieldSelector(options)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options, ns)
 	if err != nil {
 		return nil, err
-	}
-
-	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
-			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
-		}
-		filter.Key.PkgKey.RepoKey.Namespace = namespace
 	}
 
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {

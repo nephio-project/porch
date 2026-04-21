@@ -330,6 +330,74 @@ func (_c *MockCache_GetRepository_Call) RunAndReturn(run func(repositoryKey repo
 	return _c
 }
 
+// ListPackageRevisions provides a mock function for the type MockCache
+func (_mock *MockCache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	ret := _mock.Called(ctx, filter)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListPackageRevisions")
+	}
+
+	var r0 []repository.PackageRevision
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)); ok {
+		return returnFunc(ctx, filter)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.ListPackageRevisionFilter) []repository.PackageRevision); ok {
+		r0 = returnFunc(ctx, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]repository.PackageRevision)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, repository.ListPackageRevisionFilter) error); ok {
+		r1 = returnFunc(ctx, filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockCache_ListPackageRevisions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListPackageRevisions'
+type MockCache_ListPackageRevisions_Call struct {
+	*mock.Call
+}
+
+// ListPackageRevisions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filter repository.ListPackageRevisionFilter
+func (_e *MockCache_Expecter) ListPackageRevisions(ctx interface{}, filter interface{}) *MockCache_ListPackageRevisions_Call {
+	return &MockCache_ListPackageRevisions_Call{Call: _e.mock.On("ListPackageRevisions", ctx, filter)}
+}
+
+func (_c *MockCache_ListPackageRevisions_Call) Run(run func(ctx context.Context, filter repository.ListPackageRevisionFilter)) *MockCache_ListPackageRevisions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 repository.ListPackageRevisionFilter
+		if args[1] != nil {
+			arg1 = args[1].(repository.ListPackageRevisionFilter)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCache_ListPackageRevisions_Call) Return(packageRevisions []repository.PackageRevision, err error) *MockCache_ListPackageRevisions_Call {
+	_c.Call.Return(packageRevisions, err)
+	return _c
+}
+
+func (_c *MockCache_ListPackageRevisions_Call) RunAndReturn(run func(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)) *MockCache_ListPackageRevisions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OpenRepository provides a mock function for the type MockCache
 func (_mock *MockCache) OpenRepository(ctx context.Context, repositorySpec *v1alpha1.Repository) (repository.Repository, error) {
 	ret := _mock.Called(ctx, repositorySpec)

@@ -37,6 +37,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 			repositories.k8s_name,
 			repositories.directory,
 			repositories.default_ws_name,
+			repositories.deployment,
 			packages.k8s_name,
 			packages.package_path,
 			package_revisions.k8s_name,
@@ -107,6 +108,7 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 			repositories.k8s_name,
 			repositories.directory,
 			repositories.default_ws_name,
+			repositories.deployment,
 			packages.k8s_name,
 			packages.package_path,
 			package_revisions.k8s_name,
@@ -154,6 +156,7 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 			repositories.k8s_name,
 			repositories.directory,
 			repositories.default_ws_name,
+			repositories.deployment,
 			packages.k8s_name,
 			packages.package_path,
 			package_revisions.k8s_name,
@@ -202,6 +205,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			repositories.k8s_name,
 			repositories.directory,
 			repositories.default_ws_name,
+			repositories.deployment,
 			packages.k8s_name,
 			packages.package_path,
 			package_revisions.k8s_name,
@@ -287,6 +291,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Name,
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Path,
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.PlaceholderWSname,
+			&pkgRev.deployment,
 			&pkgK8SName,
 			&pkgRev.pkgRevKey.PkgKey.Path,
 			&prK8SName,
@@ -311,11 +316,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 				pkgRev.repo = dbRepo
 			} else {
 				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
-				continue
 			}
-		} else {
-			klog.V(4).Infof("pkgRevScanRowsFromDB: repository %+v not found in cache for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
-			continue
 		}
 		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)

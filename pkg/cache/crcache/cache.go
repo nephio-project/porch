@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -26,7 +27,10 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/fields"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var tracer = otel.Tracer("crcache")
@@ -156,4 +160,113 @@ func (c *Cache) FindAllUpstreamReferencesInRepositories(ctx context.Context, nam
 		return true
 	})
 	return downstreamName, nil
+}
+
+func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+
+	var opts []client.ListOption
+
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if namespaced && namespace != "" {
+		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
+		}
+
+		opts = append(opts, client.InNamespace(namespace))
+	}
+
+	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
+		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
+	}
+
+	var repoList configapi.RepositoryList
+	if err := c.options.CoreClient.List(ctx, &repoList, opts...); err != nil {
+		return nil, fmt.Errorf("error listing repository objects: %w", err)
+	}
+	repos := repoList.Items
+
+	type pkgRevResult struct {
+		Revisions []repository.PackageRevision
+		Err       error
+	}
+
+	repoCount := len(repos)
+	if repoCount == 0 {
+		return []repository.PackageRevision{}, nil
+	}
+
+	workerCount := repoCount
+	if c.options.CRCacheOptions.MaxConcurrentLists > 0 {
+		workerCount = min(c.options.CRCacheOptions.MaxConcurrentLists, repoCount)
+	}
+
+	klog.V(3).Infof("Listing %d repositories with %d workers", repoCount, workerCount)
+
+	resultsCh := make(chan pkgRevResult, workerCount)
+	repoQueue := make(chan *configapi.Repository, repoCount)
+
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			for repo := range repoQueue {
+				klog.V(3).Infof("[WORKER %d] Processing repository %s", i, repo.Name)
+				listCtx := ctx
+				var cancel context.CancelFunc
+				if c.options.CRCacheOptions.ListTimeoutPerRepository != 0 {
+					listCtx, cancel = context.WithTimeout(ctx, c.options.CRCacheOptions.ListTimeoutPerRepository)
+				}
+				cachedRepo, err := c.OpenRepository(ctx, repo)
+				if err != nil {
+					resultsCh <- pkgRevResult{Err: err}
+					continue
+				}
+				revisions, err := cachedRepo.ListPackageRevisions(listCtx, filter)
+				klog.V(3).Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
+				resultsCh <- pkgRevResult{Revisions: revisions, Err: err}
+				if cancel != nil {
+					cancel()
+				}
+			}
+		}()
+	}
+
+	for _, repo := range repos {
+		repoQueue <- &repo
+	}
+
+	innerCtx := ctx
+	if deadline, ok := ctx.Deadline(); ok {
+		const buffer = 5 * time.Second
+		if timeout := time.Until(deadline.Add(-buffer)); timeout > 0 {
+			var cancel context.CancelFunc
+			innerCtx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+	}
+
+	received := 0
+	resultPRs := []repository.PackageRevision{}
+
+	for {
+		select {
+		case <-innerCtx.Done():
+			klog.Warningf("Timeout reached — returning partial results")
+			close(repoQueue)
+			return resultPRs, nil
+
+		case res := <-resultsCh:
+			received++
+			klog.V(4).Infof("listPackageRevisions received %d repo", received)
+			if res.Err != nil {
+				klog.Warningf("error listing package revisions: %+v", res.Err)
+			}
+			for _, rev := range res.Revisions {
+				resultPRs = append(resultPRs, rev)
+			}
+
+		}
+		if received == repoCount {
+			close(repoQueue)
+			return resultPRs, nil
+		}
+	}
 }

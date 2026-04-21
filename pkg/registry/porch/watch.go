@@ -16,7 +16,6 @@ package porch
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -58,15 +57,11 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Watch", trace.WithAttributes())
 	defer span.End()
 
-	filter, err := parsePackageRevisionFieldSelector(options)
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+
+	filter, err := parsePackageRevisionFieldSelector(options, ns)
 	if err != nil {
 		return nil, err
-	}
-
-	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
-			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
-		}
 	}
 
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {

@@ -81,8 +81,6 @@ type ExtraConfig struct {
 	CoreAPIKubeconfigPath    string
 	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
 	CacheOptions             cachetypes.CacheOptions
-	ListTimeoutPerRepository time.Duration
-	MaxConcurrentLists       int
 }
 
 // Config defines the config for the apiserver
@@ -97,7 +95,7 @@ type PorchServer struct {
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
 	periodicRepoSyncFrequency  time.Duration
-	ListTimeoutPerRepository   time.Duration
+	listTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
 }
 
@@ -311,12 +309,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	restStorageOptions := porch.RESTStorageOptions{
-		Scheme:               Scheme,
-		Codecs:               Codecs,
-		CaD:                  cad,
-		CoreClient:           coreClient,
-		TimeoutPerRepository: c.ExtraConfig.ListTimeoutPerRepository,
-		MaxConcurrentLists:   c.ExtraConfig.MaxConcurrentLists,
+		Scheme:     Scheme,
+		Codecs:     Codecs,
+		CaD:        cad,
+		CoreClient: coreClient,
 	}
 	porchGroup, err := restStorageOptions.NewRESTStorage()
 	if err != nil {
@@ -329,7 +325,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
 		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
-		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
+		listTimeoutPerRepository:   c.ExtraConfig.CacheOptions.CRCacheOptions.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
@@ -344,7 +340,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache,
 		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
-		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
+		porch.WithListTimeoutPerRepo(s.listTimeoutPerRepository),
 		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 	)
 

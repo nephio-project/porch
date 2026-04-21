@@ -155,3 +155,16 @@ func (c *dbCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpe
 func (c *dbCache) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
 	return findUpstreamRefsFromDB(ctx, namespace, prName)
 }
+
+func (c *dbCache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	dbprs, err := pkgRevListPRsFromDB(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	var prs []repository.PackageRevision
+	prs = make([]repository.PackageRevision, len(dbprs))
+	for i, dbpr := range dbprs {
+		prs[i] = dbpr
+	}
+	return prs, nil
+}

@@ -195,11 +195,12 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      newPR.ObjectMeta,
-		spec:      &newPR.Spec,
-		lifecycle: porchapi.PackageRevisionLifecycleDraft,
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
+		meta:       newPR.ObjectMeta,
+		spec:       &newPR.Spec,
+		lifecycle:  porchapi.PackageRevisionLifecycleDraft,
+		updated:    time.Now(),
+		updatedBy:  getCurrentUser(),
+		deployment: r.deployment,
 	}
 
 	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
