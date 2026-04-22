@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -139,13 +139,21 @@ Args:
 
 Flags:
 
+  --repository, --repo, -r
+    Repository of the packages to get. Any package residing in
+    the specified repository will be included in the results.
+
   --name
     Name of the packages to get. Any package whose name contains
     this value will be included in the results.
 
-  --revision
+  --revision, --rev
     Revision of the package to get. Any package whose revision
     matches this value will be included in the results.
+
+  --workspace, --ws, -w
+    WorkspaceName of the packages to get. Any package whose
+    workspaceName matches this value will be included in the results.
 
   --show-kptfile
     Display the root Kptfile of the specified package revision.
@@ -180,13 +188,13 @@ Args:
 
 Flags:
 
-  --repository
+  --repository, --repo, -r
     Repository in which the new package will be created.
 
-  --workspace
+  --workspace, --ws, -w
     Workspace of the new package.
 
-  --description
+  --description, --desc, -d
     Short description of the package
 
   --keywords
@@ -259,6 +267,12 @@ Args:
 
   DIR:
     A local directory with the new manifest. If the manifests have be read from stdin, use '-' in place of DIR.
+
+Flags:
+
+  --force, -f
+    Overwrite the existing directory, even if it belongs to a different package.
+
 `
 var PushExamples = `
   # update the package revision 'example-repo.example-package-name.example-workspace' with the resources

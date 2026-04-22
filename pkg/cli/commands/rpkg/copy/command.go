@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
 
-	r.namespace = util.EnsureNamespace(r.cfg.Namespace)
+	r.namespace = util.EnsureNamespace(r.cfg)
 
 	r.copy.Source = &porchapi.PackageRevisionRef{
 		Name: args[0],

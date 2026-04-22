@@ -27,6 +27,7 @@ import (
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,13 +66,29 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	// Create flags
 	cmd.Flags().StringVar(&r.packageName, "name", "", "Name of the packages to get. Any package whose name contains this value will be included in the results.")
 	cmd.Flags().Int64Var(&r.revision, "revision", -2, "Revision of the packages to get. Any package whose revision matches this value will be included in the results.")
-	cmd.Flags().StringVar(&r.workspace, "workspace", "", "WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
-	cmd.Flags().StringVar(&r.repository, "repository", "", "Repository of the packages to get. Any package residing in the specified repository will be included in the results.")
+	cmd.Flags().StringVarP(&r.workspace, "workspace", "w", "", "WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
+	cmd.Flags().StringVarP(&r.repository, "repository", "r", "", "Repository of the packages to get. Any package residing in the specified repository will be included in the results.")
 	cmd.Flags().BoolVar(&r.showKptfile, "show-kptfile", false, "Display the root Kptfile of the specified package revision. Requires a single package revision name as an argument.")
+
+	cmd.Flags().SetNormalizeFunc(aliasNormalizeFunc)
 
 	r.getFlags.AddFlags(cmd)
 	r.printFlags.AddFlags(cmd)
 	return r
+}
+
+// aliasNormalizeFunc adds some sensible short versions of flags
+func aliasNormalizeFunc(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	switch name {
+	case "repo":
+		name = "repository"
+	case "rev":
+		name = "revision"
+	case "ws":
+		name = "workspace"
+	}
+
+	return pflag.NormalizedName(name)
 }
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {

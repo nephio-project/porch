@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@ package util
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-)
-
-const (
-	ResourceVersionAnnotation = "internal.kpt.dev/resource-version"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/kustomize/kyaml/kio"
 )
 
 func GetResourceFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
@@ -75,19 +74,72 @@ func AddRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
 	return nil
 }
 
+func ReadRevisionMetadataFromDir(path string) (*fnsdk.KubeObject, error) {
+	reader := &kio.LocalPackageReader{
+		PackagePath:           path,
+		PackageFileName:       kptfilev1.KptFileName,
+		MatchFilesGlob:        []string{kptfilev1.RevisionMetaDataFileName},
+		IncludeSubpackages:    false,
+		ErrorIfNonResources:   false,
+		OmitReaderAnnotations: false,
+		PreserveSeqIndent:     true,
+	}
+
+	rnodes, err := reader.Read()
+	if err != nil {
+		return nil, err
+	}
+	if len(rnodes) != 1 {
+		return nil, fmt.Errorf("expected exactly one rnode for file %q, got %d",
+			kptfilev1.RevisionMetaDataFileName, len(rnodes))
+	}
+
+	return fnsdk.MoveToKubeObject(rnodes[0]), nil
+}
+
 func RemoveRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
 	delete(prr.Spec.Resources, kptfilev1.RevisionMetaDataFileName)
 	return nil
 }
 
-func EnsureNamespace(namespace *string) string {
-	if namespace != nil && *namespace != "" {
-		return *namespace
+// EnsureNamespace tries to return a namespace from multiple different configs before defaulting to "default"
+//
+// Should only be used if the intention cannot be all namespaces!
+func EnsureNamespace(cfg *genericclioptions.ConfigFlags) string {
+	// if --namespace is set just return that
+	if cfg.Namespace != nil && *cfg.Namespace != "" {
+		return *cfg.Namespace
 	}
 
+	// try getting the namespace from the kubeconfig context
+	if kcfgNs, _, err := cfg.ToRawKubeConfigLoader().Namespace(); err == nil && kcfgNs != "" {
+		return kcfgNs
+	}
+
+	// try getting it from an env var
 	if envNs := os.Getenv("NAMESPACE"); envNs != "" {
 		return envNs
 	}
 
+	// fall back to "default"
 	return "default"
+}
+
+func IsSamePackage(dir, prName string) bool {
+	ko, err := ReadRevisionMetadataFromDir(dir)
+	if err != nil {
+		return false
+	}
+
+	return trimWorkspace(ko.GetName()) == trimWorkspace(prName)
+}
+
+func trimWorkspace(prName string) string {
+	i := strings.LastIndex(prName, ".")
+
+	if i == -1 {
+		return prName
+	}
+
+	return prName[:i]
 }
