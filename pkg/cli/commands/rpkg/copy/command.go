@@ -24,6 +24,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -53,8 +54,22 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		RunE:    r.runE,
 		Hidden:  cliutils.HidePorchCommands,
 	}
-	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the copy of the package.")
+
+	r.Command.Flags().StringVarP(&r.workspace, "workspace", "w", "", "Workspace name of the copy of the package.")
+
+	r.Command.Flags().SetNormalizeFunc(aliasNormalizeFunc)
+
 	return r
+}
+
+// aliasNormalizeFunc adds some sensible short versions of flags
+func aliasNormalizeFunc(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	switch name {
+	case "ws":
+		name = "workspace"
+	}
+
+	return pflag.NormalizedName(name)
 }
 
 type runner struct {

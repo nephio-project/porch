@@ -14,24 +14,24 @@ commands:
       - rpkg
       - init
       - --repository=git
-      - --workspace=push
+      - --workspace=v1
       - test-package
     stdout: |
-      git.test-package.push created
+      git.test-package.v1 created
   - args:
       - porchctl
       - rpkg
       - get
       - --repository=git
     stdout: |
-      NAME                    PACKAGE        WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git.test-package.push   test-package   push            0          false    Draft       git
+      NAME                  PACKAGE        WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.test-package.v1   test-package   v1              0          false    Draft       git
   - args:
     - porchctl
     - rpkg
     - pull
-    - git.test-package.push
-    - /tmp/porch-e2e/default-git.test-package.push
+    - git.test-package.v1
+    - /tmp/porch-e2e/default-git.test-package.v1
   - args:
     - kpt
     - fn
@@ -40,7 +40,7 @@ commands:
     - ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.3
     - --match-kind
     - Kptfile
-    - /tmp/porch-e2e/default-git.test-package.push
+    - /tmp/porch-e2e/default-git.test-package.v1
     - --
     - by-path=info.description
     - put-value=Updated Test Package Description
@@ -51,7 +51,65 @@ commands:
     - porchctl
     - rpkg
     - push
-    - git.test-package.push
-    - /tmp/porch-e2e/default-git.test-package.push
+    - git.test-package.v1
+    - /tmp/porch-e2e/default-git.test-package.v1
     stdout: |
-      git.test-package.push pushed
+      git.test-package.v1 pushed
+  - args:
+    - porchctl
+    - rpkg
+    - propose
+    - git.test-package.v1
+    stdout: |
+      git.test-package.v1 proposed
+  - args:
+    - porchctl
+    - rpkg
+    - approve
+    - git.test-package.v1
+    stdout: |
+      git.test-package.v1 approved
+  - args:
+    - porchctl
+    - rpkg
+    - copy
+    - git.test-package.v1
+    - --workspace=v2
+    stdout: |
+      git.test-package.v2 created
+  - args:
+    - porchctl
+    - rpkg
+    - get
+    - --repository=git
+    stdout: |
+      NAME                    PACKAGE        WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.test-package.main   test-package   main            -1         false    Published   git
+      git.test-package.v1     test-package   v1              1          true     Published   git
+      git.test-package.v2     test-package   v2              0          false    Draft       git
+  - args:
+    - porchctl
+    - rpkg
+    - delete
+    - git.test-package.v2
+    stdout: |
+      git.test-package.v2 deleted
+  - args:
+    - porchctl
+    - rpkg
+    - propose-delete
+    - git.test-package.v1
+    stdout: |
+      git.test-package.v1 proposed for deletion
+  - args:
+    - porchctl
+    - rpkg
+    - delete
+    - git.test-package.v1
+    stdout: |
+      git.test-package.v1 deleted
+  - args:
+    - porchctl
+    - repo
+    - unreg
+    - git
