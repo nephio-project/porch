@@ -73,7 +73,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
 	github.com/otiai10/copy v1.14.1 // indirect
 	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec // indirect
 	go.uber.org/multierr v1.11.0 // indirect
