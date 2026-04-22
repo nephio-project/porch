@@ -97,7 +97,7 @@ version_go = "v1.25.3"
 version_git = "v2.51.2"
 version_kind = "v0.30.0"
 version_kube = "v1.34.2"
-version_kpt = "v1.0.0-beta.59"
+version_kpt = "v1.0.0-beta.62.1"
 
 # A link to latest version of the docs. Used in the "version-banner" partial to
 # point people to the main doc site.
