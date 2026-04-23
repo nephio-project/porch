@@ -104,7 +104,7 @@ func RemoveRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
 
 // EnsureNamespace tries to return a namespace from multiple different configs before defaulting to "default"
 //
-// Should only be used if the intention cannot be all namespaces!
+// Should only be used if the intention cannot be "all namespaces"!
 func EnsureNamespace(cfg *genericclioptions.ConfigFlags) string {
 	// if --namespace is set just return that
 	if cfg.Namespace != nil && *cfg.Namespace != "" {
@@ -112,7 +112,7 @@ func EnsureNamespace(cfg *genericclioptions.ConfigFlags) string {
 	}
 
 	// try getting the namespace from the kubeconfig context
-	if kcfgNs, _, err := cfg.ToRawKubeConfigLoader().Namespace(); err == nil && kcfgNs != "" {
+	if kcfgNs, _, err := cfg.ToRawKubeConfigLoader().Namespace(); err == nil && kcfgNs != "" && kcfgNs != "default" {
 		return kcfgNs
 	}
 
