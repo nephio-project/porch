@@ -89,11 +89,6 @@ type dbPackageRevision struct {
 	resources     map[string]string
 	kptfileStatus kptfileStatus
 
-	// gitDraftPR maintains the draft in the external git repository during editing (when pushDraftsToGit is true)
-	gitPRDraft repository.PackageRevisionDraft
-
-	// gitPR is the closed package revision in git (when pushDraftsToGit is true)
-	gitPR repository.PackageRevision
 }
 
 func (pr *dbPackageRevision) specReadinessGates() []porchapi.ReadinessGate {
