@@ -16,6 +16,7 @@ package pull
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -138,7 +139,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 func writeToDir(resources map[string]string, dir string, overwrite bool) error {
 	if err := cmdutil.CheckDirectoryNotPresent(dir); err != nil {
 		if !overwrite {
-			return err
+			return fmt.Errorf("%w; you may overwrite the directory with --force", err)
 		}
 
 		_ = os.RemoveAll(dir)
