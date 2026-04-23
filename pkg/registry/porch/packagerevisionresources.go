@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
@@ -45,7 +44,6 @@ var _ rest.Getter = &packageRevisionResources{}
 var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
-var _ rest.Watcher = &packageRevisionResources{}
 
 // GetSingularName implements the SingularNameProvider interface
 func (r *packageRevisionResources) GetSingularName() string {
@@ -217,23 +215,4 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	klog.InfoS("[API] Update operation completed for PackageRevisionResources", context1.LogMetadataFrom(ctx)...)
 
 	return created, false, nil
-}
-
-// Watch supports watching for PackageRevisionResources changes.
-func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
-	defer span.End()
-
-	ctx = context1.WithNewRequestID(ctx)
-
-	ns, _ := genericapirequest.NamespaceFrom(ctx)
-
-	filter, err := parsePackageRevisionResourcesFieldSelector(options, ns)
-	if err != nil {
-		return nil, err
-	}
-
-	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
-		return pr.GetResources(ctx)
-	}, options)
 }
