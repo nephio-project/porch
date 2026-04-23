@@ -34,25 +34,22 @@ import (
 // fakeFnEvalServer delays every EvaluateFunction call.
 type fakeFnEvalServer struct {
 	pb.UnimplementedFunctionEvaluatorServer
-	delay   time.Duration
-	evalErr error
+	delay time.Duration
+	log   string
 }
 
 func (s *fakeFnEvalServer) EvaluateFunction(_ context.Context, _ *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 	time.Sleep(s.delay)
-	if s.evalErr != nil {
-		return nil, s.evalErr
-	}
-	return &pb.EvaluateFunctionResponse{ResourceList: []byte("ok"), Log: []byte("log")}, nil
+	return &pb.EvaluateFunctionResponse{ResourceList: []byte("ok"), Log: []byte(s.log)}, nil
 }
 
-func startFakeServer(ctx context.Context, t *testing.T, delay time.Duration, evalErr error) (string, error) {
+func startFakeServer(ctx context.Context, t *testing.T, delay time.Duration, log string) (string, error) {
 	lis, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "failed to listen")
 
 	addr := lis.Addr().String()
 	server := grpc.NewServer()
-	pb.RegisterFunctionEvaluatorServer(server, &fakeFnEvalServer{delay: delay, evalErr: evalErr})
+	pb.RegisterFunctionEvaluatorServer(server, &fakeFnEvalServer{delay: delay, log: log})
 	go func() {
 		err := server.Serve(lis)
 		if err != nil {
@@ -75,7 +72,7 @@ func TestPodEvaluatorExecutionParallel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	addr, err := startFakeServer(ctx, t, sleep, nil)
+	addr, err := startFakeServer(ctx, t, sleep, "")
 	if err != nil {
 		t.Fatalf("failed to start fake server: %v", err)
 	}
@@ -108,7 +105,8 @@ func TestPodEvaluatorExecutionParallel(t *testing.T) {
 	}()
 
 	pe := &podEvaluator{
-		requestCh: reqCh,
+		requestCh:       reqCh,
+		podCacheManager: &podCacheManager{podManager: &podManager{}},
 	}
 
 	req := &pb.EvaluateFunctionRequest{ResourceList: []byte(`{}`), Image: "test-image"}
