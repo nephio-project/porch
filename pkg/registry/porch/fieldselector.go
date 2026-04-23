@@ -111,11 +111,14 @@ func convertPackageRevisionFieldSelector(label, value string) (internalLabel, in
 	return "", "", fmt.Errorf("%q is not a known field selector", label)
 }
 
-// parsePackageFieldSelector parses client-provided fields.Selector into a packageFilter
-func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPackageFilter, error) {
+// parsePackageFieldSelector parses client-provided fields.Selector into a packageFilter.
+// If namespace is non-empty, it is applied to the filter and checked for conflicts
+// with any namespace specified via the field selector.
+func parsePackageFieldSelector(fieldSelector fields.Selector, namespace string) (repository.ListPackageFilter, error) {
 	var filter repository.ListPackageFilter
 
 	if fieldSelector == nil {
+		filter.Key.RepoKey.Namespace = namespace
 		return filter, nil
 	}
 
@@ -153,11 +156,20 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 		}
 	}
 
+	if namespace != "" {
+		if filter.Key.RepoKey.Namespace != "" && filter.Key.RepoKey.Namespace != namespace {
+			return filter, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RepoKey.Namespace)
+		}
+		filter.Key.RepoKey.Namespace = namespace
+	}
+
 	return filter, nil
 }
 
-// parsePackageRevisionFieldSelector parses client-provided fields.Selector into a ListPackageRevisionFilter
-func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
+// parsePackageRevisionFieldSelector parses client-provided fields.Selector into a ListPackageRevisionFilter.
+// If namespace is non-empty, it is applied to the filter and checked for conflicts
+// with any namespace specified via the field selector.
+func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions, namespace string) (*repository.ListPackageRevisionFilter, error) {
 	filter := &repository.ListPackageRevisionFilter{
 		Label: options.LabelSelector,
 		Key:   repository.PackageRevisionKey{},
@@ -165,6 +177,7 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 
 	fieldSelector := options.FieldSelector
 	if fieldSelector == nil {
+		filter.Key.PkgKey.RepoKey.Namespace = namespace
 		return filter, nil
 	}
 
@@ -207,12 +220,19 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 		}
 	}
 
+	if namespace != "" {
+		if filter.Key.PkgKey.RepoKey.Namespace != "" && filter.Key.PkgKey.RepoKey.Namespace != namespace {
+			return filter, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.PkgKey.RepoKey.Namespace)
+		}
+		filter.Key.PkgKey.RepoKey.Namespace = namespace
+	}
+
 	return filter, nil
 }
 
 // parsePackageRevisionResourcesFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
-func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
+func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.ListOptions, namespace string) (*repository.ListPackageRevisionFilter, error) {
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
-	return parsePackageRevisionFieldSelector(options)
+	return parsePackageRevisionFieldSelector(options, namespace)
 }

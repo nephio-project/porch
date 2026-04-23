@@ -85,8 +85,6 @@ type ExtraConfig struct {
 	CoreAPIKubeconfigPath    string
 	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
 	CacheOptions             cachetypes.CacheOptions
-	ListTimeoutPerRepository time.Duration
-	MaxConcurrentLists       int
 }
 
 // Config defines the config for the apiserver
@@ -100,7 +98,8 @@ type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
-	ListTimeoutPerRepository   time.Duration
+	periodicRepoSyncFrequency  time.Duration
+	listTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
 	ExtraConfig                *ExtraConfig
 }
@@ -354,12 +353,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	restStorageOptions := porch.RESTStorageOptions{
-		Scheme:               Scheme,
-		Codecs:               Codecs,
-		CaD:                  cad,
-		CoreClient:           coreClient,
-		TimeoutPerRepository: c.ExtraConfig.ListTimeoutPerRepository,
-		MaxConcurrentLists:   c.ExtraConfig.MaxConcurrentLists,
+		Scheme:     Scheme,
+		Codecs:     Codecs,
+		CaD:        cad,
+		CoreClient: coreClient,
 	}
 	porchGroup, err := restStorageOptions.NewRESTStorage()
 	if err != nil {
@@ -367,11 +364,12 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	s := &PorchServer{
-		GenericAPIServer:           genericServer,
-		coreClient:                 coreClient,
-		cache:                      cacheImpl,
-		ExtraConfig:                c.ExtraConfig,
-		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
+		GenericAPIServer: genericServer,
+		coreClient:       coreClient,
+		cache:            cacheImpl,
+		// Set background job periodic frequency the same as repo sync frequency.
+		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		listTimeoutPerRepository:   c.ExtraConfig.CacheOptions.CRCacheOptions.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 

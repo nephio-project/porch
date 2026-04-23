@@ -16,10 +16,8 @@ package porch
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	unversionedapi "github.com/nephio-project/porch/api/porch"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -29,7 +27,6 @@ import (
 	context1 "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,130 +50,33 @@ type packageCommon struct {
 
 	cad engine.CaDEngine
 	// coreClient is a client back to the core kubernetes API server, useful for querying CRDs etc
-	coreClient               client.Client
-	gr                       schema.GroupResource
-	updateStrategy           SimpleRESTUpdateStrategy
-	createStrategy           SimpleRESTCreateStrategy
-	ListTimeoutPerRepository time.Duration
-	MaxConcurrentLists       int
+	coreClient     client.Client
+	gr             schema.GroupResource
+	updateStrategy SimpleRESTUpdateStrategy
+	createStrategy SimpleRESTCreateStrategy
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
 	callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
-
-	var opts []client.ListOption
-
-	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if namespaced && namespace != "" {
-		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
-		}
-
-		opts = append(opts, client.InNamespace(namespace))
+	revisions, err := r.cad.ListPackageRevisions(ctx, filter)
+	if err != nil {
+		return err
 	}
-
-	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
-		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
-	}
-
-	var repoList configapi.RepositoryList
-	if err := r.coreClient.List(ctx, &repoList, opts...); err != nil {
-		return fmt.Errorf("error listing repository objects: %w", err)
-	}
-	repos := repoList.Items
-
-	type pkgRevResult struct {
-		Revisions []repository.PackageRevision
-		Err       error
-	}
-
-	repoCount := len(repos)
-	if repoCount == 0 {
-		return nil
-	}
-
-	workerCount := repoCount
-	if r.MaxConcurrentLists > 0 {
-		workerCount = min(r.MaxConcurrentLists, repoCount)
-	}
-
-	klog.V(3).Infof("Listing %d repositories with %d workers", repoCount, workerCount)
-
-	resultsCh := make(chan pkgRevResult, workerCount)
-	repoQueue := make(chan *configapi.Repository, repoCount)
-
-	for i := 0; i < workerCount; i++ {
-		go func() {
-			for repo := range repoQueue {
-				klog.V(3).Infof("[WORKER %d] Processing repository %s", i, repo.Name)
-				listCtx := ctx
-				var cancel context.CancelFunc
-				if r.ListTimeoutPerRepository != 0 {
-					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
-				}
-				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
-				klog.V(3).Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
-				resultsCh <- pkgRevResult{Revisions: revisions, Err: err}
-				if cancel != nil {
-					cancel()
-				}
-			}
-		}()
-	}
-
-	for _, repo := range repos {
-		repoQueue <- &repo
-	}
-
-	innerCtx := ctx
-	if deadline, ok := ctx.Deadline(); ok {
-		const buffer = 5 * time.Second
-		if timeout := time.Until(deadline.Add(-buffer)); timeout > 0 {
-			var cancel context.CancelFunc
-			innerCtx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
+	for _, rev := range revisions {
+		if err := callback(ctx, rev); err != nil {
+			klog.Warningf("callback error for revision from repository: %+v", err)
+			continue
 		}
 	}
-
-	received := 0
-
-	for {
-		select {
-		case <-innerCtx.Done():
-			klog.Warningf("Timeout reached — returning partial results")
-			close(repoQueue)
-			return nil
-
-		case res := <-resultsCh:
-			received++
-			klog.V(4).Infof("listPackageRevisions received %d repo", received)
-			if res.Err != nil {
-				klog.Warningf("error listing package revisions: %+v", res.Err)
-			}
-			for _, rev := range res.Revisions {
-				if err := callback(ctx, rev); err != nil {
-					klog.Warningf("callback error for revision from repository: %+v", err)
-					continue
-				}
-			}
-			if received == repoCount {
-				close(repoQueue)
-				return nil
-			}
-		}
-	}
+	return nil
 }
 
 func (r *packageCommon) listPackages(ctx context.Context, filter repository.ListPackageFilter, callback func(p repository.Package) error) error {
 	var opts []client.ListOption
-	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
+	if ns := filter.Key.RepoKey.Namespace; ns != "" {
 		opts = append(opts, client.InNamespace(ns))
-
-		if filter.Key.RKey().Namespace != "" && ns != filter.Key.RKey().Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Key.RKey().Namespace)
-		}
 	}
 
 	// TODO: Filter on filter.Repository?
@@ -262,27 +162,8 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, err
 	}
 
-	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
+	revisions, err := r.cad.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
-		return nil, err
-	}
-
-	// Check if repository is being deleted
-	if repositoryObj.DeletionTimestamp != nil {
-		return nil, apierrors.NewNotFound(r.gr, name)
-	}
-
-	var cancel context.CancelFunc
-	if r.ListTimeoutPerRepository != 0 {
-		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
-		defer cancel()
-	}
-
-	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
-	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, fmt.Errorf("%v: exceeded %v seconds trying to list package revisions", ctx.Err(), r.ListTimeoutPerRepository)
-		}
 		return nil, err
 	}
 	for _, rev := range revisions {
@@ -514,6 +395,16 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 		if err != nil {
 			klog.Infof("delete failed validation: %v", err)
 			return nil, err
+		}
+	}
+
+	// Check if the PackageRevision is Published and not in DeletionProposed state
+	if pkgRev, ok := obj.(*porchapi.PackageRevision); ok {
+		if pkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+			return nil, apierrors.NewForbidden(
+				porchapi.Resource("packagerevisions"),
+				name,
+				fmt.Errorf("published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion"))
 		}
 	}
 

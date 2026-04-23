@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/klog/v2"
 )
 
 type packageRevisionApproval struct {
@@ -74,7 +75,11 @@ func (a *packageRevisionApproval) Update(ctx context.Context, name string, objIn
 	ctx = context1.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	allowCreate := false // do not allow create on update
-	return a.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)
+	runTimeObj, ok, err := a.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)
+	if err != nil {
+		klog.ErrorS(err, "[API] PackageRevision approval operation failed", context1.LogMetadataFrom(ctx)...)
+	}
+	return runTimeObj, ok, err
 }
 
 type packageRevisionApprovalStrategy struct{}

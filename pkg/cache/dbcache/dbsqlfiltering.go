@@ -35,7 +35,7 @@ func pkgListFilter2WhereClause(filter repository.ListPackageFilter) string {
 	whereStatement, first = filter2SubClauseStr(whereStatement, repoKey.PlaceholderWSname, "repositories.default_ws_name", first)
 
 	pkgKey := filter.Key
-	whereStatement, first = filter2SubClauseStr(whereStatement, pkgKey.K8SName(), "packages.k8s_name", first)
+	whereStatement, first = filter2SubClauseSuffix(whereStatement, pkgKey.Package, "packages.k8s_name", first)
 	whereStatement, _ = filter2SubClauseStr(whereStatement, pkgKey.Path, "packages.package_path", first)
 
 	if whereStatement == "" {
@@ -55,11 +55,10 @@ func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) strin
 	whereStatement, first = filter2SubClauseStr(whereStatement, repoKey.PlaceholderWSname, "repositories.default_ws_name", first)
 
 	pkgKey := filter.Key.PKey()
-	whereStatement, first = filter2SubClauseStr(whereStatement, pkgKey.K8SName(), "packages.k8s_name", first)
+	whereStatement, first = filter2SubClauseSuffix(whereStatement, pkgKey.Package, "packages.k8s_name", first)
 	whereStatement, first = filter2SubClauseStr(whereStatement, pkgKey.Path, "packages.package_path", first)
 
 	prKey := filter.Key
-	whereStatement, first = filter2SubClauseStr(whereStatement, prKey.K8SName(), "package_revisions.k8s_name", first)
 	whereStatement, first = filter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
 	whereStatement, first = filter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
 
@@ -80,6 +79,20 @@ func filter2SubClauseStr(whereStatement, filterField, column string, first bool)
 	}
 
 	subClause := fmt.Sprintf("%s='%s'\n", column, filterField)
+
+	if first {
+		return whereStatement + subClause, false
+	} else {
+		return whereStatement + "AND " + subClause, false
+	}
+}
+
+func filter2SubClauseSuffix(whereStatement, suffix, column string, first bool) (string, bool) {
+	if suffix == "" {
+		return whereStatement, first
+	}
+
+	subClause := fmt.Sprintf("%s LIKE '%%.%s'\n", column, suffix)
 
 	if first {
 		return whereStatement + subClause, false

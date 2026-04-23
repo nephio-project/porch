@@ -20,6 +20,7 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -40,7 +41,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	sourceRef := m.task.Edit.Source
 
-	revision, err := (&repository.PackageFetcher{
+	sourceRevision, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
 	}).FetchRevision(ctx, sourceRef, m.namespace)
@@ -49,17 +50,26 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	// We only allow edit to create new revision from the same package.
-	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
-		revision.Key().PkgKey.RKey().Name != m.repositoryName {
+	if sourceRevision.Key().PkgKey.ToPkgPathname() != m.packageName ||
+		sourceRevision.Key().RKey().Name != m.repositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
 	}
 
-	// We only allow edit to create new revisions from published packages.
-	if !porchapi.LifecycleIsPublished(revision.Lifecycle(ctx)) {
+	sourceIsPlaceholder, err := repository.PackageRevisionIsPlaceholder(ctx, m.namespace, m.referenceResolver, sourceRevision)
+	if err != nil {
+		return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "error checking for placeholder package revision")
+	}
+	if sourceIsPlaceholder {
+		// We only allow edit to create new revisions from non-placeholder package revisions
+		return repository.PackageResources{}, nil, fmt.Errorf("source revision may not be the placeholder package revision %s/%s", sourceRevision.Key().RKey().Name, sourceRevision.KubeObjectName())
+	}
+
+	// We only allow edit to create new revisions from published package revisions.
+	if !porchapi.LifecycleIsPublished(sourceRevision.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
-	sourceResources, err := revision.GetResources(ctx)
+	sourceResources, err := sourceRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
 	}

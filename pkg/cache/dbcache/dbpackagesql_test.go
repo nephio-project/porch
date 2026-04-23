@@ -182,39 +182,130 @@ func (t *DbTestSuite) TestPackageFilter() {
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
 	dbRepo := t.createTestRepo("my-ns", "my-repo")
-
 	dbRepoPkgs := t.createTestPkgs(dbRepo.Key(), "my-package", 4)
 
-	pkgFilter := repository.ListPackageFilter{}
-	listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
-	t.Require().NoError(err)
-	t.Len(listPkgs, 4)
+	dbRepo2 := t.createTestRepo("my-ns", "other-repo")
+	dbRepo2Pkgs := t.createTestPkgs(dbRepo2.Key(), "my-package", 2)
 
-	pkgFilter.Key.RepoKey = dbRepo.repoKey
-	pkgFilter.Key.Package = "my-package-2"
-	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
-	t.Require().NoError(err)
-	t.Len(listPkgs, 1)
+	// Create a nested package (same leaf name, different path)
+	nestedPkg := t.createTestPkgWithPath(dbRepo.Key(), "my-package-0", "catalog")
 
-	pkgFilter.Key.Package = "my-package-5"
-	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
-	t.Require().NoError(err)
-	t.Empty(listPkgs)
+	t.Run("EmptyFilter", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 7)
+	})
 
-	pkgFilter.Key.Package = "my-package-2"
-	pkgFilter.Key.Path = "a/path"
-	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
-	t.Require().NoError(err)
-	t.Empty(listPkgs)
+	t.Run("RepoAndPackageName", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey = dbRepo.repoKey
+		pkgFilter.Key.Package = "my-package-2"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 1)
+	})
 
-	pkgFilter.Key.Path = ""
-	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
-	t.Require().NoError(err)
-	t.Len(listPkgs, 1)
+	t.Run("RepoAndNonExistentPackage", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey = dbRepo.repoKey
+		pkgFilter.Key.Package = "my-package-5"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Empty(listPkgs)
+	})
 
+	t.Run("RepoAndPackageWithNonMatchingPath", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey = dbRepo.repoKey
+		pkgFilter.Key.Package = "my-package-2"
+		pkgFilter.Key.Path = "a/path"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Empty(listPkgs)
+	})
+
+	t.Run("RepoAndPackageWithEmptyPath", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey = dbRepo.repoKey
+		pkgFilter.Key.Package = "my-package-2"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 1)
+	})
+
+	t.Run("PackageNameOnlySharedAcrossRepos", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Package = "my-package-0"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 3) // root in each repo + nested in my-repo
+	})
+
+	t.Run("PackageNameOnlyUniqueToOneRepo", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Package = "my-package-3"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 1)
+	})
+
+	t.Run("PackageNameOnlyNonExistent", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Package = "no-such-package"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Empty(listPkgs)
+	})
+
+	t.Run("RepositoryNameOnly", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey.Name = "my-repo"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 5)
+	})
+
+	t.Run("NamespaceOnly", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.RepoKey.Namespace = "my-ns"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 7)
+	})
+
+	t.Run("PackageNameAndPathNoRepo", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Package = "my-package-0"
+		pkgFilter.Key.Path = "catalog"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 1)
+	})
+
+	t.Run("PackageNameAndNonMatchingPathNoRepo", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Package = "my-package-0"
+		pkgFilter.Key.Path = "other"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Empty(listPkgs)
+	})
+
+	t.Run("PathOnlyNoRepo", func() {
+		pkgFilter := repository.ListPackageFilter{}
+		pkgFilter.Key.Path = "catalog"
+		listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+		t.Require().NoError(err)
+		t.Len(listPkgs, 1)
+	})
+
+	t.deleteTestRepo(dbRepo2.Key())
 	t.deleteTestRepo(dbRepo.Key())
 
 	t.Empty(t.readRepoPkgPRs(dbRepoPkgs))
+	_ = dbRepo2Pkgs
+	_ = nestedPkg
 }
 
 func (t *DbTestSuite) pkgDBWriteReadTest(dbRepo *dbRepository, dbPkg, dbPkgUpdate dbPackage) {

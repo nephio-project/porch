@@ -42,7 +42,9 @@ type CacheOptions struct {
 	CoreClient                 client.WithWatch
 	CacheType                  CacheType
 	DBCacheOptions             DBCacheOptions
+	CRCacheOptions             CRCacheOptions
 	DbPushDraftsToGit          bool
+	RepoSyncFrequency          time.Duration
 }
 
 const DefaultDBCacheDriver string = "pgx"
@@ -55,6 +57,11 @@ type DBCacheOptions struct {
 	MaxConnLifetime    time.Duration
 }
 
+type CRCacheOptions struct {
+	MaxConcurrentLists       int
+	ListTimeoutPerRepository time.Duration
+}
+
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
@@ -63,6 +70,7 @@ type Cache interface {
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
 	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
+	ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
 }
 
 var (

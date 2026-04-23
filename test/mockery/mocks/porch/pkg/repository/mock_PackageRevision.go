@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
@@ -158,8 +158,8 @@ func (_c *MockPackageRevision_GetLock_Call) Run(run func(ctx context.Context)) *
 	return _c
 }
 
-func (_c *MockPackageRevision_GetLock_Call) Return(upstream v1.Upstream, upstreamLock v1.Locator, err error) *MockPackageRevision_GetLock_Call {
-	_c.Call.Return(upstream, upstreamLock, err)
+func (_c *MockPackageRevision_GetLock_Call) Return(upstream v1.Upstream, locator v1.Locator, err error) *MockPackageRevision_GetLock_Call {
+	_c.Call.Return(upstream, locator, err)
 	return _c
 }
 
@@ -392,8 +392,8 @@ func (_c *MockPackageRevision_GetUpstreamLock_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockPackageRevision_GetUpstreamLock_Call) Return(upstream v1.Upstream, upstreamLock v1.Locator, err error) *MockPackageRevision_GetUpstreamLock_Call {
-	_c.Call.Return(upstream, upstreamLock, err)
+func (_c *MockPackageRevision_GetUpstreamLock_Call) Return(upstream v1.Upstream, locator v1.Locator, err error) *MockPackageRevision_GetUpstreamLock_Call {
+	_c.Call.Return(upstream, locator, err)
 	return _c
 }
 

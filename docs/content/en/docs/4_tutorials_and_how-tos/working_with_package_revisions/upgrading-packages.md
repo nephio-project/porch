@@ -313,6 +313,8 @@ For better organization and access control, keep blueprint packages and deployme
 
 Before upgrading, be certain which merge strategy fits your use case to avoid accidentally losing important local customizations. When in doubt, the default `resource-merge` is the safest and most intelligent option.
 
+Do not upgrade packages' placeholder/main package revisions or attempt to use them as upstream for an upgrade - this is not supported. Select defined package revisions instead - see [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder package revision.
+
 ### Cleanup
 
 To remove the packages created in this guide, you must first propose them for deletion and then perform the final deletion.
