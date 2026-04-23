@@ -197,7 +197,7 @@ functionConfig:
 
 		// Verify the klog message contains the expected version selection
 		assert.Contains(t, logOutput, `Selected image "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1"`)
-		assert.Contains(t, logOutput, `(version 0.4.1)`)
+		assert.Contains(t, logOutput, `(version "0.4.1")`)
 		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-namespace"`)
 
 		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1
@@ -309,7 +309,7 @@ functionConfig:
 		// Verify the klog message contains the expected version selection
 		assert.Contains(t, logOutput, `Image "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.3.0" already contains tag "v0.3.0"; stripping it in favor of Tag constraint ">= 0.4.0 < 0.5.0"`)
 		assert.Contains(t, logOutput, `Selected image "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1"`)
-		assert.Contains(t, logOutput, `(version 0.4.1)`)
+		assert.Contains(t, logOutput, `(version "0.4.1")`)
 		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-namespace"`)
 
 		reader := bytes.NewReader([]byte(`apiVersion: config.kubernetes.io/v1alpha1

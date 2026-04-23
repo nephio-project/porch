@@ -21,13 +21,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
-	"strings"
 
-	semver "github.com/Masterminds/semver/v3"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/pkg/util"
 	regclientref "github.com/regclient/regclient/types/ref"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -89,72 +87,6 @@ func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
 	}, nil
 }
 
-func (e *executableEvaluator) filterByConstraint(req *pb.EvaluateFunctionRequest) (string, error) {
-	c, err := semver.NewConstraint(req.Tag)
-	if err != nil {
-		return "", &fn.NotFoundError{
-			Function: kptfilev1.Function{Image: req.Image},
-		}
-	}
-
-	type candidate struct {
-		baseName string
-		version  *semver.Version
-		binary   string
-	}
-
-	// Filter the cache map by semver constraint validation
-	var filteredCache []candidate
-	for img, bin := range e.cache {
-		// Extract the version string after ":v" in the image name
-		idx := strings.LastIndex(img, ":v")
-		// Currently, hashed and latest tagged images would be filtered out
-		if idx == -1 {
-			continue
-		}
-
-		baseName := img[:idx]
-		if baseName != req.Image {
-			continue
-		}
-
-		versionStr := img[idx+1:] // skip past ":"
-		v, err := semver.NewVersion(versionStr)
-		if err != nil {
-			klog.Infof("Failed to parse version %q from cached image %q: %v", versionStr, img, err)
-			continue
-		}
-
-		cand := candidate{
-			baseName: baseName,
-			version:  v,
-			binary:   bin,
-		}
-		if ok, _ := c.Validate(v); ok {
-			filteredCache = append(filteredCache, cand)
-		}
-	}
-
-	// Check if any matching image was found
-	if len(filteredCache) == 0 {
-		klog.Infof("Image %q with constraint %q is not found in the cache", req.Image, req.Tag)
-		return "", &fn.NotFoundError{
-			Function: kptfilev1.Function{Image: req.Image},
-		}
-	}
-
-	// Sort by semver and select the greatest version
-	slices.SortFunc(filteredCache, func(a, b candidate) int {
-		return a.version.Compare(b.version)
-	})
-
-	selected := filteredCache[len(filteredCache)-1]
-	klog.Infof("Selected image \"%s:%s\" (version %q) for request %q",
-		selected.baseName, selected.version.Original(), selected.version, req.Image)
-
-	return selected.binary, nil
-}
-
 func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 	var selectedBinary string
 	if req.Tag != "" {
@@ -166,10 +98,17 @@ func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.Eval
 		ref.Digest = ""
 		req.Image = ref.CommonName()
 
-		selectedBinary, err = e.filterByConstraint(req)
-		if err != nil {
-			return nil, err
+		cacheKeys := make([]string, 0, len(e.cache))
+		for k := range e.cache {
+			cacheKeys = append(cacheKeys, k)
 		}
+		selectedKey, err := util.FindBestSemverMatch(req.Tag, req.Image, cacheKeys)
+		if err != nil {
+			return nil, &fn.NotFoundError{
+				Function: kptfilev1.Function{Image: req.Image},
+			}
+		}
+		selectedBinary = e.cache[selectedKey]
 	} else {
 		klog.Infof("Image tag is empty, using the image with explicit tag: %q", req.Image)
 		binary, cached := e.cache[req.Image]

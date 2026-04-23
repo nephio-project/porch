@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
@@ -30,6 +28,7 @@ import (
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/pkg/util"
 	regclientref "github.com/regclient/regclient/types/ref"
 	"k8s.io/klog/v2"
 )
@@ -83,73 +82,6 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 
 var _ kptops.FunctionRuntime = &builtinRuntime{}
 
-func (br *builtinRuntime) getRunnerByConstraint(funct *kptfilev1.Function) (fnsdk.ResourceListProcessor, error) {
-	c, err := semver.NewConstraint(funct.Tag)
-	if err != nil {
-		return nil, &fn.NotFoundError{
-			Function: kptfilev1.Function{Image: funct.Image},
-		}
-	}
-	// Filter the cache map by semver constraint validation
-	type candidate struct {
-		baseName  string
-		version   *semver.Version
-		processor fnsdk.ResourceListProcessor
-	}
-
-	// Filter the cache map by semver constraint validation
-	var filteredCache []candidate
-	for img, proc := range br.fnMapping {
-		// Extract the version string after ":v" in the image name
-		idx := strings.LastIndex(img, ":v")
-		// Currently, hashed and latest tagged images would be filtered out
-		if idx == -1 {
-			continue
-		}
-
-		baseName := img[:idx]
-		if baseName != funct.Image {
-			continue
-		}
-
-		versionStr := img[idx+1:] // skip past ":"
-		v, err := semver.NewVersion(versionStr)
-		if err != nil {
-			klog.Infof("Failed to parse version %q from cached image %q: %v", versionStr, img, err)
-			continue
-		}
-
-		cand := candidate{
-			baseName:  baseName,
-			version:   v,
-			processor: proc,
-		}
-		if c.Check(v) {
-			filteredCache = append(filteredCache, cand)
-		}
-	}
-
-	// Check if any matching image was found
-	if len(filteredCache) == 0 {
-		klog.Infof("Image %q with constraint %q is not found in the cache", funct.Image, funct.Tag)
-		return nil, &fn.NotFoundError{
-			Function: kptfilev1.Function{Image: funct.Image},
-		}
-	}
-
-	// Sort by semver and select the greatest version
-	slices.SortFunc(filteredCache, func(a, b candidate) int {
-		return a.version.Compare(b.version)
-	})
-
-	selected := filteredCache[len(filteredCache)-1]
-
-	klog.Infof("Selected image \"%s:%s\" (version %s) for request %q",
-		selected.baseName, selected.version.Original(), selected.version, funct.Image)
-
-	return selected.processor, nil
-}
-
 func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
 	builtinRunner := &builtinRunner{
 		ctx: ctx,
@@ -161,7 +93,7 @@ func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Functi
 			return nil, fmt.Errorf("failed to parse image %q as reference: %w", funct.Image, err)
 		}
 		// If the image already carries an inline tag, strip it
-		// so filterByConstraint gets a bare repository name, and
+		// so FindBestSemverMatch gets a bare repository name, and
 		// we don't produce a double-tag
 		if ref.Tag != "" {
 			if stripped := strings.TrimSuffix(funct.Image, ":"+ref.Tag); stripped != funct.Image {
@@ -169,11 +101,18 @@ func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Functi
 				funct.Image = stripped
 			}
 		}
-		runner, err := br.getRunnerByConstraint(funct)
-		if err != nil {
-			return nil, err
+
+		cacheKeys := make([]string, 0, len(br.fnMapping))
+		for k := range br.fnMapping {
+			cacheKeys = append(cacheKeys, k)
 		}
-		builtinRunner.processor = runner
+		selectedKey, err := util.FindBestSemverMatch(funct.Tag, funct.Image, cacheKeys)
+		if err != nil {
+			return nil, &fn.NotFoundError{
+				Function: kptfilev1.Function{Image: funct.Image},
+			}
+		}
+		builtinRunner.processor = br.fnMapping[selectedKey]
 	} else {
 		klog.Infof("Image tag is empty, using the image with explicit tag: %q", funct.Image)
 
