@@ -80,7 +80,6 @@ type runner struct {
 
 	copy porchapi.PackageEditTaskSpec
 
-	namespace string
 	workspace string // Target package revision workspaceName
 }
 
@@ -98,8 +97,6 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
-
-	r.namespace = util.EnsureNamespace(r.cfg)
 
 	r.copy.Source = &porchapi.PackageRevisionRef{
 		Name: args[0],
@@ -121,7 +118,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: r.namespace,
+			Namespace: util.EnsureNamespace(r.cfg),
 		},
 		Spec: *revisionSpec,
 	}
@@ -136,7 +133,7 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 	packageRevision := porchapi.PackageRevision{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.copy.Source.Name,
-		Namespace: r.namespace,
+		Namespace: util.EnsureNamespace(r.cfg),
 	}, &packageRevision)
 	if err != nil {
 		return nil, err
