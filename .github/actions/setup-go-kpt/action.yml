@@ -23,7 +23,7 @@ inputs:
   kpt-fallback-version:
     description: "Fallback kpt version if extraction from go.mod fails"
     required: false
-    default: "v1.0.0-beta.61.1"
+    default: "v1.0.0-beta.62.1"
   go-cache:
     description: "Enable Go module caching"
     required: false
