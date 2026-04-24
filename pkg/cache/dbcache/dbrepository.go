@@ -109,6 +109,13 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	r.repositorySync.Stop()
 
 	defer func() {
+		// repoDeleteFromDB is a CASCADE delete - automatically deletes all packages, revisions and resources
+		if err := repoDeleteFromDB(ctx, r.Key()); err != nil {
+			klog.Warningf("dbRepository:close: delete of repository %+v from DB failed: %q", r.Key(), err)
+		}
+	}()
+
+	defer func() {
 		if err := r.externalRepo.Close(ctx); err != nil {
 			klog.Warningf("dbRepository:close: close of external repository %+v failed: %q", r.Key(), err)
 		} else {
@@ -128,7 +135,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 		}
 	}
 
-	return repoDeleteFromDB(ctx, r.Key())
+	return nil
 }
 
 func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
