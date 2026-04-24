@@ -291,22 +291,3 @@ func (r *packageRevisionResources) getRepoPkgRevForResources(ctx context.Context
 
 	return nil, apierrors.NewNotFound(r.gr, name)
 }
-
-// Watch supports watching for PackageRevisionResources changes.
-func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
-	defer span.End()
-
-	ctx = context1.WithNewRequestID(ctx)
-
-	ns, _ := genericapirequest.NamespaceFrom(ctx)
-
-	filter, err := parsePackageRevisionResourcesFieldSelector(options, ns)
-	if err != nil {
-		return nil, err
-	}
-
-	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
-		return pr.GetResources(ctx)
-	}, options)
-}
