@@ -79,24 +79,23 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	<-requestWaitChannel
 }
 func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
-	// Find available port
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-
 	t.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
-	t.Setenv("OTEL_EXPORTER_PROMETHEUS_HOST", "localhost")
-	t.Setenv("OTEL_EXPORTER_PROMETHEUS_PORT", fmt.Sprintf("%d", port))
+	t.Setenv("OTEL_TRACES_EXPORTER", "none")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = SetupOpenTelemetry(ctx)
+	err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
 
-	// Make request to the Prometheus metrics endpoint
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
+	// MetricsHandler should be set up and serve process/Go runtime metrics
+	handler := MetricsHandler()
+	require.NotNil(t, handler)
+
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -104,8 +103,10 @@ func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	metricsText := string(body)
-	// Verify at least one metric line exists (non-comment, non-empty)
-	assert.Regexp(t, `(?m)^([a-zA-Z_][a-zA-Z0-9_]*)`, metricsText)
+	// Verify Go process metrics are present
+	assert.Contains(t, metricsText, "process_cpu_seconds_total")
+	assert.Contains(t, metricsText, "process_resident_memory_bytes")
+	assert.Contains(t, metricsText, "go_goroutines")
 }
 
 func TestOtelMetricsPushGRPC(t *testing.T) {

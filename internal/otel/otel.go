@@ -99,18 +99,14 @@ func setupMetrics(ctx context.Context) error {
 	})
 
 	if exporter == "prometheus" {
-		autoMr, err := autoexport.NewMetricReader(ctx)
+		promExp, err := otelprometheus.New(
+			otelprometheus.WithRegisterer(prometheus.DefaultRegisterer),
+		)
 		if err != nil {
-			return fmt.Errorf("failed to create prometheus metric reader: %w", err)
+			return fmt.Errorf("failed to create prometheus exporter: %w", err)
 		}
-		go func() {
-			<-ctx.Done()
-			if err := autoMr.Shutdown(context.Background()); err != nil {
-				klog.Warningf("metrics reader shutdown error: %v", err)
-			}
-		}()
 
-		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(autoMr))
+		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(promExp))
 		go func() {
 			<-ctx.Done()
 			if err := mp.Shutdown(context.Background()); err != nil {

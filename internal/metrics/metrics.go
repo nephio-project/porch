@@ -159,7 +159,18 @@ type OTelMetricsServer struct {
 func NewOTelMetricsServer(port int) (*OTelMetricsServer, error) {
 	if porchotel.IsMetricsSetUp() {
 		fmt.Printf("OTel metrics already set up; reusing existing server on port %d\n", port)
-		return &OTelMetricsServer{port: port}, nil
+		InitMetrics()
+
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", porchotel.MetricsHandler())
+
+		return &OTelMetricsServer{
+			server: &http.Server{
+				Addr:    fmt.Sprintf(":%d", port),
+				Handler: mux,
+			},
+			port: port,
+		}, nil
 	}
 
 	exp, err := otelprometheus.New()
