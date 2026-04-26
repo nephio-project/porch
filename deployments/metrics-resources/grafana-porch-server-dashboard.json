@@ -320,43 +320,6 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "PackageRevisionResources WATCH latency metrics (p95, p99, average).",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisLabel": "", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
-      "id": 204,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(porch_api_call_duration_seconds_bucket{resource=\"PackageRevisionResources\", verb=\"WATCH\"}[5m])) by (le))",
-          "legendFormat": "p95",
-          "refId": "A"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.99, sum(rate(porch_api_call_duration_seconds_bucket{resource=\"PackageRevisionResources\", verb=\"WATCH\"}[5m])) by (le))",
-          "legendFormat": "p99",
-          "refId": "B"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(porch_api_call_duration_seconds_sum{resource=\"PackageRevisionResources\", verb=\"WATCH\"}[5m])) / sum(rate(porch_api_call_duration_seconds_count{resource=\"PackageRevisionResources\", verb=\"WATCH\"}[5m]))",
-          "legendFormat": "avg",
-          "refId": "C"
-        }
-      ],
-      "title": "PRR WATCH",
-      "type": "timeseries"
-    },
-    {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
       "id": 300,
