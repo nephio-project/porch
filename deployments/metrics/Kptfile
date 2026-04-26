@@ -1,0 +1,20 @@
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: porch-monitoring
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: Prometheus, Pyroscope and Grafana monitoring stack for Porch
+pipeline:
+  mutators:
+    - image: apply-setters:v0.2.0
+      configMap:
+        prometheus-image: "docker.io/prom/prometheus:latest"
+        grafana-image: "docker.io/grafana/grafana:latest"
+        pyroscope-image: "docker.io/grafana/pyroscope:latest"
+        prometheus-nodeport: "30091"
+        grafana-nodeport: "30301"
+    - image: set-namespace:v0.4.1
+      configMap:
+        namespace: porch-monitoring

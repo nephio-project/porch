@@ -18,18 +18,36 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
-	"go.opentelemetry.io/contrib/bridges/prometheus"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/metric"
+	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
 	controllerruntimemetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
+
+var (
+	metricsSetUp   bool
+	metricsHandler http.Handler
+)
+
+func IsMetricsSetUp() bool {
+	return metricsSetUp
+}
+
+func MetricsHandler() http.Handler {
+	return metricsHandler
+}
 
 // Sets up OpenTelemetry with parameters
 // from environment variables based on the
@@ -48,7 +66,6 @@ func SetupOpenTelemetry(ctx context.Context) error {
 	http.DefaultClient.Transport = http.DefaultTransport
 	klog.Infof("OpenTelemetry initialized in %s", time.Since(setupTiming))
 	return nil
-
 }
 
 func setupTracing(ctx context.Context) error {
@@ -70,25 +87,85 @@ func setupTracing(ctx context.Context) error {
 }
 
 func setupMetrics(ctx context.Context) error {
-	autoexport.WithFallbackMetricProducer(func(ctx context.Context) (metric.Producer, error) {
-		return prometheus.NewMetricProducer(
-			prometheus.WithGatherer(controllerruntimemetrics.Registry),
+	exporter := os.Getenv("OTEL_METRICS_EXPORTER")
+
+	autoexport.WithFallbackMetricProducer(func(ctx context.Context) (sdkmetric.Producer, error) {
+		return prombridge.NewMetricProducer(
+			prombridge.WithGatherer(prometheus.Gatherers{
+				prometheus.DefaultGatherer,
+				controllerruntimemetrics.Registry,
+			}),
 		), nil
 	})
 
-	mr, err := autoexport.NewMetricReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create metric reader: %w", err)
-	}
-	go func() {
-		<-ctx.Done()
-		if err := mr.Shutdown(context.Background()); err != nil {
-			panic(err)
+	if exporter == "prometheus" {
+		autoMr, err := autoexport.NewMetricReader(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create prometheus metric reader: %w", err)
 		}
-	}()
+		go func() {
+			<-ctx.Done()
+			if err := autoMr.Shutdown(context.Background()); err != nil {
+				klog.Warningf("metrics reader shutdown error: %v", err)
+			}
+		}()
 
-	mp := metric.NewMeterProvider(metric.WithReader(mr))
-	otel.SetMeterProvider(mp)
+		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(autoMr))
+		go func() {
+			<-ctx.Done()
+			if err := mp.Shutdown(context.Background()); err != nil {
+				klog.Warningf("metrics provider shutdown error: %v", err)
+			}
+		}()
+		otel.SetMeterProvider(mp)
 
+		gatherers := prometheus.Gatherers{
+			prometheus.DefaultGatherer,
+			controllerruntimemetrics.Registry,
+		}
+		metricsHandler = promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
+			ErrorHandling: promhttp.ContinueOnError,
+		})
+	} else {
+		promExp, err := otelprometheus.New(
+			otelprometheus.WithRegisterer(prometheus.DefaultRegisterer),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create prometheus exporter: %w", err)
+		}
+
+		autoMr, err := autoexport.NewMetricReader(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create metric reader: %w", err)
+		}
+		go func() {
+			<-ctx.Done()
+			if err := autoMr.Shutdown(context.Background()); err != nil {
+				klog.Warningf("metrics reader shutdown error: %v", err)
+			}
+		}()
+
+		mp := sdkmetric.NewMeterProvider(
+			sdkmetric.WithReader(promExp),
+			sdkmetric.WithReader(autoMr),
+		)
+		go func() {
+			<-ctx.Done()
+			if err := mp.Shutdown(context.Background()); err != nil {
+				klog.Warningf("metrics provider shutdown error: %v", err)
+			}
+		}()
+		otel.SetMeterProvider(mp)
+
+		gatherers := prometheus.Gatherers{
+			prometheus.DefaultGatherer,
+			controllerruntimemetrics.Registry,
+		}
+		metricsHandler = promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
+			ErrorHandling: promhttp.ContinueOnError,
+		})
+	}
+
+	metricsSetUp = true
 	return nil
 }

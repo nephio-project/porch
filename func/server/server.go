@@ -30,6 +30,7 @@ import (
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/nephio-project/porch/func/internal"
+	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -52,6 +53,7 @@ const (
 	podRuntime  = "pod"
 
 	wrapperServerImageEnv = "WRAPPER_SERVER_IMAGE"
+	otelPortEnv           = "OTEL_EXPORTER_PROMETHEUS_PORT"
 )
 
 type options struct {
@@ -103,6 +105,10 @@ func main() {
 
 func run(o *options) error {
 	ctx := contextsignal.SetupSignalContext()
+
+	pyro := &metrics.PyroscopeProfiling{}
+	pyro.Start()
+	defer pyro.Stop()
 
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
@@ -173,6 +179,27 @@ func run(o *options) error {
 		klog.Warning("no runtime is enabled in function-runner")
 	}
 	evaluator := internal.NewMultiEvaluator(runtimes...)
+
+	if metricsPortStr := os.Getenv(otelPortEnv); metricsPortStr != "" {
+		metricsPort, err := strconv.Atoi(metricsPortStr)
+		if err != nil {
+			klog.Warningf("Invalid %s value %q: %v", otelPortEnv, metricsPortStr, err)
+		} else if metricsPort > 0 {
+			metricsServer, err := metrics.NewOTelMetricsServer(metricsPort)
+			if err != nil {
+				klog.Errorf("Failed to create metrics server: %v", err)
+			} else {
+				if err := metricsServer.Start(); err != nil {
+					klog.Errorf("Failed to start metrics server: %v", err)
+				}
+				defer func() {
+					if err := metricsServer.StopWithTimeout(10 * time.Second); err != nil {
+						klog.Warningf("failed to gracefully stop metrics server: %v", err)
+					}
+				}()
+			}
+		}
+	}
 
 	klog.Infof("Listening on %s", address)
 

@@ -44,6 +44,7 @@ import (
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
+	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/nephio-project/porch/pkg/cache/contentcache"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
@@ -122,6 +123,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	metrics.InitMetrics()
 
 	mgr, err := newManager(ctx, scheme)
 	if err != nil {

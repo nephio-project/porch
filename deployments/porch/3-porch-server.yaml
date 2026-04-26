@@ -71,6 +71,16 @@ spec:
             # Uncomment to enable trace-reporting to jaeger
             #- name: OTEL
             #  value: otel://jaeger-oltp:4317
+            # Uncomment to enable memory and cpu profiling with pyroscope
+            #- name: PYROSCOPE_SERVER
+            #  value: "http://pyroscope.porch-monitoring.svc.cluster.local:4040"
+            #- name: PYROSCOPE_APP_NAME
+            #  value: porch-server
+            #- name: PYROSCOPE_LOGS_ENABLED
+            #  value: "false"
+            # Uncomment to enable memory and cpu profiling with PPROF
+            #- name: PORCH_PPROF_PORT
+            #  value: "8080"
             - name: OTEL_SERVICE_NAME
               value: porch-server
             - name: CERT_STORAGE_DIR
@@ -94,6 +104,10 @@ spec:
             - --repo-operation-retry-attempts=3
             - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
             - --cache-type=db
+          ports:
+            - containerPort: 9464
+              name: metrics
+              protocol: TCP
           #adding livenessProbes and readinessProbes for porch server
           livenessProbe:
             httpGet:
@@ -131,5 +145,9 @@ spec:
       protocol: TCP
       targetPort: 8443
       name: webhooks
+    - port: 9464
+      protocol: TCP
+      targetPort: 9464
+      name: metrics
   selector:
     app: porch-server

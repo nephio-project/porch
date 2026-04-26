@@ -37,6 +37,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/internal/metrics"
 	"github.com/nephio-project/porch/pkg/errors"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -60,6 +61,7 @@ const (
 	// Retry delay constants
 	baseRetryDelay = 200 * time.Millisecond
 	hookRetryDelay = 1 * time.Second
+	metricsName    = "ExternalRepo"
 )
 
 // Retryable error patterns for git push operations
@@ -1129,6 +1131,9 @@ func (r *gitRepository) GetRepo() (string, error) {
 func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::fetchRemoteRepository", trace.WithAttributes())
 	defer span.End()
+
+	metrics.RecordRequestCount(ctx, metricsName, "FETCH")
+
 	start := time.Now()
 	defer func() { klog.V(2).Infof("Fetching repository %q took %s", r.key.Name, time.Since(start)) }()
 

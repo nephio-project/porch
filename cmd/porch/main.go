@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 
+	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/nephio-project/porch/pkg/cmd/server"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -40,6 +41,16 @@ func run() int {
 		klog.Errorf("%v\n", err)
 		return 1
 	}
+	metrics.InitMetrics()
+
+	prof := &metrics.Profiling{}
+	prof.Start()
+	defer prof.Stop()
+
+	pyro := &metrics.PyroscopeProfiling{}
+	pyro.Start()
+	defer pyro.Stop()
+
 	options := server.NewPorchServerOptions(os.Stdout, os.Stderr)
 	cmd := server.NewCommandStartPorchServer(ctx, options)
 	code := cli.Run(cmd)
