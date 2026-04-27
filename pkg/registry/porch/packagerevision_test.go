@@ -129,9 +129,11 @@ func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockeng
 
 func TestList(t *testing.T) {
 	_, mockEngine := setup(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		packageRevision,
-	}, nil).Once()
+	mockEngine.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			cb := args.Get(2).(func(repository.PackageRevision) error)
+			cb(packageRevision)
+		}).Return(nil).Once()
 
 	result, err := packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
@@ -148,9 +150,11 @@ func TestList(t *testing.T) {
 	//=========================================================================================
 
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		mockPkgRev,
-	}, nil)
+	mockEngine.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			cb := args.Get(2).(func(repository.PackageRevision) error)
+			cb(mockPkgRev)
+		}).Return(nil)
 	mockPkgRev.On("KubeObjectName").Return("test-package").Maybe()
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})

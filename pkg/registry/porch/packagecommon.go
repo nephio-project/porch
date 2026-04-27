@@ -60,17 +60,12 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
-	revisions, err := r.cad.ListPackageRevisions(ctx, filter)
-	if err != nil {
-		return err
-	}
-	for _, rev := range revisions {
+	return r.cad.StreamPackageRevisions(ctx, filter, func(rev repository.PackageRevision) error {
 		if err := callback(ctx, rev); err != nil {
 			klog.Warningf("callback error for revision from repository: %+v", err)
-			continue
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (r *packageCommon) listPackages(ctx context.Context, filter repository.ListPackageFilter, callback func(p repository.Package) error) error {
