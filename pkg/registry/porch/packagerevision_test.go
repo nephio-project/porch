@@ -31,6 +31,7 @@ import (
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -736,7 +737,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	result, created, err := packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.False(t, created)
 	assert.IsType(t, &porchapi.PackageRevision{}, result)
@@ -751,7 +752,6 @@ func TestUpdate(t *testing.T) {
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("update failed")).Once()
 
 	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
-	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.False(t, created)
 	assert.True(t, apierrors.IsInternalError(err))
@@ -776,7 +776,6 @@ func TestUpdate(t *testing.T) {
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, apierrors.NewConflict(porchapi.Resource("packagerevisions"), pkgRevName, fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))).Once()
 
 	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
-	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.False(t, created)
 	assert.True(t, apierrors.IsInternalError(err))
