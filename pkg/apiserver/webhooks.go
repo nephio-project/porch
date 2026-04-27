@@ -50,13 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type WebhookType string
-
-const (
-	WebhookTypeService           WebhookType = "service"
-	WebhookTypeUrl               WebhookType = "url"
-	repositoryValidationEndpoint             = "/validate-repository"
-)
+const repositoryValidationEndpoint = "/validate-repository"
 
 var (
 	cert        tls.Certificate
@@ -67,10 +61,6 @@ var tracer = otel.Tracer("repository-webhook")
 
 // WebhookConfig defines the configuration for the Repository validation webhook
 type WebhookConfig struct {
-	Type                 WebhookType
-	ServiceName          string // only used if Type == WebhookTypeService
-	ServiceNamespace     string // only used if Type == WebhookTypeService
-	Host                 string // only used if Type == WebhookTypeUrl
 	Port                 int32
 	RepositoryPath       string
 	RepoServiceName      string
@@ -84,21 +74,6 @@ type WebhookConfig struct {
 // newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
 func newWebhookConfig(ctx context.Context) *WebhookConfig {
 	var cfg WebhookConfig
-	// NOTE: CERT_NAMESPACE is supported for backward compatibility.
-	// TODO: We may consider using only WEBHOOK_SERVICE_NAMESPACE instead.
-	if hasEnv("CERT_NAMESPACE") ||
-		hasEnv("WEBHOOK_SERVICE_NAME") ||
-		hasEnv("WEBHOOK_SERVICE_NAMESPACE") ||
-		!hasEnv("WEBHOOK_HOST") {
-
-		cfg.Type = WebhookTypeService
-		cfg.ServiceName, cfg.ServiceNamespace = webhookServiceName(ctx)
-		cfg.Host = fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace)
-	} else {
-		cfg.Type = WebhookTypeUrl
-		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
-	}
-	// Always use the WebhookTypeService for repository webhook validation
 	cfg.RepositoryPath = repositoryValidationEndpoint
 	cfg.RepoServiceName, cfg.RepoServiceNamespace = webhookServiceName(ctx)
 	cfg.RepoHost = fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace)
@@ -183,17 +158,9 @@ func setupWebhooks(ctx context.Context, clientReader client.Reader) error {
 }
 
 func createCerts(cfg *WebhookConfig) ([]byte, error) {
-	klog.Infof("creating self-signing TLS cert and key for %q in directory %s", cfg.Host, cfg.CertStorageDir)
-	commonName := cfg.Host
+	klog.Infof("creating self-signing TLS cert and key for %q in directory %s", cfg.RepoHost, cfg.CertStorageDir)
+	commonName := cfg.RepoHost
 	dnsNames := []string{commonName}
-	if cfg.Type == WebhookTypeService {
-		dnsNames = append(dnsNames, cfg.ServiceName)
-		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", cfg.ServiceName, cfg.ServiceNamespace))
-		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace))
-		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc.cluster.local", cfg.ServiceName, cfg.ServiceNamespace))
-	}
-
-	// DNS names for CA config - repository-validating-webhook
 	dnsNames = append(dnsNames, cfg.RepoServiceName)
 	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", cfg.RepoServiceName, cfg.RepoServiceNamespace))
 	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace))
@@ -295,7 +262,7 @@ func WriteFile(filepath string, c []byte) error {
 
 func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []byte) error {
 
-	klog.Infof("Creating validating webhook for %s:%d", cfg.Host, cfg.Port)
+	klog.Infof("Creating validating webhook for %s:%d", cfg.RepoHost, cfg.Port)
 
 	kubeConfig := ctrl.GetConfigOrDie()
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
@@ -500,11 +467,6 @@ func writeErr(errMsg string, w *http.ResponseWriter) {
 	if _, err := (*w).Write([]byte(errMsg)); err != nil { // #nosec G705
 		klog.Errorf("could not write error message: %v", err)
 	}
-}
-
-func hasEnv(key string) bool {
-	_, found := os.LookupEnv(key)
-	return found
 }
 
 func getEnv(key string, defaultValue string) string {

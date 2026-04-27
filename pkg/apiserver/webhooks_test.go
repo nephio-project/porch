@@ -38,8 +38,7 @@ import (
 
 func TestCreateCerts(t *testing.T) {
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -73,8 +72,7 @@ func TestLoadCertificate(t *testing.T) {
 	//what do i need to test.
 	// first create dummy certs for testing
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -149,8 +147,7 @@ func TestWatchCertificatesInvalidDirectory(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -189,8 +186,7 @@ func TestWatchCertificatesSuccessfulReload(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -238,8 +234,7 @@ func TestWatchCertificatesInvalidCertReload(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -286,8 +281,7 @@ func TestWatchCertificatesGracefulTermination(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
