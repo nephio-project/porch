@@ -392,10 +392,12 @@ func TestWatch(t *testing.T) {
 	_, mockEngine := setup(t)
 	mockWatcherManager := mockengine.NewMockWatcherManager(t)
 	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
-
 	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("error starting watch")).Maybe()
 
-	_, err := packagerevisions.Watch(context.TODO(), &internalversion.ListOptions{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err := packagerevisions.Watch(ctx, &internalversion.ListOptions{})
 	assert.NoError(t, err)
 
 	//=========================================================================================
