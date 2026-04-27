@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -38,7 +37,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -57,7 +55,6 @@ type WebhookType string
 const (
 	WebhookTypeService           WebhookType = "service"
 	WebhookTypeUrl               WebhookType = "url"
-	serverEndpoint                           = "/validate-deletion"
 	repositoryValidationEndpoint             = "/validate-repository"
 )
 
@@ -66,15 +63,14 @@ var (
 	certModTime time.Time
 )
 
-var tracer = otel.Tracer("deletion-webhook")
+var tracer = otel.Tracer("repository-webhook")
 
-// WebhookConfig defines the configuration for the PackageRevision deletion webhook
+// WebhookConfig defines the configuration for the Repository validation webhook
 type WebhookConfig struct {
 	Type                 WebhookType
 	ServiceName          string // only used if Type == WebhookTypeService
 	ServiceNamespace     string // only used if Type == WebhookTypeService
 	Host                 string // only used if Type == WebhookTypeUrl
-	Path                 string
 	Port                 int32
 	RepositoryPath       string
 	RepoServiceName      string
@@ -102,7 +98,6 @@ func newWebhookConfig(ctx context.Context) *WebhookConfig {
 		cfg.Type = WebhookTypeUrl
 		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
 	}
-	cfg.Path = serverEndpoint
 	// Always use the WebhookTypeService for repository webhook validation
 	cfg.RepositoryPath = repositoryValidationEndpoint
 	cfg.RepoServiceName, cfg.RepoServiceNamespace = webhookServiceName(ctx)
@@ -168,7 +163,7 @@ func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 func setupWebhooks(ctx context.Context, clientReader client.Reader) error {
 	cfg := newWebhookConfig(ctx)
 	// TODO: Refactor webhook setup to support optional webhooks and better separation of concerns.
-	// Currently webhooks are always enabled and required for Repository/PackageRevision validation.
+	// Currently webhooks are always enabled and required for Repository validation.
 	// Consider: 1) Making webhooks optional via explicit flag, 2) Separating cert management from webhook lifecycle,
 	// 3) Supporting webhook-less mode for development/testing.
 	if !cfg.CertManWebhook {
@@ -310,38 +305,10 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	// Set max timeout value for ValidatingWebhooks
 	cfg.timeout = 30
 	var (
-		validationCfgName = "packagerev-deletion-validating-webhook"
 		repositoryCfgName = "repository-validating-webhook"
 		fail              = admissionregistrationv1.Fail
 		none              = admissionregistrationv1.SideEffectClassNone
 	)
-
-	// Webhook for PackageRevision deletion
-	validateConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: validationCfgName,
-		},
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-			Name: "packagerevdeletion.google.com",
-			ClientConfig: admissionregistrationv1.WebhookClientConfig{
-				CABundle: caCert,
-			},
-			Rules: []admissionregistrationv1.RuleWithOperations{{
-				Operations: []admissionregistrationv1.OperationType{
-					admissionregistrationv1.Delete,
-				},
-				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{porchapi.SchemeGroupVersion.Group},
-					APIVersions: []string{porchapi.SchemeGroupVersion.Version},
-					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
-				},
-			}},
-			AdmissionReviewVersions: []string{"v1"},
-			SideEffects:             &none,
-			FailurePolicy:           &fail,
-			TimeoutSeconds:          &cfg.timeout,
-		}},
-	}
 
 	// Webhook for Repository validation
 	repositoryWebhook := admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -371,22 +338,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 		}},
 	}
 
-	// Set service or URL for both webhooks
-	switch cfg.Type {
-	case WebhookTypeService:
-		validateConfig.Webhooks[0].ClientConfig.Service = &admissionregistrationv1.ServiceReference{
-			Name:      cfg.ServiceName,
-			Namespace: cfg.ServiceNamespace,
-			Path:      &cfg.Path,
-			Port:      &cfg.Port,
-		}
-	case WebhookTypeUrl:
-		url := fmt.Sprintf("https://%s%s", net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.Port)), cfg.Path)
-		validateConfig.Webhooks[0].ClientConfig.URL = &url
-	default:
-		return fmt.Errorf("invalid webhook type: %s", cfg.Type)
-	}
-
+	// Set service for repository webhook
 	repositoryWebhook.Webhooks[0].ClientConfig.Service = &admissionregistrationv1.ServiceReference{
 		Name:      cfg.RepoServiceName,
 		Namespace: cfg.RepoServiceNamespace,
@@ -394,13 +346,8 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 		Port:      &cfg.Port,
 	}
 
-	// Delete and recreate both webhook to allow updates in webhook configurations
-	_ = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, validationCfgName, metav1.DeleteOptions{})
+	// Delete and recreate repository webhook to allow updates in webhook configurations
 	_ = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, repositoryCfgName, metav1.DeleteOptions{})
-
-	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig, metav1.CreateOptions{}); err != nil {
-		return fmt.Errorf("failed to create package revision webhook: %w", err)
-	}
 
 	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, &repositoryWebhook, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create repository validation webhook: %w", err)
@@ -489,9 +436,6 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig, clientReader clie
 		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
-	http.HandleFunc(cfg.Path, func(w http.ResponseWriter, r *http.Request) {
-		validateDeletion(w, r, clientReader)
-	})
 	http.HandleFunc(cfg.RepositoryPath, func(w http.ResponseWriter, r *http.Request) {
 		validateRepository(w, r, clientReader)
 	})
@@ -511,66 +455,6 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig, clientReader clie
 	}()
 	return err
 
-}
-
-func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
-	ctx, span := tracer.Start(r.Context(), "validateDeletion")
-	defer span.End()
-	klog.Infoln("received request to validate deletion")
-
-	admissionReviewRequest, err := decodeAdmissionReview(r)
-	if err != nil {
-		errMsg := fmt.Sprintf("error getting admission review from request: %v", err)
-		writeErr(errMsg, &w)
-		return
-	}
-
-	// Verify that we have a PackageRevision resource
-	if admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapi.PackageRevisionGVR) {
-		errMsg := fmt.Sprintf("did not receive PackageRevision, got %s", admissionReviewRequest.Request.Resource.Resource)
-		writeErr(errMsg, &w)
-		return
-	}
-
-	// Get the package revision using the name and namespace from the request.
-	pr := porchapi.PackageRevision{}
-	if err := clientReader.Get(ctx, client.ObjectKey{
-		Namespace: admissionReviewRequest.Request.Namespace,
-		Name:      admissionReviewRequest.Request.Name,
-	}, &pr); err != nil {
-		klog.Errorf("could not get package revision: %s", err.Error())
-	}
-
-	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
-		admissionResponse.Allowed = false
-		admissionResponse.Result = &metav1.Status{
-			Status:  "Failure",
-			Message: fmt.Sprintf("failed to delete package revision %q: published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion", pr.Name),
-			Reason:  "Published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion.",
-		}
-	} else {
-		admissionResponse.Allowed = true
-		admissionResponse.Result = &metav1.Status{
-			Status:  "Success",
-			Message: fmt.Sprintf("Successfully deleted package revision %q", pr.Name),
-		}
-	}
-
-	resp, err := constructResponse(admissionResponse, admissionReviewRequest)
-	if err != nil {
-		errMsg := fmt.Sprintf("error constructing response: %v", err)
-		writeErr(errMsg, &w)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(resp) // #nosec G705
-	if err != nil {
-		errMsg := fmt.Sprintf("error writing response: %v", err)
-		writeErr(errMsg, &w)
-		return
-	}
 }
 
 func decodeAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
@@ -656,6 +540,9 @@ func getEnvInt32(key string, defaultValue int32) int32 {
 }
 
 func validateRepository(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
+	ctx, span := tracer.Start(r.Context(), "validateRepository")
+	defer span.End()
+
 	admissionReviewRequest, err := decodeAdmissionReview(r)
 	if err != nil {
 		writeErr(fmt.Sprintf("error decoding admission review: %v", err), &w)
@@ -683,7 +570,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 
 	// Check for conflicts with existing repositories
 	var repoList configapi.RepositoryList
-	if err := clientReader.List(context.Background(), &repoList); err != nil {
+	if err := clientReader.List(ctx, &repoList); err != nil {
 		klog.Errorf("failed to list repositories: %v", err)
 		writeErr(fmt.Sprintf("could not list repositories: %v", err), &w)
 		return

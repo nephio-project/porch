@@ -403,6 +403,7 @@ info:
 	assert.IsType(t, &porchapi.PackageRevision{}, result)
 
 	//=========================================================================================
+
 	// Missing namespace
 	result, deleted, err = packagerevisions.Delete(context.TODO(), pkgRevName, nil, &metav1.DeleteOptions{})
 	assert.Error(t, err)

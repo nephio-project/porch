@@ -390,6 +390,16 @@ func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) stri
 }
 
 func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation rest.ValidateObjectFunc, obj runtime.Object, name, namespace string) (*configapi.Repository, error) {
+	// Check if the PackageRevision is Published and not in DeletionProposed state
+	if pkgRev, ok := obj.(*porchapi.PackageRevision); ok {
+		if pkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+			return nil, apierrors.NewForbidden(
+				porchapi.Resource("packagerevisions"),
+				name,
+				fmt.Errorf("published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion"))
+		}
+	}
+
 	if deleteValidation != nil {
 		err := deleteValidation(ctx, obj)
 		if err != nil {
