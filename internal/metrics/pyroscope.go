@@ -26,7 +26,7 @@ const (
 	PyroscopeServerEnvVar      = "PYROSCOPE_SERVER"
 	PyroscopeAppNameEnvVar     = "PYROSCOPE_APP_NAME"
 	PyroscopeAuthUserVar       = "PYROSCOPE_AUTH_USER"
-	PyroscopeAuthPasswordVar   = "PYROSCOPE_AUTH_PASSWORD" //nolint:gosec,G101 // #nosec G101 -- This is an env var name, not a credential
+	PyroscopeAuthPassVar       = "PYROSCOPE_AUTH_PASSWORD" // #nosec G101 -- env var name, not a credential (nolint:gosec)
 	PyroscopeLogsEnabledEnvVar = "PYROSCOPE_LOGS_ENABLED"
 )
 
@@ -79,7 +79,7 @@ func (p *PyroscopeProfiling) Start() {
 	if user := os.Getenv(PyroscopeAuthUserVar); user != "" {
 		cfg.BasicAuthUser = user
 	}
-	if password := os.Getenv(PyroscopeAuthPasswordVar); password != "" {
+	if password := os.Getenv(PyroscopeAuthPassVar); password != "" {
 		cfg.BasicAuthPassword = password
 	}
 
