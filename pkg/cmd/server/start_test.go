@@ -225,3 +225,43 @@ func TestSetupDBCacheConn(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateMaxConcurrentDbSyncs(t *testing.T) {
+	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
+	opts.CacheType = "DB"
+
+	// Valid: 0 means no limit
+	opts.DbMaxConcurrentSyncs = 0
+	err := opts.Validate(nil)
+	assert.NoError(t, err)
+
+	// Valid: positive value
+	opts.DbMaxConcurrentSyncs = 4
+	err = opts.Validate(nil)
+	assert.NoError(t, err)
+
+	// Invalid: negative value
+	opts.DbMaxConcurrentSyncs = -1
+	err = opts.Validate(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "max-concurrent-db-syncs")
+}
+
+func TestAddFlagsMaxConcurrentDbSyncs(t *testing.T) {
+	versions := schema.GroupVersions{
+		porchapi.SchemeGroupVersion,
+	}
+	o := PorchServerOptions{
+		RecommendedOptions: genericoptions.NewRecommendedOptions(
+			defaultEtcdPathPrefix,
+			apiserver.Codecs.LegacyCodec(versions...),
+		),
+	}
+	fs := &pflag.FlagSet{}
+	o.AddFlags(fs)
+
+	// Verify the flag exists with default value 20
+	flag := fs.Lookup("max-concurrent-db-syncs")
+	assert.NotNil(t, flag)
+	assert.Equal(t, "20", flag.DefValue)
+}
