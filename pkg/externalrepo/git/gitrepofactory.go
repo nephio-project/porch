@@ -103,6 +103,9 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 		Timeout: 20,
 	})
 	if err != nil {
+		if errors.Is(err, transport.ErrEmptyRemoteRepository) {
+			return nil
+		}
 		return fmt.Errorf("failed to list remote refs: %w", err)
 	}
 

@@ -22,6 +22,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,6 +40,9 @@ func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, re
 	}
 
 	if err := coreClient.Get(ctx, key, repo); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrRepositoryNotFound
+		}
 		return fmt.Errorf("failed to get repository: %w", err)
 	}
 
