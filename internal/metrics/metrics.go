@@ -139,6 +139,9 @@ func InitMetrics() {
 
 // Porch server and function runner metric recording functions
 func RecordAPICallDuration(resource, verb string, durationSeconds float64) {
+	if apiCallDurationSeconds == nil {
+		return
+	}
 	apiCallDurationSeconds.Record(context.Background(), durationSeconds,
 		metric.WithAttributes(
 			attribute.String("resource", resource),
@@ -148,6 +151,9 @@ func RecordAPICallDuration(resource, verb string, durationSeconds float64) {
 }
 
 func RecordRequestCount(ctx context.Context, resource, op string) {
+	if RequestsTotal == nil {
+		return
+	}
 	user := getK8sUserName(ctx)
 	RequestsTotal.Add(context.Background(), 1,
 		metric.WithAttributes(
