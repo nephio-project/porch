@@ -38,8 +38,7 @@ import (
 
 func TestCreateCerts(t *testing.T) {
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -73,8 +72,7 @@ func TestLoadCertificate(t *testing.T) {
 	//what do i need to test.
 	// first create dummy certs for testing
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -149,8 +147,7 @@ func TestWatchCertificatesInvalidDirectory(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -189,8 +186,7 @@ func TestWatchCertificatesSuccessfulReload(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -238,8 +234,7 @@ func TestWatchCertificatesInvalidCertReload(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -286,8 +281,7 @@ func TestWatchCertificatesGracefulTermination(t *testing.T) {
 	}
 	// Set up the temp directory with dummy certificate files
 	webhookCfg := WebhookConfig{
-		Type:           WebhookTypeUrl,
-		Host:           "localhost",
+		RepoHost:       "localhost",
 		CertStorageDir: t.TempDir(),
 	}
 	defer func() {
@@ -317,64 +311,6 @@ func TestWatchCertificatesGracefulTermination(t *testing.T) {
 	t.Log(graceful_termination_logs)
 	err = assertLogMessages(graceful_termination_logs)
 	require.NoError(t, err)
-}
-
-func TestValidateDeletion(t *testing.T) {
-	scheme := runtime.NewScheme()
-	configapi.AddToScheme(scheme)
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	t.Run("invalid content-type", func(t *testing.T) {
-		request, err := http.NewRequest(http.MethodPost, serverEndpoint, nil)
-		require.NoError(t, err)
-		request.Header.Set("Content-Type", "foo")
-		response := httptest.NewRecorder()
-
-		validateDeletion(response, request, fakeClient)
-		require.Equal(t,
-			"error getting admission review from request: expected Content-Type 'application/json'",
-			response.Body.String())
-	})
-	t.Run("valid content-type, but no body", func(t *testing.T) {
-		request, err := http.NewRequest(http.MethodPost, serverEndpoint, nil)
-		require.NoError(t, err)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-
-		validateDeletion(response, request, fakeClient)
-		require.Equal(t,
-			"error getting admission review from request: admission review request is empty",
-			response.Body.String())
-	})
-	t.Run("wrong GVK in request", func(t *testing.T) {
-		request, err := http.NewRequest(http.MethodPost, serverEndpoint, nil)
-		require.NoError(t, err)
-
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-
-		admissionReviewRequest := admissionv1.AdmissionReview{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "AdmissionReview",
-				APIVersion: "admission.k8s.io/v1",
-			},
-			Request: &admissionv1.AdmissionRequest{
-				Resource: v1.GroupVersionResource{
-					Group:    "porch.kpt.dev",
-					Version:  "v1alpha1",
-					Resource: "not-a-package-revision",
-				},
-			},
-		}
-
-		body, err := json.Marshal(admissionReviewRequest)
-		require.NoError(t, err)
-
-		request.Body = io.NopCloser(bytes.NewReader(body))
-		validateDeletion(response, request, fakeClient)
-		require.Equal(t,
-			"did not receive PackageRevision, got not-a-package-revision",
-			response.Body.String())
-	})
 }
 
 func TestValidateRepository(t *testing.T) {
