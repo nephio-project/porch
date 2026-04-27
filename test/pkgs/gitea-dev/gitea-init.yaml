@@ -72,7 +72,7 @@ stringData:
         echo '...created.'
       else
         echo "Admin account '${GITEA_ADMIN_USERNAME}' already exist. Running update to sync password..."
-        gitea admin user change-password --username "${GITEA_ADMIN_USERNAME}" --password "${GITEA_ADMIN_PASSWORD}"
+        gitea admin user change-password --username "${GITEA_ADMIN_USERNAME}" --password "${GITEA_ADMIN_PASSWORD}" --must-change-password=false
         echo '...password sync done.'
       fi
     }

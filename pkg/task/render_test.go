@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -35,7 +34,7 @@ func TestRender(t *testing.T) {
 
 	render := &renderPackageMutation{
 		runnerOptions: runnerOptions,
-		runtime:       kptops.NewSimpleFunctionRuntime(),
+		runtime:       NewSimpleFunctionRuntime(),
 	}
 
 	testdata, err := filepath.Abs(filepath.Join(".", "testdata", "simple-render"))

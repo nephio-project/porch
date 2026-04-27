@@ -132,35 +132,3 @@ func TestGetResources(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
-
-func TestWatchResources(t *testing.T) {
-	_, mockEngine := setupResourcesTest(t)
-	mockWatcherManager := mockengine.NewMockWatcherManager(t)
-	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
-
-	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Maybe()
-
-	watcher, err := packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{})
-	assert.NoError(t, err)
-	if watcher != nil {
-		watcher.Stop()
-	}
-
-	//=========================================================================================
-
-	watcher, err = packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("invalid.field", "somethingOffTheWall"),
-	})
-	assert.Equal(t, nil, watcher)
-	assert.ErrorContains(t, err, "unknown fieldSelector field")
-
-	//=========================================================================================
-
-	ctxWithConflictNamespace := genericapirequest.WithNamespace(context.TODO(), "foo")
-	watcher, err = packagerevisionresources.Watch(ctxWithConflictNamespace, &internalversion.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.namespace", "somethingOffTheWall"),
-	})
-	assert.Equal(t, nil, watcher)
-	assert.ErrorContains(t, err, "conflicting namespaces specified")
-}

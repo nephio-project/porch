@@ -240,8 +240,8 @@ github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsI
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
-github.com/jackc/pgx/v5 v5.9.1 h1:uwrxJXBnx76nyISkhr33kQLlUqjv7et7b9FjCen/tdc=
-github.com/jackc/pgx/v5 v5.9.1/go.mod h1:mal1tBGAFfLHvZzaYh77YS/eC6IX9OWbRV1QIIM0Jn4=
+github.com/jackc/pgx/v5 v5.9.2 h1:3ZhOzMWnR4yJ+RW1XImIPsD1aNSz4T4fyP7zlQb56hw=
+github.com/jackc/pgx/v5 v5.9.2/go.mod h1:mal1tBGAFfLHvZzaYh77YS/eC6IX9OWbRV1QIIM0Jn4=
 github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=
 github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
@@ -260,8 +260,8 @@ github.com/klauspost/compress v1.18.2 h1:iiPHWW0YrcFgpBYhsA6D1+fqHssJscY/Tm/y2Uq
 github.com/klauspost/compress v1.18.2/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/kptdev/kpt v1.0.0-beta.62 h1:2IVYP+nPn4yYibUMHtWn4XFTC9KIfwGSkuLwdeK+vYo=
-github.com/kptdev/kpt v1.0.0-beta.62/go.mod h1:aCJRkqI2f1Q2d7McbmqXp3FWRMFyJRKpmuNhF8Xj2B4=
+github.com/kptdev/kpt v1.0.0-beta.62.1 h1:TIzz/12Uysrs+KuPpNMExHGChz8o6CQNKYL6b+z8z2Q=
+github.com/kptdev/kpt v1.0.0-beta.62.1/go.mod h1:9j5Q9sEBKA0nM0+mlLIFY5FRSskaR6/uX7xGkz0/g8w=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.5 h1:IBYx+h8mYZ2mqfLetP6Kwzw3DwvVswk8E6Vu8BuNcyM=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.5/go.mod h1:Wxd9xCmftcHf8b8Q3dvskY1psJ5knxBAxMZWUHD4L/I=
 github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 h1:PZ4TcVzgad1OFuH4gHg4j2LKC2KXTuzfsQWil2knSlk=

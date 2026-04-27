@@ -110,7 +110,7 @@ type packageReader interface {
 }
 
 // objectExtractor transforms a repository.PackageRevision into the appropriate
-// resource (PackageRevision or PackageRevisionResources).
+// resource (PackageRevision or others when implemented).
 type objectExtractor func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error)
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
