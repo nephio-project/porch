@@ -16,6 +16,8 @@ package sync
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -32,6 +34,9 @@ const (
 	timeFormat        = "2006-01-02 15:04:05"
 	nextSyncLogFormat = "repositorySync %+v: next scheduled time: %v"
 )
+
+// ErrRepositoryNotFound is returned when the repository CRD no longer exists
+var ErrRepositoryNotFound = fmt.Errorf("repository not found")
 
 // SyncHandler defines the interface for repository sync operations
 type SyncHandler interface {
@@ -217,6 +222,11 @@ func (m *SyncManager) updateRepositoryCondition(ctx context.Context) {
 		status = util.RepositoryStatusError
 	}
 	if err := m.SetRepositoryCondition(ctx, status); err != nil {
+		if errors.Is(err, ErrRepositoryNotFound) {
+			klog.Infof("repositorySync %+v: repository no longer exists, stopping sync", m.handler.Key())
+			m.Stop()
+			return
+		}
 		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", m.handler.Key(), err)
 	}
 }

@@ -96,6 +96,7 @@ type PorchServer struct {
 	cache                      cachetypes.Cache
 	periodicRepoSyncFrequency  time.Duration
 	listTimeoutPerRepository   time.Duration
+	maxConcurrentLists         int
 	repoOperationRetryAttempts int
 }
 
@@ -326,6 +327,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		// Set background job periodic frequency the same as repo sync frequency.
 		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
 		listTimeoutPerRepository:   c.ExtraConfig.CacheOptions.CRCacheOptions.ListTimeoutPerRepository,
+		maxConcurrentLists:         c.ExtraConfig.CacheOptions.CRCacheOptions.MaxConcurrentLists,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
@@ -341,6 +343,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache,
 		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
 		porch.WithListTimeoutPerRepo(s.listTimeoutPerRepository),
+		porch.WithMaxConcurrentLists(s.maxConcurrentLists),
 		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 	)
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/sync/semaphore"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,22 +32,27 @@ func TestBackgroundOptions(t *testing.T) {
 	tests := []struct {
 		name     string
 		options  []BackgroundOption
-		expected background
+		expected *background
 	}{
 		{
 			name:     "With periodic repo sync frequency",
 			options:  []BackgroundOption{WithPeriodicRepoSyncFrequency(5 * time.Second)},
-			expected: background{periodicRepoSyncFrequency: 5 * time.Second},
+			expected: &background{periodicRepoSyncFrequency: 5 * time.Second},
 		},
 		{
 			name:     "With list timeout per repo",
 			options:  []BackgroundOption{WithListTimeoutPerRepo(10 * time.Second)},
-			expected: background{listTimeoutPerRepo: 10 * time.Second},
+			expected: &background{listTimeoutPerRepo: 10 * time.Second},
 		},
 		{
 			name:     "With repo operation retry attempts",
 			options:  []BackgroundOption{WithRepoOperationRetryAttempts(5)},
-			expected: background{repoOperationRetryAttempts: 5},
+			expected: &background{repoOperationRetryAttempts: 5},
+		},
+		{
+			name:     "With max concurrent lists",
+			options:  []BackgroundOption{WithMaxConcurrentLists(5)},
+			expected: &background{MaxConcurrentLists: 5},
 		},
 		{
 			name: "With multiple options",
@@ -53,18 +60,23 @@ func TestBackgroundOptions(t *testing.T) {
 				WithPeriodicRepoSyncFrequency(5 * time.Second),
 				WithListTimeoutPerRepo(10 * time.Second),
 				WithRepoOperationRetryAttempts(3),
+				WithMaxConcurrentLists(20),
 			},
-			expected: background{
+			expected: &background{
 				periodicRepoSyncFrequency:  5 * time.Second,
 				listTimeoutPerRepo:         10 * time.Second,
 				repoOperationRetryAttempts: 3,
+				MaxConcurrentLists:         20,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := &background{}
+			b := &background{
+				workerSemaphore: semaphore.NewWeighted(20),
+				repoMutexes:     make(map[string]*sync.Mutex),
+			}
 			for _, o := range tt.options {
 				o.apply(b)
 			}
@@ -80,24 +92,39 @@ func TestBackgroundUpdateCache(t *testing.T) {
 	mockCache := &mockcache.MockCache{}
 
 	b := &background{
-		coreClient: mockClient,
-		cache:      mockCache,
+		coreClient:      mockClient,
+		workerSemaphore: semaphore.NewWeighted(20),
+		cache:           mockCache,
+		repoMutexes:     make(map[string]*sync.Mutex),
 	}
 
+	// Test invalid repository - should not call OpenRepository
 	event := watch.Added
 	repository := createRepo(1, 1, false)
 	repository.Spec.Git.Directory = "invalid//directory"
 
+	// Expect no calls to cache methods since validation should fail
+	mockCache.AssertNotCalled(t, "OpenRepository")
+	mockCache.AssertNotCalled(t, "CheckRepositoryConnectivity")
+
 	err := b.updateCache(context.Background(), event, repository)
+	assert.Nil(t, err) // updateCache returns nil immediately since processing is async
 
-	if err != nil {
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Errorf("handling failed, repo specification invalid").Error())
-	}
+	// Give goroutine time to complete and fail validation
+	time.Sleep(100 * time.Millisecond)
 
+	// Verify cache methods were never called
+	mockCache.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+
+	// Test bookmark event
 	event = watch.Bookmark
 	err = b.updateCache(context.Background(), event, repository)
 	assert.Nil(t, err)
+
+	// Verify cache methods expectations for bookmark event
+	mockCache.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
 }
 
 func TestBackgroundHandleWatchEvent(t *testing.T) {
@@ -187,6 +214,78 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			expectedReconnectReset:      true, // reconnect.reset() called because it's an error event
 		},
 		{
+			name: "Repository ADDED event",
+			event: watch.Event{
+				Type: watch.Added,
+				Object: &configapi.Repository{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-repo",
+						Namespace: "test-namespace",
+					},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{
+							Repo:      "https://example.com/repo.git",
+							Branch:    "main",
+							Directory: "/valid/path",
+						},
+					},
+				},
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  2,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 0, // Reset to 0 for repository events
+			expectedReconnectReset:      false,
+		},
+		{
+			name: "Repository MODIFIED event",
+			event: watch.Event{
+				Type: watch.Modified,
+				Object: &configapi.Repository{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-repo",
+						Namespace: "test-namespace",
+					},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{
+							Repo:      "https://example.com/repo.git",
+							Branch:    "main",
+							Directory: "/valid/path",
+						},
+					},
+				},
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  1,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 0, // Reset to 0 for repository events
+			expectedReconnectReset:      false,
+		},
+		{
+			name: "Repository DELETED event",
+			event: watch.Event{
+				Type: watch.Deleted,
+				Object: &configapi.Repository{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-repo",
+						Namespace: "test-namespace",
+					},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{
+							Repo:      "https://example.com/repo.git",
+							Branch:    "main",
+							Directory: "/valid/path",
+						},
+					},
+				},
+			},
+			initialBookmark:             "bookmark",
+			initialConsecutiveFailures:  3,
+			expectedBookmark:            "bookmark",
+			expectedConsecutiveFailures: 0, // Reset to 0 for repository events
+			expectedReconnectReset:      false,
+		},
+		{
 			name: "Unexpected event object type",
 			event: watch.Event{
 				Type:   watch.Added,
@@ -205,10 +304,30 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			mockClient := &mockclient.MockWithWatch{}
 			mockCache := &mockcache.MockCache{}
 
+			// Add mocks for repository events to verify they get processed
+			// Add mocks for repository events to verify they get processed
+			switch tt.name {
+			case "Repository ADDED event", "Repository MODIFIED event":
+				// ADDED and MODIFIED events go through the same path (connectivity check + cache)
+				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.Anything).Return(nil, nil)
+				mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockResourceWriter := &mockclient.MockSubResourceWriter{}
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Status").Return(mockResourceWriter)
+			case "Repository DELETED event":
+				// DELETED events go through a different path (close repository)
+				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CloseRepository", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			}
+
 			b := &background{
 				coreClient:                 mockClient,
+				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			// Initialize test variables
@@ -224,6 +343,17 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			// Call the function under test
 			b.handleWatchEvent(context.Background(), tt.event, &bookmark, &consecutiveFailures, reconnect)
 
+			// For repository events, wait for goroutine to complete and verify cache was called
+			switch tt.name {
+			case "Repository ADDED event", "Repository MODIFIED event":
+				time.Sleep(200 * time.Millisecond) // Give goroutines time to complete
+				mockCache.AssertCalled(t, "CheckRepositoryConnectivity", mock.Anything, mock.Anything)
+				mockCache.AssertCalled(t, "OpenRepository", mock.Anything, mock.Anything)
+			case "Repository DELETED event":
+				time.Sleep(200 * time.Millisecond) // Give goroutines time to complete
+				mockCache.AssertCalled(t, "CloseRepository", mock.Anything, mock.Anything, mock.Anything)
+			}
+
 			// Verify results
 			assert.Equal(t, tt.expectedBookmark, bookmark)
 			assert.Equal(t, tt.expectedConsecutiveFailures, consecutiveFailures)
@@ -231,6 +361,10 @@ func TestBackgroundHandleWatchEvent(t *testing.T) {
 			if tt.expectedReconnectReset {
 				assert.Equal(t, initialCurr, reconnect.curr, "Expected reconnect timer to be reset")
 			}
+
+			// Verify cache methods expectations
+			mockCache.AssertExpectations(t)
+			mockClient.AssertExpectations(t)
 		})
 	}
 }
@@ -359,9 +493,11 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 
 			b := &background{
 				coreClient:                 mockClient,
+				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				listTimeoutPerRepo:         1 * time.Second,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			var repository *configapi.Repository
@@ -500,8 +636,10 @@ func TestBackgroundRunOnce(t *testing.T) {
 
 			b := &background{
 				coreClient:                 mockClient,
+				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
@@ -712,8 +850,10 @@ func TestBackgroundCacheRepository(t *testing.T) {
 
 			b := &background{
 				coreClient:                 mockClient,
+				workerSemaphore:            semaphore.NewWeighted(20),
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				repoMutexes:                make(map[string]*sync.Mutex),
 			}
 
 			repository := tt.setupRepo()

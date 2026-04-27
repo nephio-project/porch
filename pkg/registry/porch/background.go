@@ -17,11 +17,13 @@ package porch
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/util"
+	"golang.org/x/sync/semaphore"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +55,12 @@ func WithListTimeoutPerRepo(timeout time.Duration) BackgroundOption {
 	})
 }
 
+func WithMaxConcurrentLists(maxList int) BackgroundOption {
+	return backgroundOptionFunc(func(b *background) {
+		b.MaxConcurrentLists = maxList
+	})
+}
+
 func WithRepoOperationRetryAttempts(count int) BackgroundOption {
 	return backgroundOptionFunc(func(b *background) {
 		b.repoOperationRetryAttempts = count
@@ -61,13 +69,17 @@ func WithRepoOperationRetryAttempts(count int) BackgroundOption {
 
 func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cachetypes.Cache, options ...BackgroundOption) {
 	b := &background{
-		coreClient: coreClient,
-		cache:      cache,
+		coreClient:  coreClient,
+		cache:       cache,
+		repoMutexes: make(map[string]*sync.Mutex),
 	}
 
 	for _, o := range options {
 		o.apply(b)
 	}
+
+	// Initialize Git server semaphore with configured MaxConcurrentLists
+	b.workerSemaphore = semaphore.NewWeighted(int64(b.MaxConcurrentLists))
 
 	go b.run(ctx)
 }
@@ -79,6 +91,10 @@ type background struct {
 	periodicRepoSyncFrequency  time.Duration
 	listTimeoutPerRepo         time.Duration
 	repoOperationRetryAttempts int
+	MaxConcurrentLists         int
+	repoMutexes                map[string]*sync.Mutex // Per-repository mutexes for event ordering
+	repoMutexesLock            sync.RWMutex           // Protects repoMutexes map
+	workerSemaphore            *semaphore.Weighted    // Rate limit Git server operations
 }
 
 const (
@@ -213,17 +229,49 @@ func (b *background) handleWatchEvent(ctx context.Context, event watch.Event, bo
 func (b *background) updateCache(ctx context.Context, event watch.EventType, repository *configapi.Repository) error {
 	switch event {
 	case watch.Added, watch.Modified, watch.Deleted:
-		return b.handleRepositoryEvent(ctx, repository, event)
+		// Process directly without channel bottleneck
+		b.processRepositoryEvent(ctx, event, repository)
+		return nil // Return immediately since processing is async
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
 	}
 	return nil
 }
 
+func (b *background) getRepositoryMutex(repoKey string) *sync.Mutex {
+	b.repoMutexesLock.Lock()
+	defer b.repoMutexesLock.Unlock()
+	mutex, exists := b.repoMutexes[repoKey]
+	if !exists {
+		mutex = &sync.Mutex{}
+		b.repoMutexes[repoKey] = mutex
+	}
+	return mutex
+}
+
+func (b *background) processRepositoryEvent(ctx context.Context, event watch.EventType, repository *configapi.Repository) {
+	// Create unique key for the repository
+	repoKey := fmt.Sprintf("%s/%s", repository.Namespace, repository.Name)
+	go func() {
+		mutex := b.getRepositoryMutex(repoKey)
+		mutex.Lock()
+		defer mutex.Unlock()
+		if err := b.handleRepositoryEvent(ctx, repository, event); err != nil {
+			klog.Warningf("Processing error for %s:%s: %v", repository.Namespace, repository.Name, err)
+		}
+	}()
+}
+
 func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
 	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repo.Namespace, repo.Name)
 	start := time.Now()
 	klog.Infof("%s, handling starting", msgPreamble)
+
+	// Rate limit the goroutine processing
+	if err := b.workerSemaphore.Acquire(ctx, 1); err != nil {
+		return fmt.Errorf("failed to acquire Git server semaphore: %w", err)
+	}
+	defer b.workerSemaphore.Release(1)
 
 	if err := util.ValidateRepository(repo.Name, repo.Spec.Git.Directory); err != nil {
 		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
@@ -240,7 +288,6 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	if err := b.coreClient.List(listCtx, &repoList); err != nil {
 		return fmt.Errorf("%s, handling failed, could not list repos using core client :%q", msgPreamble, err)
 	}
-
 	var err error
 	switch eventType {
 	case watch.Deleted:
@@ -278,27 +325,32 @@ func (b *background) runOnce(ctx context.Context) error {
 
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
+		func() {
+			repoKey := fmt.Sprintf("%s/%s", repo.Namespace, repo.Name)
+			mutex := b.getRepositoryMutex(repoKey)
+			mutex.Lock()
+			defer mutex.Unlock()
 
-		// Check repository connectivity
-		if err := b.checkRepositoryConnectivity(ctx, repo); err != nil {
-			klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
-			condition := v1.Condition{
-				Type:               configapi.RepositoryReady,
-				Status:             v1.ConditionFalse,
-				ObservedGeneration: repo.Generation,
-				LastTransitionTime: v1.Now(),
-				Reason:             configapi.ReasonError,
-				Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+			if err := b.checkRepositoryConnectivity(ctx, repo); err != nil {
+				klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
+				condition := v1.Condition{
+					Type:               configapi.RepositoryReady,
+					Status:             v1.ConditionFalse,
+					ObservedGeneration: repo.Generation,
+					LastTransitionTime: v1.Now(),
+					Reason:             configapi.ReasonError,
+					Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+				}
+				if err := b.updateRepositoryStatusCondition(ctx, repo, condition); err != nil {
+					klog.Errorf("Failed to update repository status for %s: %v", repo.Name, err)
+				}
+				return
 			}
-			if err := b.updateRepositoryStatusCondition(ctx, repo, condition); err != nil {
-				klog.Errorf("Failed to update repository status for %s: %v", repo.Name, err)
-			}
-			continue // Skip cacheRepository if connectivity fails
-		}
 
-		if err := b.cacheRepository(ctx, repo); err != nil {
-			klog.Errorf("Failed to cache repository: %v", err)
-		}
+			if err := b.cacheRepository(ctx, repo); err != nil {
+				klog.Errorf("Failed to cache repository: %v", err)
+			}
+		}()
 	}
 
 	return nil
