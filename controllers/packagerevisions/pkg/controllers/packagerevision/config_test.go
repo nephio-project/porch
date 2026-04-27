@@ -16,6 +16,7 @@ func TestInitDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxConcurrentReconciles, r.MaxConcurrentReconciles)
 	assert.Equal(t, defaultMaxConcurrentRenders, r.MaxConcurrentRenders)
 	assert.Equal(t, defaultRepoOperationRetryAttempts, r.RepoOperationRetryAttempts)
+	assert.Equal(t, defaultMaxGRPCMessageSize, r.MaxGRPCMessageSize)
 }
 
 func TestBindFlags(t *testing.T) {
@@ -28,12 +29,14 @@ func TestBindFlags(t *testing.T) {
 		"--pr-max-concurrent-reconciles=10",
 		"--pr-max-concurrent-renders=5",
 		"--pr-repo-operation-retry-attempts=7",
+		"--pr-max-grpc-message-size=10485760",
 	})
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, r.MaxConcurrentReconciles)
 	assert.Equal(t, 5, r.MaxConcurrentRenders)
 	assert.Equal(t, 7, r.RepoOperationRetryAttempts)
+	assert.Equal(t, 10485760, r.MaxGRPCMessageSize)
 }
 
 func TestBindFlagsDefaults(t *testing.T) {
@@ -46,6 +49,7 @@ func TestBindFlagsDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxConcurrentReconciles, r.MaxConcurrentReconciles)
 	assert.Equal(t, defaultMaxConcurrentRenders, r.MaxConcurrentRenders)
 	assert.Equal(t, defaultRepoOperationRetryAttempts, r.RepoOperationRetryAttempts)
+	assert.Equal(t, defaultMaxGRPCMessageSize, r.MaxGRPCMessageSize)
 }
 
 func TestInit_NilCache(t *testing.T) {
@@ -56,6 +60,7 @@ func TestInit_NilCache(t *testing.T) {
 
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
+		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
 	}
 	err := r.Init(mgr)
 	require.NoError(t, err)
@@ -67,6 +72,7 @@ func TestInit_SetsCredResolverAndFetcher(t *testing.T) {
 
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
+		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
 	}
 
 	err := r.Init(mgr)
@@ -83,6 +89,7 @@ func TestInit_RendererEnabledWithFnRunner(t *testing.T) {
 
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
+		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
 	}
 
 	t.Setenv("FUNCTION_RUNNER_ADDRESS", "localhost:0")

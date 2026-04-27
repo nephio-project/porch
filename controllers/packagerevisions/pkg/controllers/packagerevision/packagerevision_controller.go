@@ -17,6 +17,7 @@ package packagerevision
 import (
 	"context"
 	"fmt"
+	"time"
 
 	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -50,7 +51,9 @@ type PackageRevisionReconciler struct {
 
 	MaxConcurrentReconciles    int
 	MaxConcurrentRenders       int
+	RenderRequeueDelay         time.Duration
 	RepoOperationRetryAttempts int
+	MaxGRPCMessageSize         int
 	renderLimiter              chan struct{} // bounds concurrent fn-runner calls
 	apiReader                  client.Reader // bypasses informer cache for direct etcd reads
 }

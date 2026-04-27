@@ -114,7 +114,7 @@ func TestRepoReg(t *testing.T) {
 			},
 		},
 		{
-			name: "FullRegisterv1Alhpa2",
+			name: "FullRegisterv1Alpha2",
 			args: []string{
 				"https://github.com/platkrm/test-blueprints.git",
 				"--name=repository-resource-name",

@@ -42,7 +42,7 @@ var fieldIndexes = []fieldIndex{
 		return pr.Spec.WorkspaceName
 	}},
 	{porchv1alpha2.PkgRevSelectorRevision, func(pr *porchv1alpha2.PackageRevision) string {
-		return fmt.Sprintf("%d", pr.Status.Revision)
+		return fmt.Sprint(pr.Status.Revision)
 	}},
 }
 

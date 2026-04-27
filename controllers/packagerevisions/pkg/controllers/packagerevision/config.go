@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/pkg/cache/contentcache"
@@ -29,19 +30,25 @@ import (
 const (
 	defaultMaxConcurrentReconciles    = 50
 	defaultMaxConcurrentRenders       = 20
+	defaultRenderRequeueDelay         = 2 * time.Second
 	defaultRepoOperationRetryAttempts = 3
+	defaultMaxGRPCMessageSize         = 6 * 1024 * 1024 // 6MB
 )
 
 func (r *PackageRevisionReconciler) InitDefaults() {
 	r.MaxConcurrentReconciles = defaultMaxConcurrentReconciles
 	r.MaxConcurrentRenders = defaultMaxConcurrentRenders
+	r.RenderRequeueDelay = defaultRenderRequeueDelay
 	r.RepoOperationRetryAttempts = defaultRepoOperationRetryAttempts
+	r.MaxGRPCMessageSize = defaultMaxGRPCMessageSize
 }
 
 func (r *PackageRevisionReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
 	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent PackageRevision reconciles")
 	flags.IntVar(&r.MaxConcurrentRenders, prefix+"max-concurrent-renders", defaultMaxConcurrentRenders, "Maximum number of concurrent renders (0 = unbounded)")
+	flags.DurationVar(&r.RenderRequeueDelay, prefix+"render-requeue-delay", defaultRenderRequeueDelay, "Delay before requeuing when render concurrency limit is reached")
 	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
+	flags.IntVar(&r.MaxGRPCMessageSize, prefix+"max-grpc-message-size", defaultMaxGRPCMessageSize, "Maximum gRPC message size in bytes for fn-runner communication")
 }
 
 // Init wires runtime dependencies (credential resolvers, renderer)
@@ -51,7 +58,9 @@ func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
 	log.Info("PackageRevision controller configuration",
 		"maxConcurrentReconciles", r.MaxConcurrentReconciles,
 		"maxConcurrentRenders", r.MaxConcurrentRenders,
+		"renderRequeueDelay", r.RenderRequeueDelay,
 		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts,
+		"maxGRPCMessageSize", r.MaxGRPCMessageSize,
 	)
 
 	coreClient := mgr.GetClient()
@@ -67,7 +76,7 @@ func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
 	)
 
 	fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS")
-	functionRuntime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, 6*1024*1024, "")
+	functionRuntime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, r.MaxGRPCMessageSize, "")
 	if err != nil {
 		return fmt.Errorf("failed to create function runtime: %w", err)
 	}

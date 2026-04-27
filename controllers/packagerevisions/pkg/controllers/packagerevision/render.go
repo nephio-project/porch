@@ -20,7 +20,6 @@ import (
 	iofs "io/fs"
 	"path"
 	"strings"
-	"time"
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -250,7 +249,7 @@ func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Conte
 		case r.renderLimiter <- struct{}{}:
 			defer func() { <-r.renderLimiter }()
 		default:
-			return nil, &ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+			return nil, &ctrl.Result{RequeueAfter: r.RenderRequeueDelay}, nil
 		}
 	}
 	result, err := r.Renderer.Render(ctx, resources)

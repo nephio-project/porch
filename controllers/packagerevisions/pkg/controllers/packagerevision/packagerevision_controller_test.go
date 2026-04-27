@@ -1748,8 +1748,9 @@ func TestRenderWithConcurrencyLimitRequeues(t *testing.T) {
 	limiter <- struct{}{} // fill the limiter
 
 	r := &PackageRevisionReconciler{
-		Renderer:      &mockRenderer{resources: map[string]string{"Kptfile": "x"}},
-		renderLimiter: limiter,
+		Renderer:           &mockRenderer{resources: map[string]string{"Kptfile": "x"}},
+		renderLimiter:      limiter,
+		RenderRequeueDelay: 2 * time.Second,
 	}
 
 	result, requeue, err := r.renderWithConcurrencyLimit(t.Context(), nil)
