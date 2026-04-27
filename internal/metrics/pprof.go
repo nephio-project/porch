@@ -64,8 +64,9 @@ func (p *Profiling) Start() {
 	mux.Handle("/debug/pprof/mutex", httppprof.Handler("mutex"))
 	mux.Handle("/debug/pprof/allocs", httppprof.Handler("allocs"))
 	p.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", p.port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", p.port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go p.serve()
 }

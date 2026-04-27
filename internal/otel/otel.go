@@ -202,8 +202,9 @@ func startMetricsServerIfConfigured(res *OTelResources) error {
 	mux.Handle("/metrics", handler)
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	res.metricsServer = srv
 	res.metricsPort = port

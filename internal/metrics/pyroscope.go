@@ -26,7 +26,7 @@ const (
 	PyroscopeServerEnvVar      = "PYROSCOPE_SERVER"
 	PyroscopeAppNameEnvVar     = "PYROSCOPE_APP_NAME"
 	PyroscopeAuthUserVar       = "PYROSCOPE_AUTH_USER"
-	PyroscopeAuthPasswordVar   = "PYROSCOPE_AUTH_PASSWORD"
+	PyroscopeAuthPasswordVar   = "PYROSCOPE_AUTH_PASSWORD" //nolint:gosec // G101: This is an env var name, not a credential
 	PyroscopeLogsEnabledEnvVar = "PYROSCOPE_LOGS_ENABLED"
 )
 
