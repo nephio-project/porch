@@ -20,12 +20,10 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
-	"github.com/nephio-project/porch/internal/metrics"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -53,7 +51,6 @@ const (
 	defaultEtcdPathPrefix = "/registry/porch.kpt.dev"
 	OpenAPITitle          = "Porch"
 	OpenAPIVersion        = "0.1"
-	otelPortEnv           = "OTEL_EXPORTER_PROMETHEUS_PORT"
 )
 
 // PorchServerOptions contains state for master/api server
@@ -62,10 +59,10 @@ type PorchServerOptions struct {
 
 	CoreAPIKubeconfigPath string
 
-	CacheDirectory    string
-	CacheType         string
-	DbCacheDriver     string
-	DbCacheDataSource string
+	CacheDirectory       string
+	CacheType            string
+	DbCacheDriver        string
+	DbCacheDataSource    string
 	DbMaxConnections     int
 	DbMaxIdleConnections int
 	DbMaxConnLifetime    time.Duration
@@ -376,26 +373,6 @@ func (o PorchServerOptions) RunPorchServer(ctx context.Context) error {
 		})
 	}
 
-	if metricsPortStr := os.Getenv(otelPortEnv); metricsPortStr != "" {
-		metricsPort, convErr := strconv.Atoi(metricsPortStr)
-		if convErr != nil {
-			klog.Warningf("Invalid %s value %q: %v", otelPortEnv, metricsPortStr, convErr)
-		} else if metricsPort > 0 {
-			metricsServer, err := metrics.NewOTelMetricsServer(metricsPort)
-			if err != nil {
-				klog.Errorf("Failed to create metrics server: %v", err)
-			} else {
-				if err := metricsServer.Start(); err != nil {
-					klog.Errorf("Failed to start metrics server: %v", err)
-				}
-				defer func() {
-					if err := metricsServer.StopWithTimeout(10 * time.Second); err != nil {
-						klog.Warningf("failed to gracefully stop metrics server: %v", err)
-					}
-				}()
-			}
-		}
-	}
 
 	return server.Run(ctx)
 }

@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
@@ -35,13 +36,17 @@ func main() {
 func run() int {
 	log.SetLogger(zap.New(zap.UseDevMode(true)))
 	ctx := genericapiserver.SetupSignalContext()
-	err := porchotel.SetupOpenTelemetry(ctx)
+	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
 	if err != nil {
 		genericapiserver.RequestShutdown()
 		klog.Errorf("%v\n", err)
 		return 1
 	}
-	metrics.InitMetrics()
+	defer func() {
+		if err := otelResources.ShutdownWithTimeout(10 * time.Second); err != nil {
+			klog.Warningf("failed to gracefully shutdown OpenTelemetry: %v", err)
+		}
+	}()
 
 	prof := &metrics.Profiling{}
 	prof.Start()

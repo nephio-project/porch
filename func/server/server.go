@@ -53,7 +53,6 @@ const (
 	podRuntime  = "pod"
 
 	wrapperServerImageEnv = "WRAPPER_SERVER_IMAGE"
-	otelPortEnv           = "OTEL_EXPORTER_PROMETHEUS_PORT"
 )
 
 type options struct {
@@ -126,12 +125,17 @@ func run(o *options) error {
 		lis.Close()
 	}()
 
-	err = porchotel.SetupOpenTelemetry(ctx)
+	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
 	if err != nil {
 		contextsignal.RequestShutdown()
 		klog.Errorf("%v\n", err)
 		return err
 	}
+	defer func() {
+		if err := otelResources.ShutdownWithTimeout(10 * time.Second); err != nil {
+			klog.Warningf("failed to gracefully shutdown OpenTelemetry: %v", err)
+		}
+	}()
 
 	availableRuntimes := map[string]struct{}{
 		execRuntime: {},
@@ -180,26 +184,6 @@ func run(o *options) error {
 	}
 	evaluator := internal.NewMultiEvaluator(runtimes...)
 
-	if metricsPortStr := os.Getenv(otelPortEnv); metricsPortStr != "" {
-		metricsPort, err := strconv.Atoi(metricsPortStr)
-		if err != nil {
-			klog.Warningf("Invalid %s value %q: %v", otelPortEnv, metricsPortStr, err)
-		} else if metricsPort > 0 {
-			metricsServer, err := metrics.NewOTelMetricsServer(metricsPort)
-			if err != nil {
-				klog.Errorf("Failed to create metrics server: %v", err)
-			} else {
-				if err := metricsServer.Start(); err != nil {
-					klog.Errorf("Failed to start metrics server: %v", err)
-				}
-				defer func() {
-					if err := metricsServer.StopWithTimeout(10 * time.Second); err != nil {
-						klog.Warningf("failed to gracefully stop metrics server: %v", err)
-					}
-				}()
-			}
-		}
-	}
 
 	klog.Infof("Listening on %s", address)
 

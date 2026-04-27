@@ -34,6 +34,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	metrics "github.com/nephio-project/porch/internal/metrics"
+	porchotel "github.com/nephio-project/porch/internal/otel"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/suite"
 	coreapi "k8s.io/api/core/v1"
@@ -94,7 +95,7 @@ type PerfTestSuite struct {
 
 	testLogger       *TestLogger
 	resultsLogger    *ResultsLogger
-	metricsServer    *metrics.OTelMetricsServer
+	otelResources    *porchotel.OTelResources
 	enablePrometheus bool
 
 	metrics      map[string]TestMetrics
@@ -239,13 +240,13 @@ func (t *PerfTestSuite) SetupSuite() {
 	t.enablePrometheus = *enablePrometheus
 
 	if t.enablePrometheus {
+		os.Setenv("OTEL_EXPORTER_PROMETHEUS_PORT", fmt.Sprintf("%d", prometheusPort))
+		os.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
+		os.Setenv("OTEL_TRACES_EXPORTER", "none")
 		var err error
-		t.metricsServer, err = metrics.NewOTelMetricsServer(prometheusPort)
+		t.otelResources, err = porchotel.SetupOpenTelemetry(ctx)
 		if err != nil {
-			t.T().Fatalf("Failed to create OTel metrics server: %v", err)
-		}
-		if err := t.metricsServer.Start(); err != nil {
-			t.T().Fatalf("Failed to start OTel metrics server: %v", err)
+			t.T().Fatalf("Failed to setup OpenTelemetry: %v", err)
 		}
 		t.T().Logf("OTel metrics server started on port %v", prometheusPort)
 		metrics.PerfTestSetTestRunInfo("porch-performance-test", t.testOptions.namespace, time.Now())
@@ -274,17 +275,15 @@ func (t *PerfTestSuite) TearDownSuite() {
 	if t.cancelCtx != nil {
 		t.cancelCtx()
 	}
-	if t.metricsServer != nil {
-		if err := t.metricsServer.Flush(); err != nil {
+	if t.otelResources != nil {
+		if err := t.otelResources.Flush(); err != nil {
 			t.T().Logf("Warning: Failed to flush metrics: %v", err)
 		}
 		t.T().Logf("Waiting 20 seconds before shutting down metrics server to ensure final scrapes complete...")
 		time.Sleep(20 * time.Second)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := t.metricsServer.Stop(ctx); err != nil {
-			t.T().Logf("Warning: Failed to stop OTel metrics server: %v", err)
+		if err := t.otelResources.ShutdownWithTimeout(5 * time.Second); err != nil {
+			t.T().Logf("Warning: Failed to shutdown OpenTelemetry: %v", err)
 		}
 	}
 	if t.testLogger != nil {

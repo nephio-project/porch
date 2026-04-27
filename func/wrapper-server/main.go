@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/kptdev/krm-functions-sdk/go/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
@@ -79,13 +80,17 @@ type options struct {
 
 func (o *options) run() error {
 	ctx := contextsignal.SetupSignalContext()
-	err := porchotel.SetupOpenTelemetry(ctx)
+	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
 	if err != nil {
 		contextsignal.RequestShutdown()
 		klog.Errorf("%v\n", err)
 		return err
 	}
-	klog.Info("OpenTelemetry initialized")
+	defer func() {
+		if err := otelResources.ShutdownWithTimeout(10 * time.Second); err != nil {
+			klog.Warningf("failed to gracefully shutdown OpenTelemetry: %v", err)
+		}
+	}()
 	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -44,7 +45,6 @@ import (
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
-	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/nephio-project/porch/pkg/cache/contentcache"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
@@ -205,9 +205,15 @@ func newManager(ctx context.Context, scheme *runtime.Scheme) (ctrl.Manager, erro
 	}
 
 	otel.SetLogger(klog.NewKlogr())
-	if err := porchotel.SetupOpenTelemetry(ctx); err != nil {
-		return nil, fmt.Errorf("error setting up OpenTelemetry: %w", err)
+	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
+	if err != nil {
+		return fmt.Errorf("error setting up OpenTelemetry: %w", err)
 	}
+	defer func() {
+		if shutdownErr := otelResources.ShutdownWithTimeout(10 * time.Second); shutdownErr != nil {
+			klog.Warningf("failed to gracefully shutdown OpenTelemetry: %v", shutdownErr)
+		}
+	}()
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,

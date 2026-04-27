@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/nephio-project/porch/internal/metrics"
 	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -36,57 +38,109 @@ import (
 	controllerruntimemetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-var (
-	metricsSetUp   bool
-	metricsHandler http.Handler
+const (
+	otelPortEnv = "OTEL_EXPORTER_PROMETHEUS_PORT"
 )
 
-func IsMetricsSetUp() bool {
-	return metricsSetUp
+// OTelResources holds all OpenTelemetry resources that need lifecycle management.
+// Use Shutdown() to cleanly release all resources.
+type OTelResources struct {
+	metricsServer  *http.Server
+	metricsPort    int
+	meterProvider  *sdkmetric.MeterProvider
+	tracerProvider *trace.TracerProvider
+	metricReader   sdkmetric.Reader
 }
 
-func MetricsHandler() http.Handler {
-	return metricsHandler
-}
-
-// Sets up OpenTelemetry with parameters
-// from environment variables based on the
-// opentelemetry.io/contrib/exporters/autoexport"
-func SetupOpenTelemetry(ctx context.Context) error {
-	setupTiming := time.Now()
-	err := setupTracing(ctx)
-	if err != nil {
-		return err
+// Shutdown gracefully shuts down all OpenTelemetry resources.
+func (r *OTelResources) Shutdown(ctx context.Context) error {
+	var errs []error
+	if r.metricsServer != nil {
+		if err := r.metricsServer.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("metrics server shutdown: %w", err))
+		}
 	}
-	err = setupMetrics(ctx)
-	if err != nil {
-		return err
+	if r.metricReader != nil {
+		if err := r.metricReader.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("metric reader shutdown: %w", err))
+		}
 	}
-	http.DefaultTransport = otelhttp.NewTransport(http.DefaultTransport)
-	http.DefaultClient.Transport = http.DefaultTransport
-	klog.Infof("OpenTelemetry initialized in %s", time.Since(setupTiming))
+	if r.meterProvider != nil {
+		if err := r.meterProvider.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("meter provider shutdown: %w", err))
+		}
+	}
+	if r.tracerProvider != nil {
+		if err := r.tracerProvider.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("tracer provider shutdown: %w", err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("otel shutdown errors: %v", errs)
+	}
 	return nil
 }
 
-func setupTracing(ctx context.Context) error {
+// ShutdownWithTimeout is a convenience wrapper around Shutdown with a timeout.
+func (r *OTelResources) ShutdownWithTimeout(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return r.Shutdown(ctx)
+}
+
+// Flush forces a flush of the meter provider, useful in tests.
+func (r *OTelResources) Flush() error {
+	if r.meterProvider != nil {
+		return r.meterProvider.ForceFlush(context.Background())
+	}
+	return nil
+}
+
+// SetupOpenTelemetry is the single entry point for all OpenTelemetry setup.
+// It configures tracing, metrics (including the Prometheus HTTP server if
+// OTEL_EXPORTER_PROMETHEUS_PORT is set), and initializes all Porch metric
+// instruments. Returns OTelResources for lifecycle management.
+func SetupOpenTelemetry(ctx context.Context) (*OTelResources, error) {
+	setupTiming := time.Now()
+	res := &OTelResources{}
+
+	// Setup tracing
+	if err := setupTracing(ctx, res); err != nil {
+		return nil, err
+	}
+
+	// Setup metrics provider
+	if err := setupMetrics(ctx, res); err != nil {
+		return nil, err
+	}
+
+	// Initialize all Porch metric instruments
+	metrics.InitMetrics()
+
+	// Start the Prometheus metrics HTTP server if port is configured
+	if err := startMetricsServerIfConfigured(res); err != nil {
+		return nil, err
+	}
+
+	http.DefaultTransport = otelhttp.NewTransport(http.DefaultTransport)
+	http.DefaultClient.Transport = http.DefaultTransport
+	klog.Infof("OpenTelemetry initialized in %s", time.Since(setupTiming))
+	return res, nil
+}
+
+func setupTracing(ctx context.Context, res *OTelResources) error {
 	exp, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create span exporter: %w", err)
 	}
 	tp := trace.NewTracerProvider(trace.WithBatcher(exp))
-	go func() {
-		<-ctx.Done()
-		if err := tp.Shutdown(context.Background()); err != nil {
-			panic(err)
-		}
-	}()
+	res.tracerProvider = tp
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
-
 	return nil
 }
 
-func setupMetrics(ctx context.Context) error {
+func setupMetrics(ctx context.Context, res *OTelResources) error {
 	exporter := os.Getenv("OTEL_METRICS_EXPORTER")
 
 	autoexport.WithFallbackMetricProducer(func(ctx context.Context) (sdkmetric.Producer, error) {
@@ -98,70 +152,68 @@ func setupMetrics(ctx context.Context) error {
 		), nil
 	})
 
-	if exporter == "prometheus" {
-		promExp, err := otelprometheus.New(
-			otelprometheus.WithRegisterer(prometheus.DefaultRegisterer),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create prometheus exporter: %w", err)
-		}
+	promExp, err := otelprometheus.New(
+		otelprometheus.WithRegisterer(prometheus.DefaultRegisterer),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create prometheus exporter: %w", err)
+	}
 
-		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(promExp))
-		go func() {
-			<-ctx.Done()
-			if err := mp.Shutdown(context.Background()); err != nil {
-				klog.Warningf("metrics provider shutdown error: %v", err)
-			}
-		}()
-		otel.SetMeterProvider(mp)
+	readers := []sdkmetric.Option{sdkmetric.WithReader(promExp)}
 
-		gatherers := prometheus.Gatherers{
-			prometheus.DefaultGatherer,
-			controllerruntimemetrics.Registry,
-		}
-		metricsHandler = promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
-			ErrorHandling: promhttp.ContinueOnError,
-		})
-	} else {
-		promExp, err := otelprometheus.New(
-			otelprometheus.WithRegisterer(prometheus.DefaultRegisterer),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create prometheus exporter: %w", err)
-		}
-
+	if exporter != "prometheus" {
 		autoMr, err := autoexport.NewMetricReader(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to create metric reader: %w", err)
 		}
-		go func() {
-			<-ctx.Done()
-			if err := autoMr.Shutdown(context.Background()); err != nil {
-				klog.Warningf("metrics reader shutdown error: %v", err)
-			}
-		}()
-
-		mp := sdkmetric.NewMeterProvider(
-			sdkmetric.WithReader(promExp),
-			sdkmetric.WithReader(autoMr),
-		)
-		go func() {
-			<-ctx.Done()
-			if err := mp.Shutdown(context.Background()); err != nil {
-				klog.Warningf("metrics provider shutdown error: %v", err)
-			}
-		}()
-		otel.SetMeterProvider(mp)
-
-		gatherers := prometheus.Gatherers{
-			prometheus.DefaultGatherer,
-			controllerruntimemetrics.Registry,
-		}
-		metricsHandler = promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
-			ErrorHandling: promhttp.ContinueOnError,
-		})
+		res.metricReader = autoMr
+		readers = append(readers, sdkmetric.WithReader(autoMr))
 	}
 
-	metricsSetUp = true
+	mp := sdkmetric.NewMeterProvider(readers...)
+	res.meterProvider = mp
+	otel.SetMeterProvider(mp)
+
+	return nil
+}
+
+func startMetricsServerIfConfigured(res *OTelResources) error {
+	portStr := os.Getenv(otelPortEnv)
+	if portStr == "" {
+		return nil
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("invalid %s value %q: %w", otelPortEnv, portStr, err)
+	}
+	if port <= 0 {
+		return nil
+	}
+
+	gatherers := prometheus.Gatherers{
+		prometheus.DefaultGatherer,
+		controllerruntimemetrics.Registry,
+	}
+	handler := promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{
+		ErrorHandling: promhttp.ContinueOnError,
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", handler)
+
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+	res.metricsServer = srv
+	res.metricsPort = port
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Errorf("OTel metrics server error: %v", err)
+		}
+	}()
+	klog.Infof("OTel metrics server started on port %d", port)
+
 	return nil
 }

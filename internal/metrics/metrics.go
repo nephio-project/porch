@@ -17,17 +17,11 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"sync"
 	"time"
 
-	porchotel "github.com/nephio-project/porch/internal/otel"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
@@ -142,108 +136,6 @@ func InitMetrics() {
 	}
 }
 
-func linearBuckets(start, width float64, count int) []float64 {
-	buckets := make([]float64, count)
-	for i := range buckets {
-		buckets[i] = start + width*float64(i)
-	}
-	return buckets
-}
-
-type OTelMetricsServer struct {
-	server *http.Server
-	port   int
-	ownMP  *sdkmetric.MeterProvider
-}
-
-func NewOTelMetricsServer(port int) (*OTelMetricsServer, error) {
-	if porchotel.IsMetricsSetUp() {
-		fmt.Printf("OTel metrics already set up; reusing existing server on port %d\n", port)
-		InitMetrics()
-
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", porchotel.MetricsHandler())
-
-		return &OTelMetricsServer{
-			server: &http.Server{
-				Addr:    fmt.Sprintf(":%d", port),
-				Handler: mux,
-			},
-			port: port,
-		}, nil
-	}
-
-	exp, err := otelprometheus.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create prometheus exporter: %w", err)
-	}
-	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exp))
-	otel.SetMeterProvider(mp)
-	InitMetrics()
-
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-
-	return &OTelMetricsServer{
-		server: &http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
-			Handler: mux,
-		},
-		port:  port,
-		ownMP: mp,
-	}, nil
-}
-
-func (s *OTelMetricsServer) Start() error {
-	if s.server == nil {
-		return nil
-	}
-	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("OTel metrics server error: %v\n", err)
-		}
-	}()
-	fmt.Printf("OTel metrics server started on port %d\n", s.port)
-	return nil
-}
-
-func (s *OTelMetricsServer) StartInWG(wg *sync.WaitGroup) {
-	if s.server == nil {
-		return
-	}
-	wg.Go(func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("OTel metrics server error: %v\n", err)
-		}
-	})
-	fmt.Printf("OTel metrics server started on port %d\n", s.port)
-}
-
-func (s *OTelMetricsServer) Stop(ctx context.Context) error {
-	fmt.Println("Shutting down OTel metrics server...")
-	if s.ownMP != nil {
-		if err := s.ownMP.Shutdown(ctx); err != nil {
-			fmt.Printf("OTel MeterProvider shutdown error: %v\n", err)
-		}
-	}
-	if s.server == nil {
-		return nil
-	}
-	return s.server.Shutdown(ctx)
-}
-
-func (s *OTelMetricsServer) StopWithTimeout(timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return s.Stop(ctx)
-}
-
-func (s *OTelMetricsServer) Flush() error {
-	if s.ownMP != nil {
-		return s.ownMP.ForceFlush(context.Background())
-	}
-	return nil
-}
 
 // Porch server and function runner metric recording functions
 func RecordAPICallDuration(resource, verb string, durationSeconds float64) {
