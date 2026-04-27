@@ -469,10 +469,6 @@ func writeErr(errMsg string, w *http.ResponseWriter) {
 	}
 }
 
-func hasEnv(key string) bool {
-	_, found := os.LookupEnv(key)
-	return found
-}
 
 func getEnv(key string, defaultValue string) string {
 	value, found := os.LookupEnv(key)
