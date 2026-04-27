@@ -99,12 +99,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 	return readPr, err
 }
 
-func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]*dbPackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbrepositorysql::pkgRevListPRsFromDB", trace.WithAttributes())
-	defer span.End()
-
-	klog.V(5).Infof("pkgRevListPRsFromDB: listing package revisions for filter %+v", filter)
-
+func pkgRevListQuery(filter repository.ListPackageRevisionFilter) string {
 	sqlStatement := `
 		SELECT
 			repositories.k8s_name_space,
@@ -131,12 +126,20 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 		INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
 	`
-
 	sqlStatement += prListFilter2WhereClause(filter)
-
 	sqlStatement += `
 			ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
 	`
+	return sqlStatement
+}
+
+func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]*dbPackageRevision, error) {
+	_, span := tracer.Start(ctx, "dbrepositorysql::pkgRevListPRsFromDB", trace.WithAttributes())
+	defer span.End()
+
+	klog.V(5).Infof("pkgRevListPRsFromDB: listing package revisions for filter %+v", filter)
+
+	sqlStatement := pkgRevListQuery(filter)
 
 	klog.V(6).Infof("pkgRevListPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
 	rows, err := GetDB().db.Query(ctx, sqlStatement)
@@ -146,6 +149,26 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 	}
 
 	return pkgRevScanRowsFromDB(ctx, rows)
+}
+
+func pkgRevStreamPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error {
+	_, span := tracer.Start(ctx, "dbrepositorysql::pkgRevStreamPRsFromDB", trace.WithAttributes())
+	defer span.End()
+
+	klog.V(5).Infof("pkgRevStreamPRsFromDB: streaming package revisions for filter %+v", filter)
+
+	sqlStatement := pkgRevListQuery(filter)
+
+	klog.V(6).Infof("pkgRevStreamPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
+	rows, err := GetDB().db.Query(ctx, sqlStatement)
+	if err != nil {
+		klog.Warningf("pkgRevStreamPRsFromDB: reading package revision list for filter %+v returned err: %q", filter, err)
+		return err
+	}
+
+	return pkgRevScanRowsFromDBFunc(ctx, rows, func(pr *dbPackageRevision) error {
+		return callback(pr)
+	})
 }
 
 func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPackageRevision, error) {
@@ -279,14 +302,24 @@ func pkgRevReadPRListFromDB(ctx context.Context, pk repository.PackageKey, sqlSt
 }
 
 func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbpackagesql::pkgScanRowsFromDB", trace.WithAttributes())
+	var dbPkgRevs []*dbPackageRevision
+	err := pkgRevScanRowsFromDBFunc(ctx, rows, func(pr *dbPackageRevision) error {
+		dbPkgRevs = append(dbPkgRevs, pr)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return dbPkgRevs, nil
+}
+
+func pkgRevScanRowsFromDBFunc(ctx context.Context, rows *sql.Rows, callback func(*dbPackageRevision) error) error {
+	_, span := tracer.Start(ctx, "dbpackagesql::pkgRevScanRowsFromDBFunc", trace.WithAttributes())
 	defer span.End()
 
 	defer rows.Close()
 
-	klog.V(5).Info("pkgRevScanRowsFromDB: scanning rows returned from query")
-
-	var dbPkgRevs []*dbPackageRevision
+	klog.V(5).Info("pkgRevScanRowsFromDBFunc: scanning rows returned from query")
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
@@ -313,8 +346,8 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&kptfileStatusJSON)
 
 		if err != nil {
-			klog.Warningf("pkgRevScanRowsFromDB: scanning rows failed: %q", err)
-			return nil, err
+			klog.Warningf("pkgRevScanRowsFromDBFunc: scanning rows failed: %q", err)
+			return err
 		}
 
 		repo := cachetypes.CacheInstance.GetRepository(pkgRev.pkgRevKey.PkgKey.RepoKey)
@@ -322,7 +355,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			if dbRepo, ok := repo.(*dbRepository); ok {
 				pkgRev.repo = dbRepo
 			} else {
-				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
+				klog.Warningf("pkgRevScanRowsFromDBFunc: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
 			}
 		}
 		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
@@ -333,10 +366,12 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		setValueFromJSON(tasks, &pkgRev.tasks)
 		setValueFromJSON(kptfileStatusJSON, &pkgRev.kptfileStatus)
 
-		dbPkgRevs = append(dbPkgRevs, &pkgRev)
+		if err := callback(&pkgRev); err != nil {
+			return err
+		}
 	}
 
-	return dbPkgRevs, nil
+	return nil
 }
 
 func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {

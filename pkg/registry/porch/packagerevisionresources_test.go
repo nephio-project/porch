@@ -64,9 +64,11 @@ func setupResourcesTest(t *testing.T) (mockClient *mockclient.MockClient, mockEn
 
 func TestListResources(t *testing.T) {
 	_, mockEngine := setupResourcesTest(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		packageRevision,
-	}, nil).Once()
+	mockEngine.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			cb := args.Get(2).(func(repository.PackageRevision) error)
+			cb(packageRevision)
+		}).Return(nil).Once()
 
 	result, err := packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
@@ -83,9 +85,11 @@ func TestListResources(t *testing.T) {
 	//=========================================================================================
 
 	mockPkgRev := mockrepo.NewMockPackageRevision(t)
-	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
-		mockPkgRev,
-	}, nil)
+	mockEngine.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			cb := args.Get(2).(func(repository.PackageRevision) error)
+			cb(mockPkgRev)
+		}).Return(nil)
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)

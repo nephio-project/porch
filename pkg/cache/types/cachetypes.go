@@ -70,6 +70,7 @@ type Cache interface {
 	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
 	FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error)
 	ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
+	StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error
 }
 
 var (

@@ -49,6 +49,7 @@ type CaDEngine interface {
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
 
 	ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
+	StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
@@ -98,6 +99,13 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, filter repositor
 	defer span.End()
 
 	return cad.cache.ListPackageRevisions(ctx, filter)
+}
+
+func (cad *cadEngine) StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error {
+	ctx, span := tracer.Start(ctx, "cadEngine::StreamPackageRevisions", trace.WithAttributes())
+	defer span.End()
+
+	return cad.cache.StreamPackageRevisions(ctx, filter, callback)
 }
 
 func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {

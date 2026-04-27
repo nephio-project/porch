@@ -297,6 +297,32 @@ func (m *mockCache) ListPackageRevisions(ctx context.Context, filter repository.
 	return args.Get(0).([]repository.PackageRevision), args.Error(1)
 }
 
+func (m *mockCache) StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error {
+	args := m.Called(ctx, filter, callback)
+	return args.Error(0)
+}
+
+func TestStreamPackageRevisions(t *testing.T) {
+	ctx := context.Background()
+	mc := new(mockCache)
+	engine := &cadEngine{cache: mc}
+
+	mc.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			cb := args.Get(2).(func(repository.PackageRevision) error)
+			cb(&mockrepo.MockPackageRevision{})
+		}).Return(nil).Once()
+
+	count := 0
+	err := engine.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+		count++
+		return nil
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+	mc.AssertExpectations(t)
+}
+
 func TestCreatePRWith2Tasks(t *testing.T) {
 	pr := &porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
