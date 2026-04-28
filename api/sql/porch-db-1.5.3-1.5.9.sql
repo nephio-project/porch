@@ -26,3 +26,16 @@ limitations under the License.
 
 ALTER TABLE package_revisions
     ADD COLUMN IF NOT EXISTS kptfile_status TEXT NOT NULL DEFAULT '{}';
+
+-- Fix timezone handling for timestamp columns to ensure consistent UTC storage
+-- This is critical when porch-server runs in non-UTC timezones (e.g., IST)
+-- Convert existing timestamp columns to store UTC timezone explicitly
+
+ALTER TABLE repositories
+    ALTER COLUMN updated TYPE TIMESTAMPTZ USING updated AT TIME ZONE 'UTC';
+
+ALTER TABLE packages
+    ALTER COLUMN updated TYPE TIMESTAMPTZ USING updated AT TIME ZONE 'UTC';
+
+ALTER TABLE package_revisions
+    ALTER COLUMN updated TYPE TIMESTAMPTZ USING updated AT TIME ZONE 'UTC';

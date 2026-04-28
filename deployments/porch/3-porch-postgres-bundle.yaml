@@ -286,7 +286,7 @@ data:
         default_ws_name TEXT NOT NULL,
         meta            TEXT NOT NULL,
         spec            TEXT NOT NULL,
-        updated         TIMESTAMP,
+        updated         TIMESTAMPTZ,
         updatedby       TEXT,
         deployment      BOOLEAN,
         PRIMARY KEY (k8s_name_space, k8s_name)
@@ -314,7 +314,7 @@ data:
         package_path   TEXT NOT NULL,
         meta           TEXT NOT NULL,
         spec           TEXT NOT NULL,
-        updated        TIMESTAMP NOT NULL,
+        updated        TIMESTAMPTZ NOT NULL,
         updatedby      TEXT NOT NULL,
         PRIMARY KEY (k8s_name_space, k8s_name),
         CONSTRAINT fk_repository
@@ -345,7 +345,7 @@ data:
         revision         INTEGER NOT NULL,
         meta             TEXT NOT NULL,
         spec             TEXT NOT NULL,
-        updated          TIMESTAMP NOT NULL,
+        updated          TIMESTAMPTZ NOT NULL,
         updatedby        TEXT NOT NULL,
         lifecycle        TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
         ext_pr_id        TEXT NOT NULL,
