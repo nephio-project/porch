@@ -149,9 +149,9 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 	}
 
 	if r.CreateV1Alpha2Rpkg && repo.Annotations[api.AnnotationKeyV1Alpha2Migration] == api.AnnotationValueMigrationEnabled {
-		if err := r.syncPackageRevisionCRDs(ctx, repo, pkgRevs); err != nil {
+		if err := r.syncPackageRevisions(ctx, repo, pkgRevs); err != nil {
 			log.Error(err, "Failed to sync v1alpha2 PackageRevisions", "repo", repo.Name)
-			// Non-fatal: don't fail the entire sync for v1alpha2 CRD creation failures
+			// Non-fatal: don't fail the entire sync for v1alpha2 creation failures
 		}
 	}
 

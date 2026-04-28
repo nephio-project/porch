@@ -55,7 +55,7 @@ func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
 	flags.DurationVar(&r.SyncStaleTimeout, prefix+"sync-stale-timeout", defaultSyncStaleTimeout, "Timeout for considering a sync stale")
 	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
 	flags.BoolVar(&r.useUserDefinedCaBundle, prefix+"use-user-defined-ca-bundle", false, "Enable custom CA bundle support from secrets")
-	flags.BoolVar(&r.CreateV1Alpha2Rpkg, prefix+"create-v1alpha2-rpkg", false, "Create v1alpha2 PackageRevision CRDs during repository sync")
+	flags.BoolVar(&r.CreateV1Alpha2Rpkg, prefix+"create-v1alpha2-rpkg", false, "Create v1alpha2 PackageRevision resources during repository sync")
 	flags.BoolVar(&r.PushDraftsToGit, prefix+"push-drafts-to-git", false, "Push draft and proposed branches to git when using DB cache")
 }
 

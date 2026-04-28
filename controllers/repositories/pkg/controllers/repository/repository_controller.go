@@ -57,7 +57,7 @@ type RepositoryReconciler struct {
 	RepoOperationRetryAttempts int           // Git operation retry attempts
 
 	// Feature flags
-	CreateV1Alpha2Rpkg bool // Create v1alpha2 PackageRevision CRDs during repo sync
+	CreateV1Alpha2Rpkg bool // Create v1alpha2 PackageRevision resources during repo sync
 	PushDraftsToGit    bool // Push draft/proposed branches to git (DB cache only)
 
 	// Configuration (set via flags or defaults)

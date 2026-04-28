@@ -33,35 +33,35 @@ const (
 	RepositoryLabel                = "porch.kpt.dev/repository"
 )
 
-// syncPackageRevisionCRDs creates, updates, or deletes PackageRevision CRDs
+// syncPackageRevisions creates, updates, or deletes PackageRevision resources
 // to match the packages discovered by ListPackageRevisions.
 //
-// Individual CRD apply/delete failures are logged but do not fail the sync.
-// The repo is considered healthy if git is reachable — CRD plumbing errors
-// (etcd conflicts, quota, etc.) are transient and resolve on the next sync.
+// Individual apply/delete failures are logged but do not fail the sync.
+// The repo is considered healthy if git is reachable — etcd plumbing errors
+// (conflicts, quota, etc.) are transient and resolve on the next sync.
 //
 // TODO: When the system is fully async (PR controller active), introduce a
 // degraded condition on the Repository CR (e.g. PackageRevisionSyncComplete=False)
 // to surface partial sync failures to users without marking the repo as unhealthy.
-func (r *RepositoryReconciler) syncPackageRevisionCRDs(ctx context.Context, repo *configapi.Repository, pkgRevs []repository.PackageRevision) error {
-	existingByName, err := r.listExistingCRDs(ctx, repo)
+func (r *RepositoryReconciler) syncPackageRevisions(ctx context.Context, repo *configapi.Repository, pkgRevs []repository.PackageRevision) error {
+	existingByName, err := r.listExistingPackageRevisions(ctx, repo)
 	if err != nil {
 		return err
 	}
 
-	desiredNames := r.applyDesiredCRDs(ctx, repo, pkgRevs, existingByName)
-	r.deleteStaleCRDs(ctx, existingByName, desiredNames)
+	desiredNames := r.applyDesiredPackageRevisions(ctx, repo, pkgRevs, existingByName)
+	r.deleteStalePackageRevisions(ctx, existingByName, desiredNames)
 
 	return nil
 }
 
-func (r *RepositoryReconciler) listExistingCRDs(ctx context.Context, repo *configapi.Repository) (map[string]*porchv1alpha2.PackageRevision, error) {
+func (r *RepositoryReconciler) listExistingPackageRevisions(ctx context.Context, repo *configapi.Repository) (map[string]*porchv1alpha2.PackageRevision, error) {
 	existing := &porchv1alpha2.PackageRevisionList{}
 	if err := r.List(ctx, existing,
 		client.InNamespace(repo.Namespace),
 		client.MatchingLabels{RepositoryLabel: repo.Name},
 	); err != nil {
-		return nil, fmt.Errorf("failed to list existing PackageRevision CRDs: %w", err)
+		return nil, fmt.Errorf("failed to list existing PackageRevisions: %w", err)
 	}
 	result := make(map[string]*porchv1alpha2.PackageRevision, len(existing.Items))
 	for i := range existing.Items {
@@ -70,7 +70,7 @@ func (r *RepositoryReconciler) listExistingCRDs(ctx context.Context, repo *confi
 	return result, nil
 }
 
-func (r *RepositoryReconciler) applyDesiredCRDs(ctx context.Context, repo *configapi.Repository, pkgRevs []repository.PackageRevision, existingByName map[string]*porchv1alpha2.PackageRevision) map[string]bool {
+func (r *RepositoryReconciler) applyDesiredPackageRevisions(ctx context.Context, repo *configapi.Repository, pkgRevs []repository.PackageRevision, existingByName map[string]*porchv1alpha2.PackageRevision) map[string]bool {
 	log := log.FromContext(ctx)
 	desiredNames := make(map[string]bool, len(pkgRevs))
 
@@ -78,67 +78,67 @@ func (r *RepositoryReconciler) applyDesiredCRDs(ctx context.Context, repo *confi
 		name := pkgRev.KubeObjectName()
 		ex, isUpdate := existingByName[name]
 
-		desired, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+		desired, err := buildPackageRevision(ctx, repo, pkgRev)
 		if err != nil {
-			log.Error(err, "Failed to build PackageRevision CRD", "key", pkgRev.Key())
+			log.Error(err, "Failed to build PackageRevision", "key", pkgRev.Key())
 			continue
 		}
 		desiredNames[desired.Name] = true
 
-		if isUpdate && packageRevisionCRDUpToDate(ex, desired) {
-			log.V(5).Info("PackageRevision CRD unchanged, skipping", "name", desired.Name)
+		if isUpdate && packageRevisionUpToDate(ex, desired) {
+			log.V(5).Info("PackageRevision unchanged, skipping", "name", desired.Name)
 			continue
 		}
 
-		if err := r.applyPackageRevisionCRD(ctx, desired); err != nil {
+		if err := r.applyPackageRevision(ctx, desired); err != nil {
 			continue
 		}
 		if !isUpdate {
 			r.applySeedFields(ctx, repo, pkgRev, desired)
 		}
 		if isUpdate {
-			log.V(3).Info("Updated PackageRevision CRD", "name", desired.Name)
+			log.V(3).Info("Updated PackageRevision", "name", desired.Name)
 		} else {
-			log.V(3).Info("Created PackageRevision CRD", "name", desired.Name)
+			log.V(3).Info("Created PackageRevision", "name", desired.Name)
 		}
 	}
 
 	return desiredNames
 }
 
-func (r *RepositoryReconciler) deleteStaleCRDs(ctx context.Context, existingByName map[string]*porchv1alpha2.PackageRevision, desiredNames map[string]bool) {
+func (r *RepositoryReconciler) deleteStalePackageRevisions(ctx context.Context, existingByName map[string]*porchv1alpha2.PackageRevision, desiredNames map[string]bool) {
 	log := log.FromContext(ctx)
 	for name, ex := range existingByName {
 		if !desiredNames[name] {
 			if err := r.Delete(ctx, ex); err != nil {
-				log.Error(err, "Failed to delete stale PackageRevision CRD", "name", name)
+				log.Error(err, "Failed to delete stale PackageRevision", "name", name)
 			}
 		}
 	}
 }
 
-// applyPackageRevisionCRD applies repo-controller-owned spec and status fields
+// applyPackageRevision applies repo-controller-owned spec and status fields
 // via SSA with ForceOwnership. Only includes fields the repo controller
 // permanently owns: identity, labels, ownerRef, locks, deployment.
-func (r *RepositoryReconciler) applyPackageRevisionCRD(ctx context.Context, crd *porchv1alpha2.PackageRevision) error {
+func (r *RepositoryReconciler) applyPackageRevision(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
 	log := log.FromContext(ctx)
 
-	savedStatus := crd.Status
+	savedStatus := pr.Status
 
 	opts := []client.PatchOption{client.FieldOwner(fieldManagerRepoController), client.ForceOwnership}
-	if err := r.Patch(ctx, crd, client.Apply, opts...); err != nil {
-		log.Error(err, "Failed to apply PackageRevision CRD", "name", crd.Name)
+	if err := r.Patch(ctx, pr, client.Apply, opts...); err != nil {
+		log.Error(err, "Failed to apply PackageRevision", "name", pr.Name)
 		return err
 	}
 
 	statusObj := &porchv1alpha2.PackageRevision{
-		TypeMeta:   crd.TypeMeta,
-		ObjectMeta: metav1.ObjectMeta{Name: crd.Name, Namespace: crd.Namespace},
+		TypeMeta:   pr.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{Name: pr.Name, Namespace: pr.Namespace},
 		Status:     savedStatus,
 	}
 	statusOpts := []client.SubResourcePatchOption{client.FieldOwner(fieldManagerRepoController), client.ForceOwnership}
 	if err := r.Status().Patch(ctx, statusObj, client.Apply, statusOpts...); err != nil {
-		log.Error(err, "Failed to apply PackageRevision CRD status", "name", crd.Name)
+		log.Error(err, "Failed to apply PackageRevision status", "name", pr.Name)
 		return err
 	}
 
@@ -146,7 +146,7 @@ func (r *RepositoryReconciler) applyPackageRevisionCRD(ctx context.Context, crd 
 }
 
 // applySeedFields applies non-repo-controller-owned fields (lifecycle, revision,
-// Kptfile-derived, publish metadata) on initial CRD creation only. Uses a
+// Kptfile-derived, publish metadata) on initial creation only. Uses a
 // separate field manager without ForceOwnership so these fields seed the value
 // for discovered packages but never overwrite values already set by the user
 // or the PR controller.
@@ -192,22 +192,22 @@ func (r *RepositoryReconciler) applySeedFields(ctx context.Context, repo *config
 	}
 }
 
-// packageRevisionCRDUpToDate returns true if the repo-controller-owned fields
-// in the existing CRD match the desired state. Skips immutable identity fields
-// (package name, repo, workspace) and fields owned by other controllers
+// packageRevisionUpToDate returns true if the repo-controller-owned fields
+// in the existing resource match the desired state. Skips immutable identity
+// fields (package name, repo, workspace) and fields owned by other controllers
 // (lifecycle, conditions, publish metadata).
-func packageRevisionCRDUpToDate(existing, desired *porchv1alpha2.PackageRevision) bool {
+func packageRevisionUpToDate(existing, desired *porchv1alpha2.PackageRevision) bool {
 	return equality.Semantic.DeepEqual(existing.Labels, desired.Labels) &&
 		existing.Status.Deployment == desired.Status.Deployment &&
 		equality.Semantic.DeepEqual(existing.Status.UpstreamLock, desired.Status.UpstreamLock) &&
 		equality.Semantic.DeepEqual(existing.Status.SelfLock, desired.Status.SelfLock)
 }
 
-// buildPackageRevisionCRD constructs a PackageRevision CRD containing only
+// buildPackageRevision constructs a PackageRevision resource containing only
 // repo-controller-owned fields: identity, labels, ownerRef, locks, deployment.
 // Seed fields (lifecycle, publish metadata, Kptfile-derived) are applied
 // separately via applySeedFields on create.
-func buildPackageRevisionCRD(ctx context.Context, repo *configapi.Repository, pkgRev repository.PackageRevision) (*porchv1alpha2.PackageRevision, error) {
+func buildPackageRevision(ctx context.Context, repo *configapi.Repository, pkgRev repository.PackageRevision) (*porchv1alpha2.PackageRevision, error) {
 	key := pkgRev.Key()
 	_, upstreamLock, _ := pkgRev.GetUpstreamLock(ctx)
 	_, selfLock, _ := pkgRev.GetLock(ctx)
@@ -249,7 +249,7 @@ func buildPackageRevisionCRD(ctx context.Context, repo *configapi.Repository, pk
 	return crd, nil
 }
 
-// packageRevisionLabels returns the standard labels for a PackageRevision CRD,
+// packageRevisionLabels returns the standard labels for a PackageRevision,
 // including the repository label and the latest-revision indicator.
 func packageRevisionLabels(repoName string, pkgRev repository.PackageRevision) map[string]string {
 	labels := map[string]string{

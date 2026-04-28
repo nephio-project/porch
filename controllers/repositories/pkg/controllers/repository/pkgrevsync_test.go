@@ -36,7 +36,7 @@ import (
 
 // --- Test helpers ---
 
-func newTestCRDRepo() *configapi.Repository {
+func newTestRepo() *configapi.Repository {
 	return &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-repo",
@@ -61,7 +61,7 @@ func newFakePkgRev(pkg, workspace string, lifecycle porchv1alpha2.PackageRevisio
 	}
 }
 
-// mockListReturning sets up a mock List that populates the result with the given CRDs.
+// mockListReturning sets up a mock List that populates the result with the given PackageRevisions.
 func mockListReturning(m *mockclient.MockClient, items []porchv1alpha2.PackageRevision) {
 	m.EXPECT().List(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevisionList"), mock.Anything, mock.Anything).
 		Run(func(_ context.Context, list client.ObjectList, _ ...client.ListOption) {
@@ -129,11 +129,11 @@ func (f *fakePackageRevision) GetCommitInfo() (time.Time, string) {
 }
 func (f *fakePackageRevision) IsLatestRevision() bool { return f.isLatest }
 
-// --- Tests: buildPackageRevisionCRD ---
+// --- Tests: buildPackageRevision ---
 
-func TestBuildPackageRevisionCRD(t *testing.T) {
+func TestBuildPackageRevision(t *testing.T) {
 	ctx := context.Background()
-	repo := newTestCRDRepo()
+	repo := newTestRepo()
 
 	t.Run("published with full metadata", func(t *testing.T) {
 		pkgRev := newFakePkgRev("my-pkg", "v3", porchv1alpha2.PackageRevisionLifecyclePublished)
@@ -160,7 +160,7 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 			Git:  &kptfilev1.GitLock{Repo: "https://github.com/self.git", Ref: "main", Directory: "path/to/my-pkg", Commit: "def"},
 		}
 
-		crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+		crd, err := buildPackageRevision(ctx, repo, pkgRev)
 		assert.NoError(t, err)
 
 		// Metadata
@@ -197,10 +197,10 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 	t.Run("draft has no publish metadata", func(t *testing.T) {
 		pkgRev := newFakePkgRev("draft-pkg", "ws1", porchv1alpha2.PackageRevisionLifecycleDraft)
 
-		crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+		crd, err := buildPackageRevision(ctx, repo, pkgRev)
 		assert.NoError(t, err)
 
-		// buildPackageRevisionCRD never includes seed fields
+		// buildPackageRevision never includes seed fields
 		assert.Equal(t, 0, crd.Status.Revision)
 		assert.Empty(t, crd.Status.PublishedBy)
 		assert.Nil(t, crd.Status.PublishedAt)
@@ -210,7 +210,7 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 	t.Run("empty kptfile yields nil optional fields", func(t *testing.T) {
 		pkgRev := newFakePkgRev("bare-pkg", "ws1", porchv1alpha2.PackageRevisionLifecycleDraft)
 
-		crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+		crd, err := buildPackageRevision(ctx, repo, pkgRev)
 		assert.NoError(t, err)
 
 		assert.Nil(t, crd.Spec.ReadinessGates)
@@ -221,9 +221,9 @@ func TestBuildPackageRevisionCRD(t *testing.T) {
 	})
 }
 
-// --- Tests: packageRevisionCRDUpToDate ---
+// --- Tests: packageRevisionUpToDate ---
 
-func TestPackageRevisionCRDUpToDate(t *testing.T) {
+func TestPackageRevisionUpToDate(t *testing.T) {
 	base := &porchv1alpha2.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{RepositoryLabel: "repo1"},
@@ -261,7 +261,7 @@ func TestPackageRevisionCRDUpToDate(t *testing.T) {
 			if tt.modify != nil {
 				tt.modify(desired)
 			}
-			assert.Equal(t, tt.expected, packageRevisionCRDUpToDate(base, desired))
+			assert.Equal(t, tt.expected, packageRevisionUpToDate(base, desired))
 		})
 	}
 }
@@ -292,23 +292,23 @@ func TestPackageRevisionLabels(t *testing.T) {
 	}
 }
 
-// --- Tests: syncPackageRevisionCRDs ---
+// --- Tests: syncPackageRevisions ---
 
-func TestSyncPackageRevisionCRDs(t *testing.T) {
+func TestSyncPackageRevisions(t *testing.T) {
 	ctx := context.Background()
-	repo := newTestCRDRepo()
+	repo := newTestRepo()
 	draftPkgRev := newFakePkgRev("pkg1", "ws1", porchv1alpha2.PackageRevisionLifecycleDraft)
 
-	staleCRD := porchv1alpha2.PackageRevision{
+	stalePR := porchv1alpha2.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "stale-crd",
+			Name:      "stale-pr",
 			Namespace: "default",
 			Labels:    map[string]string{RepositoryLabel: "my-repo"},
 		},
 	}
 
-	// Pre-build the "up to date" CRD for the skip test
-	upToDateCRD, _ := buildPackageRevisionCRD(ctx, repo, draftPkgRev)
+	// Pre-build the "up to date" resource for the skip test
+	upToDatePR, _ := buildPackageRevision(ctx, repo, draftPkgRev)
 
 	tests := []struct {
 		name        string
@@ -317,11 +317,11 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 		expectError string
 	}{
 		{
-			name:    "creates new CRD with seed fields",
+			name:    "creates new PackageRevision with seed fields",
 			pkgRevs: []repository.PackageRevision{draftPkgRev},
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
 				mockListReturning(m, nil)
-				// applyPackageRevisionCRD: spec Patch + status Patch
+				// applyPackageRevision: spec Patch + status Patch
 				m.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 				sw := mockclient.NewMockSubResourceWriter(t)
 				sw.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -332,29 +332,29 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 			},
 		},
 		{
-			name:    "skips up-to-date CRD",
+			name:    "skips up-to-date PackageRevision",
 			pkgRevs: []repository.PackageRevision{draftPkgRev},
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
-				mockListReturning(m, []porchv1alpha2.PackageRevision{*upToDateCRD})
+				mockListReturning(m, []porchv1alpha2.PackageRevision{*upToDatePR})
 			},
 		},
 		{
-			name:    "deletes stale CRD",
+			name:    "deletes stale PackageRevision",
 			pkgRevs: nil,
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
-				mockListReturning(m, []porchv1alpha2.PackageRevision{staleCRD})
+				mockListReturning(m, []porchv1alpha2.PackageRevision{stalePR})
 				m.EXPECT().Delete(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision")).Return(nil)
 			},
 		},
 		{
-			name:    "deletes only stale CRDs when mixed with current",
+			name:    "deletes only stale PackageRevisions when mixed with current",
 			pkgRevs: []repository.PackageRevision{draftPkgRev},
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
-				// List returns both the current CRD (matching draftPkgRev) and a stale one
-				mockListReturning(m, []porchv1alpha2.PackageRevision{*upToDateCRD, staleCRD})
-				// Only the stale CRD should be deleted
+				// List returns both the current resource (matching draftPkgRev) and a stale one
+				mockListReturning(m, []porchv1alpha2.PackageRevision{*upToDatePR, stalePR})
+				// Only the stale one should be deleted
 				m.EXPECT().Delete(mock.Anything, mock.MatchedBy(func(obj client.Object) bool {
-					return obj.GetName() == "stale-crd"
+					return obj.GetName() == "stale-pr"
 				})).Return(nil)
 			},
 		},
@@ -362,7 +362,7 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 			name:    "delete error logged but sync succeeds",
 			pkgRevs: nil,
 			setupMocks: func(t *testing.T, m *mockclient.MockClient) {
-				mockListReturning(m, []porchv1alpha2.PackageRevision{staleCRD})
+				mockListReturning(m, []porchv1alpha2.PackageRevision{stalePR})
 				m.EXPECT().Delete(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision")).Return(fmt.Errorf("delete failed"))
 			},
 		},
@@ -391,7 +391,7 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 			tt.setupMocks(t, mockClient)
 
 			r := &RepositoryReconciler{Client: mockClient}
-			err := r.syncPackageRevisionCRDs(ctx, repo, tt.pkgRevs)
+			err := r.syncPackageRevisions(ctx, repo, tt.pkgRevs)
 
 			if tt.expectError != "" {
 				assert.ErrorContains(t, err, tt.expectError)
@@ -402,14 +402,14 @@ func TestSyncPackageRevisionCRDs(t *testing.T) {
 	}
 }
 
-// --- Tests: applyPackageRevisionCRD ---
+// --- Tests: applyPackageRevision ---
 
-func TestApplyPackageRevisionCRD(t *testing.T) {
+func TestApplyPackageRevision(t *testing.T) {
 	ctx := context.Background()
 
-	crd := &porchv1alpha2.PackageRevision{
+	pr := &porchv1alpha2.PackageRevision{
 		TypeMeta:   metav1.TypeMeta{Kind: "PackageRevision", APIVersion: porchv1alpha2.SchemeGroupVersion.Identifier()},
-		ObjectMeta: metav1.ObjectMeta{Name: "test-crd", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pr", Namespace: "default"},
 		Spec:       porchv1alpha2.PackageRevisionSpec{PackageName: "pkg1"},
 		Status:     porchv1alpha2.PackageRevisionStatus{Revision: 1},
 	}
@@ -452,7 +452,7 @@ func TestApplyPackageRevisionCRD(t *testing.T) {
 			tt.setupMocks(t, mockClient)
 
 			r := &RepositoryReconciler{Client: mockClient}
-			err := r.applyPackageRevisionCRD(ctx, crd.DeepCopy())
+			err := r.applyPackageRevision(ctx, pr.DeepCopy())
 
 			if tt.expectError != "" {
 				assert.ErrorContains(t, err, tt.expectError)
@@ -463,7 +463,7 @@ func TestApplyPackageRevisionCRD(t *testing.T) {
 	}
 }
 
-func TestBuildPackageRevisionCRDOmitsNonOwnedFields(t *testing.T) {
+func TestBuildPackageRevisionOmitsNonOwnedFields(t *testing.T) {
 	ctx := context.Background()
 	repo := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default", UID: "repo-uid"},
@@ -486,7 +486,7 @@ func TestBuildPackageRevisionCRDOmitsNonOwnedFields(t *testing.T) {
 		},
 	}
 
-	crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+	crd, err := buildPackageRevision(ctx, repo, pkgRev)
 	assert.NoError(t, err)
 
 	// Verify identity fields are present.
@@ -504,24 +504,24 @@ func TestBuildPackageRevisionCRDOmitsNonOwnedFields(t *testing.T) {
 // --- Tests: re-sync and race scenarios ---
 
 // TestResyncDoesNotStripNonOwnedStatusFields verifies that when the repo
-// controller re-syncs an existing CRD (update path), the SSA apply object
+// controller re-syncs an existing resource (update path), the SSA apply object
 // does not include status.revision, status.publishedBy, or status.publishedAt.
 // This prevents SSA from removing those fields on re-sync, which was the
 // root cause of status.revision being reset to 0 after repo re-sync.
 func TestResyncDoesNotStripNonOwnedStatusFields(t *testing.T) {
 	ctx := context.Background()
-	repo := newTestCRDRepo()
+	repo := newTestRepo()
 
 	pkgRev := newFakePkgRev("resync-pkg", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
 	pkgRev.key.Revision = 1
 	pkgRev.commitTime = time.Date(2025, 6, 15, 10, 30, 0, 0, time.UTC)
 	pkgRev.commitAuthor = "user@example.com"
 
-	// Build the CRD as the repo controller would for the update path.
-	crd, err := buildPackageRevisionCRD(ctx, repo, pkgRev)
+	// Build the resource as the repo controller would for the update path.
+	crd, err := buildPackageRevision(ctx, repo, pkgRev)
 	assert.NoError(t, err)
 
-	// The CRD must NOT contain publish metadata — those are PR-controller-owned.
+	// The resource must NOT contain publish metadata — those are PR-controller-owned.
 	assert.Equal(t, 0, crd.Status.Revision, "status.revision must not be set by repo controller")
 	assert.Empty(t, crd.Status.PublishedBy, "status.publishedBy must not be set by repo controller")
 	assert.Nil(t, crd.Status.PublishedAt, "status.publishedAt must not be set by repo controller")
@@ -529,11 +529,11 @@ func TestResyncDoesNotStripNonOwnedStatusFields(t *testing.T) {
 }
 
 // TestSyncUpdatePathDoesNotCallSeedFields verifies that when the informer
-// cache correctly identifies an existing CRD (isUpdate=true), applySeedFields
-// is NOT called — only applyPackageRevisionCRD runs.
+// cache correctly identifies an existing resource (isUpdate=true), applySeedFields
+// is NOT called — only applyPackageRevision runs.
 func TestSyncUpdatePathDoesNotCallSeedFields(t *testing.T) {
 	ctx := context.Background()
-	repo := newTestCRDRepo()
+	repo := newTestRepo()
 
 	pkgRev := newFakePkgRev("existing-pkg", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
 	pkgRev.selfLock = kptfilev1.Locator{
@@ -541,14 +541,14 @@ func TestSyncUpdatePathDoesNotCallSeedFields(t *testing.T) {
 		Git:  &kptfilev1.GitLock{Repo: "https://example.com/repo.git", Ref: "main", Directory: "existing-pkg", Commit: "new-commit"},
 	}
 
-	// Existing CRD has an old selfLock so it's NOT up-to-date.
-	existingCRD, _ := buildPackageRevisionCRD(ctx, repo, pkgRev)
-	existingCRD.Status.SelfLock = nil // different from desired → triggers update
+	// Existing resource has an old selfLock so it's NOT up-to-date.
+	existingPR, _ := buildPackageRevision(ctx, repo, pkgRev)
+	existingPR.Status.SelfLock = nil // different from desired → triggers update
 
 	mockClient := mockclient.NewMockClient(t)
-	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingCRD})
+	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingPR})
 
-	// Expect exactly 1 spec Patch + 1 status Patch (applyPackageRevisionCRD only).
+	// Expect exactly 1 spec Patch + 1 status Patch (applyPackageRevision only).
 	// No additional Patch calls from applySeedFields.
 	var specPatchObj *porchv1alpha2.PackageRevision
 	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
@@ -564,7 +564,7 @@ func TestSyncUpdatePathDoesNotCallSeedFields(t *testing.T) {
 		}).Return(nil).Once()
 
 	r := &RepositoryReconciler{Client: mockClient}
-	err := r.syncPackageRevisionCRDs(ctx, repo, []repository.PackageRevision{pkgRev})
+	err := r.syncPackageRevisions(ctx, repo, []repository.PackageRevision{pkgRev})
 	assert.NoError(t, err)
 
 	// Verify the spec apply does not include lifecycle.
@@ -580,19 +580,19 @@ func TestSyncUpdatePathDoesNotCallSeedFields(t *testing.T) {
 // called on the create path (!isUpdate), not on the update path.
 func TestSeedFieldsNotCalledOnUpdate(t *testing.T) {
 	ctx := context.Background()
-	repo := newTestCRDRepo()
+	repo := newTestRepo()
 
 	pkgRev := newFakePkgRev("pkg1", "v1", porchv1alpha2.PackageRevisionLifecyclePublished)
 	pkgRev.key.Revision = 1
 
-	// Simulate existing CRD with different labels to force an update.
-	existingCRD, _ := buildPackageRevisionCRD(ctx, repo, pkgRev)
-	existingCRD.Labels["extra"] = "label"
+	// Simulate existing resource with different labels to force an update.
+	existingPR, _ := buildPackageRevision(ctx, repo, pkgRev)
+	existingPR.Labels["extra"] = "label"
 
 	mockClient := mockclient.NewMockClient(t)
-	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingCRD})
+	mockListReturning(mockClient, []porchv1alpha2.PackageRevision{*existingPR})
 
-	// Only applyPackageRevisionCRD calls expected (1 spec Patch + 1 status Patch).
+	// Only applyPackageRevision calls expected (1 spec Patch + 1 status Patch).
 	mockClient.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	sw := mockclient.NewMockSubResourceWriter(t)
 	mockClient.EXPECT().Status().Return(sw).Once()
@@ -602,6 +602,6 @@ func TestSeedFieldsNotCalledOnUpdate(t *testing.T) {
 	// which would cause the mock to fail with unexpected calls.
 
 	r := &RepositoryReconciler{Client: mockClient}
-	err := r.syncPackageRevisionCRDs(ctx, repo, []repository.PackageRevision{pkgRev})
+	err := r.syncPackageRevisions(ctx, repo, []repository.PackageRevision{pkgRev})
 	assert.NoError(t, err)
 }

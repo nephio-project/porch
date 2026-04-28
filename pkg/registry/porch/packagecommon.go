@@ -172,23 +172,14 @@ func (v *v1alpha2FilteringWatcher) OnPackageRevisionChange(eventType watch.Event
 }
 
 func (r *packageCommon) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
-	wrappedCallback := callback
-	if namespaced && ns != "" {
-		wrappedCallback = &namespaceFilteringWatcher{
-			ns:       ns,
-			delegate: wrappedCallback,
-		}
-	}
-	wrappedCallback = &v1alpha2FilteringWatcher{
-		coreClient: r.coreClient,
-		delegate:   wrappedCallback,
-	}
-	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter, wrappedCallback); err != nil {
-		return err
-	}
+	var watcher engine.ObjectWatcher = callback
 
-	return nil
+	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced && ns != "" {
+		watcher = &namespaceFilteringWatcher{ns: ns, delegate: watcher}
+	}
+	watcher = &v1alpha2FilteringWatcher{coreClient: r.coreClient, delegate: watcher}
+
+	return r.cad.ObjectCache().WatchPackageRevisions(ctx, filter, watcher)
 }
 
 func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
@@ -376,10 +367,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	}
 
 	if isV1Alpha2Repo(&repositoryObj) {
-		return nil, false, apierrors.NewForbidden(
-			porchapi.Resource("packagerevisions"),
-			name,
-			fmt.Errorf("repository %q is managed by v1alpha2 controller", repositoryID.Name))
+		return nil, false, apierrors.NewGone(fmt.Sprintf("repository %q is managed by v1alpha2; use the v1alpha2 API", repositoryID.Name))
 	}
 
 	var parentPackage repository.PackageRevision

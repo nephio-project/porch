@@ -299,8 +299,8 @@ func TestCreate(t *testing.T) {
 	result, err = packagerevisions.Create(ctx, newPkgRev, nil, &metav1.CreateOptions{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.True(t, apierrors.IsForbidden(err))
-	assert.ErrorContains(t, err, "managed by v1alpha2 controller")
+	assert.True(t, apierrors.IsGone(err))
+	assert.ErrorContains(t, err, "managed by v1alpha2")
 }
 
 func TestDelete(t *testing.T) {
