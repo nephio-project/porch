@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/pkg/util"
+	regclientref "github.com/regclient/regclient/types/ref"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
@@ -86,16 +88,42 @@ func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
 }
 
 func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
-	binary, cached := e.cache[req.Image]
-	if !cached {
-		return nil, &fn.NotFoundError{
-			Function: kptfilev1.Function{Image: req.Image},
+	var selectedBinary string
+	if req.Tag != "" {
+		ref, err := regclientref.New(req.Image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse image %q as reference: %w", req.Image, err)
 		}
+		ref.Tag = ""
+		ref.Digest = ""
+		req.Image = ref.CommonName()
+
+		cacheKeys := make([]string, 0, len(e.cache))
+		for k := range e.cache {
+			cacheKeys = append(cacheKeys, k)
+		}
+		selectedKey, err := util.FindBestSemverMatch(req.Tag, req.Image, cacheKeys)
+		if err != nil {
+			return nil, &fn.NotFoundError{
+				Function: kptfilev1.Function{Image: req.Image},
+			}
+		}
+		selectedBinary = e.cache[selectedKey]
+	} else {
+		klog.Infof("Image tag is empty, using the image with explicit tag: %q", req.Image)
+		binary, cached := e.cache[req.Image]
+		if !cached {
+			klog.Infof("Image %q is not found in the cache", req.Image)
+			return nil, &fn.NotFoundError{
+				Function: kptfilev1.Function{Image: req.Image},
+			}
+		}
+		selectedBinary = binary
 	}
 
 	klog.Infof("Evaluating %q in executable mode", req.Image)
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, binary) // #nosec G204 -- variables controlled internally
+	cmd := exec.CommandContext(ctx, selectedBinary) // #nosec G204 -- variables controlled internally
 	cmd.Stdin = bytes.NewReader(req.ResourceList)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

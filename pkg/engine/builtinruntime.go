@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
@@ -27,6 +28,9 @@ import (
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/pkg/util"
+	regclientref "github.com/regclient/regclient/types/ref"
+	"k8s.io/klog/v2"
 )
 
 // When updating the version for the builtin functions, please also update the image version
@@ -79,15 +83,48 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 var _ kptops.FunctionRuntime = &builtinRuntime{}
 
 func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
-	processor, found := br.fnMapping[funct.Image]
-	if !found {
-		return nil, &fn.NotFoundError{Function: *funct}
+	builtinRunner := &builtinRunner{
+		ctx: ctx,
 	}
 
-	return &builtinRunner{
-		ctx:       ctx,
-		processor: processor,
-	}, nil
+	if funct.Tag != "" {
+		ref, err := regclientref.New(funct.Image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse image %q as reference: %w", funct.Image, err)
+		}
+		// If the image already carries an inline tag, strip it
+		// so FindBestSemverMatch gets a bare repository name, and
+		// we don't produce a double-tag
+		if ref.Tag != "" {
+			if stripped := strings.TrimSuffix(funct.Image, ":"+ref.Tag); stripped != funct.Image {
+				klog.Infof("Image %q already contains tag %q; stripping it in favor of Tag constraint %q", funct.Image, ref.Tag, funct.Tag)
+				funct.Image = stripped
+			}
+		}
+
+		cacheKeys := make([]string, 0, len(br.fnMapping))
+		for k := range br.fnMapping {
+			cacheKeys = append(cacheKeys, k)
+		}
+		selectedKey, err := util.FindBestSemverMatch(funct.Tag, funct.Image, cacheKeys)
+		if err != nil {
+			return nil, &fn.NotFoundError{
+				Function: kptfilev1.Function{Image: funct.Image},
+			}
+		}
+		builtinRunner.processor = br.fnMapping[selectedKey]
+	} else {
+		klog.Infof("Image tag is empty, using the image with explicit tag: %q", funct.Image)
+
+		processor, found := br.fnMapping[funct.Image]
+		if !found {
+			klog.Infof("Image %q is not found in the cache", funct.Image)
+			return nil, &fn.NotFoundError{Function: *funct}
+		}
+		builtinRunner.processor = processor
+	}
+
+	return builtinRunner, nil
 }
 
 func (br *builtinRuntime) Close() error {

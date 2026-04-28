@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/fn/runtime"
 	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/pkg/util"
 	"google.golang.org/grpc"
@@ -176,6 +177,7 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 				registryAuthSecretName:     o.RegistryAuthSecretName,
 				enablePrivateRegistriesTls: o.EnablePrivateRegistriesTls,
 				tlsSecretPath:              o.TlsSecretPath,
+				tagResolver:                runtime.TagResolver{},
 			},
 		},
 	}
@@ -200,9 +202,18 @@ func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, err
 
 func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.EvaluateFunctionRequest) (*evaluator.EvaluateFunctionResponse, error) {
 	starttime := time.Now()
+	var image string
 	defer func() {
 		klog.Infof("evaluating %v in pod took %v", req.Image, time.Since(starttime))
 	}()
+	tagResolver := pe.podCacheManager.podManager.tagResolver
+	var err error
+	image, err = tagResolver.ResolveFunctionImage(ctx, req.Image, req.Tag)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve tag for image %q with constraint %q: %w", req.Image, req.Tag, err)
+	}
+	req.Image = image
+
 	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting goroutine in batch.
 	responseChannel := make(chan *connectionResponse, 1)
 	// Send a request to request a grpc client.
@@ -223,11 +234,11 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 		resp, err := evaluator.NewFunctionEvaluatorClient(pod.grpcConnection).EvaluateFunction(ctx, req)
 		if err != nil {
 			klog.V(4).Infof("Resource List: %s", req.ResourceList)
-			return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
+			return nil, fmt.Errorf("unable to evaluate %q with pod evaluator: %w", req.Image, err)
 		}
 		// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.
 		if len(resp.Log) > 0 {
-			klog.Warningf("evaluating %v succeeded, but stderr is: %v", req.Image, string(resp.Log))
+			klog.Warningf("evaluating %q succeeded, but stderr is: %v", req.Image, string(resp.Log))
 		}
 		return resp, nil
 	case <-ctx.Done():

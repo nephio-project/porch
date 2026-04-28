@@ -26,6 +26,7 @@ import (
 	"slices"
 	"strings"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -344,4 +345,58 @@ func RetryOnError(retries int, f func(retryNumber int) error) error {
 	}
 	klog.Errorf("Failed to fetch remote repository after %d retries: %v", retries, err)
 	return err
+}
+
+// FindBestSemverMatch selects the cache key whose semver tag best satisfies
+// the constraint for the given imageName. It returns the full cache key
+// (e.g. "ghcr.io/foo/bar:v1.2.3") of the highest matching version.
+func FindBestSemverMatch(constraint string, imageName string, cacheKeys []string) (string, error) {
+	c, err := semver.NewConstraint(constraint)
+	if err != nil {
+		return "", fmt.Errorf("invalid semver constraint %q: %w", constraint, err)
+	}
+
+	type candidate struct {
+		key     string
+		version *semver.Version
+	}
+
+	var matches []candidate
+	for _, key := range cacheKeys {
+		idx := strings.LastIndex(key, ":v")
+		if idx == -1 {
+			continue
+		}
+
+		baseName := key[:idx]
+		if baseName != imageName {
+			continue
+		}
+
+		versionStr := key[idx+1:] // skip past ":"
+		v, err := semver.NewVersion(versionStr)
+		if err != nil {
+			klog.Infof("Failed to parse version %q from cached image %q: %v", versionStr, key, err)
+			continue
+		}
+
+		if c.Check(v) {
+			matches = append(matches, candidate{key: key, version: v})
+		}
+	}
+
+	if len(matches) == 0 {
+		klog.Infof("Image %q with constraint %q is not found in the cache", imageName, constraint)
+		return "", fmt.Errorf("no image matching %q with constraint %q found in the cache", imageName, constraint)
+	}
+
+	slices.SortFunc(matches, func(a, b candidate) int {
+		return a.version.Compare(b.version)
+	})
+
+	selected := matches[len(matches)-1]
+	klog.Infof("Selected image %q (version %q) for request %q",
+		selected.key, selected.version, imageName)
+
+	return selected.key, nil
 }

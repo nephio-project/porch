@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/kptdev/kpt/pkg/fn/runtime"
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +48,13 @@ func startFakeEvalServer(t *testing.T, evalFunc func(ctx context.Context, req *p
 
 func TestEvaluateFunction_ErrorInResponse(t *testing.T) {
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh
@@ -66,7 +73,13 @@ func TestEvaluateFunction_ErrorInResponse(t *testing.T) {
 
 func TestEvaluateFunction_NilGrpcConnection(t *testing.T) {
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh
@@ -96,7 +109,13 @@ func TestEvaluateFunction_GrpcCallFails(t *testing.T) {
 	counter.Store(1)
 
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh
@@ -130,7 +149,13 @@ func TestEvaluateFunction_SuccessWithStderr(t *testing.T) {
 	counter.Store(1)
 
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh
@@ -164,7 +189,13 @@ func TestEvaluateFunction_SuccessClean(t *testing.T) {
 	counter.Store(1)
 
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh
@@ -196,7 +227,13 @@ func TestEvaluateFunction_CounterDecrement(t *testing.T) {
 	counter.Store(1)
 
 	reqCh := make(chan *connectionRequest, 1)
-	pe := &podEvaluator{requestCh: reqCh}
+	pe := &podEvaluator{requestCh: reqCh,
+		podCacheManager: &podCacheManager{
+			podManager: &podManager{
+				tagResolver: runtime.TagResolver{},
+			},
+		},
+	}
 
 	go func() {
 		req := <-reqCh

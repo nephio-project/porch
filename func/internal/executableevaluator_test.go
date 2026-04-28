@@ -1,0 +1,330 @@
+// Copyright 2022, 2026 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package internal
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
+	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
+)
+
+const (
+	baseConfigFile         = "testdata/config.yaml"
+	badFormattedConfigFile = "testdata/config_bad_format.yaml"
+	defaultKRMImagePrefix  = "ghcr.io/kptdev/krm-functions-catalog/"
+	setImageFunction       = "set-image"
+	testCacheDir           = "/tmp/func_cache"
+)
+
+func TestNewExecutableEvaluator(t *testing.T) {
+	t.Run("failed to read configuration file", func(t *testing.T) {
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   "testdata/executable_evaluator_config.yaml",
+			FunctionCacheDir: testCacheDir,
+		}
+
+		_, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		assert.ErrorContains(t, err, "failed to read configuration file")
+	})
+	t.Run("failed to parse configuration file", func(t *testing.T) {
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   badFormattedConfigFile,
+			FunctionCacheDir: testCacheDir,
+		}
+
+		_, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		assert.ErrorContains(t, err, "failed to parse configuration file")
+	})
+	t.Run("no errors", func(t *testing.T) {
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: testCacheDir,
+		}
+
+		_, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		assert.NoError(t, err)
+	})
+}
+
+func TestEvaluateExecutableFunction(t *testing.T) {
+	t.Run("invalid semver constraint will cause function not found error", func(t *testing.T) {
+		ctx := t.Context()
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: testCacheDir,
+		}
+
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte("req-rl"),
+			Image:        defaultKRMImagePrefix + testImageName,
+			Tag:          ">> 1.2.3 < 1.3.0", // Invalid semver constraint, '>>' is not a valid operator
+		}
+
+		evaluator, _ := NewExecutableEvaluator(executableEvaluatorOptions)
+		resp, err := evaluator.EvaluateFunction(ctx, req)
+
+		assert.Nil(t, resp)
+		assert.Equal(t, &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: req.Image},
+		}, err)
+	})
+	t.Run("function not found", func(t *testing.T) {
+		ctx := t.Context()
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: testCacheDir,
+		}
+
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte("req-rl"),
+			// This image is not included in the config.yaml -> function not found
+			Image: defaultKRMImagePrefix + testImageName,
+			Tag:   "> 1.2.3 < 1.3.0", // This is a valid semver constraint syntax
+		}
+
+		evaluator, _ := NewExecutableEvaluator(executableEvaluatorOptions)
+		_, err := evaluator.EvaluateFunction(ctx, req)
+		assert.Equal(t, fmt.Sprintf("function \"%s\" not found", req.Image), err.Error())
+	})
+	t.Run("function does not match the semantic version constraints", func(t *testing.T) {
+		ctx := t.Context()
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: testCacheDir,
+		}
+
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte("req-rl"),
+			Image:        defaultKRMImagePrefix + setImageFunction,
+			Tag:          "> 0.1.3 < 0.2.0",
+		}
+
+		evaluator, _ := NewExecutableEvaluator(executableEvaluatorOptions)
+		_, err := evaluator.EvaluateFunction(ctx, req)
+		assert.ErrorContains(t, err, fmt.Sprintf("function \"%s\" not found", req.Image), err.Error())
+	})
+
+	t.Run("failed to execute function", func(t *testing.T) {
+		ctx := t.Context()
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName: baseConfigFile,
+			// Cache dir does not contain the executable binary -> execution will fail
+			FunctionCacheDir: testCacheDir,
+		}
+
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte("req-rl"),
+			Image:        defaultKRMImagePrefix + setImageFunction,
+			Tag:          ">= 0.1.2 < 0.2.0",
+		}
+
+		evaluator, _ := NewExecutableEvaluator(executableEvaluatorOptions)
+		_, err := evaluator.EvaluateFunction(ctx, req)
+		assert.ErrorContains(t, err, fmt.Sprintf("Failed to execute function \"%s\":", req.Image))
+	})
+	t.Run("successful function execution with semantic versioning", func(t *testing.T) {
+		ctx := t.Context()
+
+		// Create a temporary directory for the function cache
+		tmpDir := t.TempDir()
+
+		// Create a simple test executable that echoes input as a valid KRM function
+		testBinary := filepath.Join(tmpDir, setImageFunction)
+
+		const testScript = `#!/bin/sh
+# Emulating the KRM function execution by running this shell script
+cat
+exit 0
+`
+		err := os.WriteFile(testBinary, []byte(testScript), 0755)
+		assert.NoError(t, err)
+
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: tmpDir,
+		}
+
+		// Use a valid KRM ResourceList format
+		const resourceList = `apiVersion: config.kubernetes.io/v1
+kind: ResourceList
+items: []
+`
+
+		// This constraint matches both v0.1.2 and v0.1.3 from config.yaml
+		// We expect v0.1.3 to be selected as it's the greatest version
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte(resourceList),
+			Image:        defaultKRMImagePrefix + setImageFunction,
+			Tag:          ">= 0.1.2 < 0.2.0",
+		}
+
+		// Capture klog output by redirecting stderr
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		evaluator, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		require.NoError(t, err)
+
+		resp, err := evaluator.EvaluateFunction(ctx, req)
+
+		// Flush klog and restore stderr
+		klog.Flush()
+		w.Close()
+		os.Stderr = oldStderr
+
+		// Read captured output
+		var logBuffer bytes.Buffer
+		logBuffer.ReadFrom(r)
+		logOutput := logBuffer.String()
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		// Verify the klog message contains the expected version selection
+		assert.Contains(t, logOutput, `Selected image "ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.3"`)
+		assert.Contains(t, logOutput, `(version "0.1.3")`)
+		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-image"`)
+	})
+	t.Run("successful function execution with explicit tagging", func(t *testing.T) {
+		ctx := t.Context()
+
+		// Create a temporary directory for the function cache
+		tmpDir := t.TempDir()
+
+		// Create a simple test executable that echoes input as a valid KRM function
+		testBinary := filepath.Join(tmpDir, setImageFunction)
+		const testScript = `#!/bin/sh
+# Emulating the KRM function execution by running this shell script
+cat
+exit 0
+`
+		err := os.WriteFile(testBinary, []byte(testScript), 0755)
+		require.NoError(t, err)
+
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: tmpDir,
+		}
+
+		// Use a valid KRM ResourceList format
+		const resourceList = `apiVersion: config.kubernetes.io/v1
+kind: ResourceList
+items: []
+`
+
+		// Explicit tagging
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte(resourceList),
+			Image:        defaultKRMImagePrefix + setImageFunction + ":v0.1.3",
+		}
+
+		// Capture klog output by redirecting stderr
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		evaluator, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		require.NoError(t, err)
+
+		resp, err := evaluator.EvaluateFunction(ctx, req)
+
+		// Flush klog and restore stderr
+		klog.Flush()
+		w.Close()
+		os.Stderr = oldStderr
+
+		// Read captured output
+		var logBuffer bytes.Buffer
+		logBuffer.ReadFrom(r)
+		logOutput := logBuffer.String()
+
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		// Verify the klog message contains the expected version selection
+		assert.Contains(t, logOutput, `Image tag is empty, using the image with explicit tag: "ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.3"`)
+	})
+	t.Run("successful execution with explicit tagging + Tag field set", func(t *testing.T) {
+		ctx := t.Context()
+
+		// Create a temporary directory for the function cache
+		tmpDir := t.TempDir()
+
+		// Create a simple test executable that echoes input as a valid KRM function
+		testBinary := filepath.Join(tmpDir, setImageFunction)
+		const testScript = `#!/bin/sh
+# Emulating the KRM function execution by running this shell script
+cat
+exit 0
+`
+		err := os.WriteFile(testBinary, []byte(testScript), 0755)
+		require.NoError(t, err)
+
+		executableEvaluatorOptions := ExecutableEvaluatorOptions{
+			ConfigFileName:   baseConfigFile,
+			FunctionCacheDir: tmpDir,
+		}
+
+		// Use a valid KRM ResourceList format
+		const resourceList = `apiVersion: config.kubernetes.io/v1
+kind: ResourceList
+items: []
+`
+
+		req := &pb.EvaluateFunctionRequest{
+			ResourceList: []byte(resourceList),
+			Image:        defaultKRMImagePrefix + setImageFunction + ":v0.0.1",
+			Tag:          ">= 0.1.2 < 0.2.0",
+		}
+
+		// Capture klog output by redirecting stderr
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		evaluator, err := NewExecutableEvaluator(executableEvaluatorOptions)
+		require.NoError(t, err)
+
+		resp, err := evaluator.EvaluateFunction(ctx, req)
+
+		// Flush klog and restore stderr
+		klog.Flush()
+		w.Close()
+		os.Stderr = oldStderr
+
+		// Read captured output
+		var logBuffer bytes.Buffer
+		logBuffer.ReadFrom(r)
+		logOutput := logBuffer.String()
+
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		// Verify the klog message contains the expected version selection
+		assert.Contains(t, logOutput, `Selected image "ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.3"`)
+		assert.Contains(t, logOutput, `(version "0.1.3")`)
+		assert.Contains(t, logOutput, `for request "ghcr.io/kptdev/krm-functions-catalog/set-image"`)
+	})
+}

@@ -1,18 +1,16 @@
-/*
- Copyright 2025 The Nephio Authors.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-*/
+// Copyright 2025-2026 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package internal
 
@@ -56,6 +54,7 @@ const (
 	defaultPodIP                   = "10.10.10.10"
 	defaultServiceIP               = "20.10.10.10"
 	defaultFunctionPodTemplateName = "function-pod-template"
+	defaultRegistryAuthSecret      = "authsecret"
 )
 
 type fakeFunctionEvalServer struct {
@@ -994,6 +993,27 @@ func TestMultipleEndpointsWithStuckPod(t *testing.T) {
 		assert.Len(t, finalEndpoint.Subsets[0].Addresses, 1, "Expected endpoint to have exactly 1 address")
 		assert.Equal(t, newPodIP, finalEndpoint.Subsets[0].Addresses[0].IP, "Expected endpoint IP to match new pod IP")
 	}
+}
+
+// Fake client handles pod patches incorrectly in case the pod doesn't exist
+//
+//nolint:unused
+func fakeClientPatchFixInterceptor(ctx context.Context, kubeClient client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
+		var canary corev1.Pod
+		err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				err = kubeClient.Create(ctx, obj)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func marshalToYamlOrPanic(obj interface{}) []byte {

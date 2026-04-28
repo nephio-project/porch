@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const testImage = "test-image:latest"
+const (
+	testImage = "test-image"
+	testTag   = "latest"
+)
 
 func TestNewGRPCFunctionRuntimeSuccess(t *testing.T) {
 	addr, stop := startMockServer(t)
@@ -78,6 +81,7 @@ func TestGRPCRuntimeGetRunner(t *testing.T) {
 
 	fn := &v1.Function{
 		Image: testImage,
+		Tag:   testTag,
 	}
 
 	runner, err := runtime.GetRunner(t.Context(), fn)
@@ -150,6 +154,7 @@ items:
 		ctx:    t.Context(),
 		client: client,
 		image:  testImage,
+		tag:    testTag,
 	}
 
 	reader := strings.NewReader(`apiVersion: config.kubernetes.io/v1alpha1
@@ -186,6 +191,7 @@ func TestGRPCRunnerRunEvaluationError(t *testing.T) {
 		ctx:    t.Context(),
 		client: client,
 		image:  testImage,
+		tag:    testTag,
 	}
 
 	reader := strings.NewReader(`apiVersion: config.kubernetes.io/v1alpha1
@@ -211,6 +217,7 @@ func TestGRPCRunnerRunReadError(t *testing.T) {
 		ctx:    t.Context(),
 		client: nil,
 		image:  testImage,
+		tag:    testTag,
 	}
 
 	reader := &errorReader{}
@@ -244,6 +251,7 @@ items:
 		ctx:    t.Context(),
 		client: client,
 		image:  testImage,
+		tag:    testTag,
 	}
 
 	reader := strings.NewReader(`apiVersion: config.kubernetes.io/v1alpha1

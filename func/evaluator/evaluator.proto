@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@ message EvaluateFunctionRequest {
 
   // kpt image identifying the function to evaluate
   string image = 2;
+
+  // optional field for function description.
+  string Tag = 3;
 }
 
 // ConfigMap wraps a map<string, string> for use in oneof clause.
