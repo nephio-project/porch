@@ -260,8 +260,11 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name: "Successful package revision listing",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
+				cad.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						cb := args.Get(2).(func(repository.PackageRevision) error)
+						cb(pkgRev)
+					}).Return(nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
 			expectedError: nil,
@@ -271,8 +274,11 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name: "Successful namespace filtering",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
+				cad.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						cb := args.Get(2).(func(repository.PackageRevision) error)
+						cb(pkgRev)
+					}).Return(nil)
 			},
 			filter: repository.ListPackageRevisionFilter{
 				Key: repository.PackageRevisionKey{
@@ -290,8 +296,8 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name: "CaD engine error",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
+				cad.On("StreamPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return(fmt.Errorf("CaD engine error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
 			expectedError: fmt.Errorf("CaD engine error"),
