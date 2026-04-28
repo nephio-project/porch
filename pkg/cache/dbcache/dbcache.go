@@ -159,14 +159,17 @@ func (c *dbCache) FindAllUpstreamReferencesInRepositories(ctx context.Context, n
 }
 
 func (c *dbCache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	dbprs, err := pkgRevListPRsFromDB(ctx, filter)
+	result := []repository.PackageRevision{}
+	err := c.StreamPackageRevisions(ctx, filter, func(rev repository.PackageRevision) error {
+		result = append(result, rev)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	var prs []repository.PackageRevision
-	prs = make([]repository.PackageRevision, len(dbprs))
-	for i, dbpr := range dbprs {
-		prs[i] = dbpr
-	}
-	return prs, nil
+	return result, nil
+}
+
+func (c *dbCache) StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error {
+	return pkgRevStreamPRsFromDB(ctx, filter, callback)
 }

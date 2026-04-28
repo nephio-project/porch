@@ -163,15 +163,25 @@ func (c *Cache) FindAllUpstreamReferencesInRepositories(ctx context.Context, nam
 }
 
 func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	result := []repository.PackageRevision{}
+	err := c.StreamPackageRevisions(ctx, filter, func(rev repository.PackageRevision) error {
+		result = append(result, rev)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
+func (c *Cache) StreamPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(repository.PackageRevision) error) error {
 	var opts []client.ListOption
 
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && namespace != "" {
 		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
-			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
-
 		opts = append(opts, client.InNamespace(namespace))
 	}
 
@@ -181,18 +191,18 @@ func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.List
 
 	var repoList configapi.RepositoryList
 	if err := c.options.CoreClient.List(ctx, &repoList, opts...); err != nil {
-		return nil, fmt.Errorf("error listing repository objects: %w", err)
+		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 	repos := repoList.Items
+
+	repoCount := len(repos)
+	if repoCount == 0 {
+		return nil
+	}
 
 	type pkgRevResult struct {
 		Revisions []repository.PackageRevision
 		Err       error
-	}
-
-	repoCount := len(repos)
-	if repoCount == 0 {
-		return []repository.PackageRevision{}, nil
 	}
 
 	workerCount := repoCount
@@ -247,14 +257,12 @@ func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.List
 	}
 
 	received := 0
-	resultPRs := []repository.PackageRevision{}
-
 	for {
 		select {
 		case <-innerCtx.Done():
 			klog.Warningf("Timeout reached — returning partial results")
 			close(repoQueue)
-			return resultPRs, nil
+			return nil
 
 		case res := <-resultsCh:
 			received++
@@ -263,13 +271,15 @@ func (c *Cache) ListPackageRevisions(ctx context.Context, filter repository.List
 				klog.Warningf("error listing package revisions: %+v", res.Err)
 			}
 			for _, rev := range res.Revisions {
-				resultPRs = append(resultPRs, rev)
+				if err := callback(rev); err != nil {
+					close(repoQueue)
+					return err
+				}
 			}
-
 		}
 		if received == repoCount {
 			close(repoQueue)
-			return resultPRs, nil
+			return nil
 		}
 	}
 }

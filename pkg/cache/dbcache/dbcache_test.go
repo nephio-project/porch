@@ -29,7 +29,9 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
+	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -360,4 +362,60 @@ func (t *DbTestSuite) TestDBCacheFactory_NewCacheWithoutSemaphore() {
 	t.NotNil(cache)
 	dc := cache.(*dbCache)
 	t.Nil(dc.syncSemaphore, "semaphore should be nil when MaxConcurrentSyncs == 0")
+
+
+func (t *DbTestSuite) TestStreamPackageRevisions() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{}).Maybe()
+
+	dbRepo := t.createTestRepo("stream-ns", "stream-repo")
+	pkgs := t.createTestPkgs(dbRepo.Key(), "stream-pkg", 2)
+	t.createTestPRs(pkgs, "ws", 3)
+
+	cache := &dbCache{}
+
+	// StreamPackageRevisions should invoke callback per revision
+	var streamed []repository.PackageRevision
+	err := cache.StreamPackageRevisions(t.Context(), repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{Namespace: "stream-ns", Name: "stream-repo"},
+			},
+		},
+	}, func(rev repository.PackageRevision) error {
+		streamed = append(streamed, rev)
+		return nil
+	})
+	t.NoError(err)
+	t.Equal(6, len(streamed))
+
+	// ListPackageRevisions should return the same count
+	listed, err := cache.ListPackageRevisions(t.Context(), repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{Namespace: "stream-ns", Name: "stream-repo"},
+			},
+		},
+	})
+	t.NoError(err)
+	t.Equal(len(streamed), len(listed))
+
+	// Callback error should stop streaming
+	count := 0
+	testErr := fmt.Errorf("stop early")
+	err = cache.StreamPackageRevisions(t.Context(), repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{Namespace: "stream-ns", Name: "stream-repo"},
+			},
+		},
+	}, func(rev repository.PackageRevision) error {
+		count++
+		return testErr
+	})
+	t.ErrorIs(err, testErr)
+	t.Equal(1, count)
+
+	t.deleteTestRepo(dbRepo.Key())
 }

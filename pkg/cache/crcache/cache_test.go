@@ -38,6 +38,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 )
@@ -444,4 +445,149 @@ func TestFindUpstreamReference(t *testing.T) {
 			assert.Equal(t, tt.wantDep, dep)
 		})
 	}
+}
+
+func TestStreamPackageRevisions(t *testing.T) {
+	ctx := context.Background()
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join(testPath, "nested-repository.tar")
+	_, address := gitserver.ServeGitRepository(t, tarfile, tempdir)
+
+	repo := &v1alpha1.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "nested", Namespace: "default"},
+		Spec: v1alpha1.RepositorySpec{
+			Type: v1alpha1.RepositoryTypeGit,
+			Git:  &v1alpha1.GitRepository{Repo: address},
+		},
+	}
+
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repo).Build()
+
+	cache := &Cache{
+		repositories: repomap.SafeRepoMap{},
+		metadataStore: &fakemeta.MemoryMetadataStore{
+			Metas: []metav1.ObjectMeta{},
+		},
+		options: cachetypes.CacheOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+				LocalDirectory:             t.TempDir(),
+				UseUserDefinedCaBundle:     true,
+				CredentialResolver:         &fakecache.CredentialResolver{},
+				RepoOperationRetryAttempts: 3,
+			},
+			CoreClient:           fakeClient,
+			RepoSyncFrequency:    60 * time.Second,
+			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+		},
+	}
+
+	t.Run("streams all revisions", func(t *testing.T) {
+		var streamed []repository.PackageRevision
+		err := cache.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+			streamed = append(streamed, rev)
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Greater(t, len(streamed), 0)
+
+		// ListPackageRevisions should return the same count
+		listed, err := cache.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+		require.NoError(t, err)
+		assert.Equal(t, len(streamed), len(listed))
+	})
+
+	t.Run("callback error stops streaming", func(t *testing.T) {
+		count := 0
+		testErr := fmt.Errorf("stop early")
+		err := cache.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+			count++
+			return testErr
+		})
+		assert.ErrorIs(t, err, testErr)
+		assert.Equal(t, 1, count)
+	})
+
+	t.Run("empty repo list returns nil", func(t *testing.T) {
+		emptyClient := k8sfake.NewClientBuilder().WithScheme(scheme).Build()
+		emptyCache := &Cache{
+			options: cachetypes.CacheOptions{CoreClient: emptyClient},
+		}
+		called := false
+		err := emptyCache.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+			called = true
+			return nil
+		})
+		assert.NoError(t, err)
+		assert.False(t, called)
+
+		listed, err := emptyCache.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+		assert.NoError(t, err)
+		assert.Equal(t, []repository.PackageRevision{}, listed)
+	})
+
+	t.Run("conflicting namespaces returns error", func(t *testing.T) {
+		nsCtx := genericapirequest.WithNamespace(ctx, "ns-a")
+		filter := repository.ListPackageRevisionFilter{
+			Key: repository.PackageRevisionKey{
+				PkgKey: repository.PackageKey{
+					RepoKey: repository.RepositoryKey{Namespace: "ns-b"},
+				},
+			},
+		}
+		err := cache.StreamPackageRevisions(nsCtx, filter, func(rev repository.PackageRevision) error {
+			return nil
+		})
+		assert.ErrorContains(t, err, "conflicting namespaces")
+	})
+
+	t.Run("with MaxConcurrentLists", func(t *testing.T) {
+		limitedCache := &Cache{
+			repositories:  cache.repositories,
+			metadataStore: cache.metadataStore,
+			options: cachetypes.CacheOptions{
+				ExternalRepoOptions: cache.options.ExternalRepoOptions,
+				CoreClient:          fakeClient,
+				RepoSyncFrequency:   60 * time.Second,
+				RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+				CRCacheOptions: cachetypes.CRCacheOptions{
+					MaxConcurrentLists: 1,
+				},
+			},
+		}
+		var count int
+		err := limitedCache.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+			count++
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Greater(t, count, 0)
+	})
+
+	t.Run("with ListTimeoutPerRepository", func(t *testing.T) {
+		timedCache := &Cache{
+			repositories:  cache.repositories,
+			metadataStore: cache.metadataStore,
+			options: cachetypes.CacheOptions{
+				ExternalRepoOptions: cache.options.ExternalRepoOptions,
+				CoreClient:          fakeClient,
+				RepoSyncFrequency:   60 * time.Second,
+				RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+				CRCacheOptions: cachetypes.CRCacheOptions{
+					ListTimeoutPerRepository: 30 * time.Second,
+				},
+			},
+		}
+		var count int
+		err := timedCache.StreamPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, func(rev repository.PackageRevision) error {
+			count++
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Greater(t, count, 0)
+	})
 }
