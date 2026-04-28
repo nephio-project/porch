@@ -362,7 +362,7 @@ func (t *DbTestSuite) TestDBCacheFactory_NewCacheWithoutSemaphore() {
 	t.NotNil(cache)
 	dc := cache.(*dbCache)
 	t.Nil(dc.syncSemaphore, "semaphore should be nil when MaxConcurrentSyncs == 0")
-
+}
 
 func (t *DbTestSuite) TestStreamPackageRevisions() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
