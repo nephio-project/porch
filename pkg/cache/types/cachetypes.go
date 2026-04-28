@@ -54,6 +54,7 @@ type DBCacheOptions struct {
 	MaxConnections     int
 	MaxIdleConnections int
 	MaxConnLifetime    time.Duration
+	MaxConcurrentSyncs int
 }
 
 type CRCacheOptions struct {

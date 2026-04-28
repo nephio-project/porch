@@ -66,6 +66,7 @@ type PorchServerOptions struct {
 	DbMaxConnections     int
 	DbMaxIdleConnections int
 	DbMaxConnLifetime    time.Duration
+	DbMaxConcurrentSyncs int
 	DbPushDrafsToGit     bool
 
 	DefaultImagePrefix       string
@@ -149,6 +150,10 @@ func (o PorchServerOptions) Validate(args []string) error {
 
 	if o.MaxConcurrentLists < 0 {
 		return fmt.Errorf("invalid value for max-parallel-repo-lists: 0 for no limit; > 0 for set limit")
+	}
+
+	if o.DbMaxConcurrentSyncs < 0 {
+		errors = append(errors, fmt.Errorf("invalid value for max-concurrent-db-syncs: 0 for no limit; > 0 for set limit"))
 	}
 
 	return utilerrors.NewAggregate(errors)
@@ -344,6 +349,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					MaxConnections:     o.DbMaxConnections,
 					MaxIdleConnections: o.DbMaxIdleConnections,
 					MaxConnLifetime:    o.DbMaxConnLifetime,
+					MaxConcurrentSyncs: o.DbMaxConcurrentSyncs,
 				},
 			},
 		},
@@ -401,4 +407,5 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
+	fs.IntVar(&o.DbMaxConcurrentSyncs, "max-concurrent-db-syncs", 20, "Maximum number of DB cache repository syncs that can run concurrently. 0 means no limit.")
 }

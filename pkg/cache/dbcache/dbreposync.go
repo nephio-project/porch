@@ -29,6 +29,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 	"k8s.io/klog/v2"
 )
 
@@ -39,6 +40,7 @@ type repositorySync struct {
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncStats           repositorySyncStats
 	syncManager             *sync.SyncManager
+	syncSemaphore           *semaphore.Weighted
 }
 
 type repositorySyncStats struct {
@@ -47,10 +49,11 @@ type repositorySyncStats struct {
 	both         int
 }
 
-func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
+func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions, syncSemaphore *semaphore.Weighted) *repositorySync {
 	ctx := context.Background()
 	s := repositorySync{
-		repo: repo,
+		repo:          repo,
+		syncSemaphore: syncSemaphore,
 	}
 
 	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
@@ -66,6 +69,12 @@ func (s *repositorySync) Stop() {
 
 // SyncOnce implements the SyncHandler interface
 func (s *repositorySync) SyncOnce(ctx context.Context) error {
+	if s.syncSemaphore != nil {
+		if err := s.syncSemaphore.Acquire(ctx, 1); err != nil {
+			return fmt.Errorf("failed to acquire sync semaphore for %+v: %w", s.repo.Key(), err)
+		}
+		defer s.syncSemaphore.Release(1)
+	}
 	var err error
 	s.lastSyncStats, err = s.sync(ctx)
 	return err

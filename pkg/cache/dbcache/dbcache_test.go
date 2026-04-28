@@ -330,6 +330,40 @@ func (t *DbTestSuite) createTestPRs(packages []dbPackage, wsNamePrefix string, c
 	return testPRs
 }
 
+func (t *DbTestSuite) TestDBCacheFactory_NewCacheWithSemaphore() {
+	ctx := t.Context()
+
+	// With MaxConcurrentSyncs > 0, semaphore should be created
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Minute,
+		DBCacheOptions: cachetypes.DBCacheOptions{
+			MaxConcurrentSyncs: 4,
+		},
+	}
+	cache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	t.NotNil(cache)
+	dc := cache.(*dbCache)
+	t.NotNil(dc.syncSemaphore, "semaphore should be created when MaxConcurrentSyncs > 0")
+}
+
+func (t *DbTestSuite) TestDBCacheFactory_NewCacheWithoutSemaphore() {
+	ctx := t.Context()
+
+	// With MaxConcurrentSyncs == 0, no semaphore
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Minute,
+		DBCacheOptions: cachetypes.DBCacheOptions{
+			MaxConcurrentSyncs: 0,
+		},
+	}
+	cache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	t.NotNil(cache)
+	dc := cache.(*dbCache)
+	t.Nil(dc.syncSemaphore, "semaphore should be nil when MaxConcurrentSyncs == 0")
+}
+
 func (t *DbTestSuite) TestStreamPackageRevisions() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache

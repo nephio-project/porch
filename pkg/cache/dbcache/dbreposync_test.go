@@ -15,6 +15,7 @@
 package dbcache
 
 import (
+	"context"
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -28,6 +29,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/sync/semaphore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -65,7 +67,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		CoreClient:        fakeClient,
 	}
 
-	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions, nil)
 	newPRDef := porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: repoName,
@@ -174,7 +176,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		CoreClient:        fakeClient,
 	}
 
-	sync := newRepositorySync(testRepo, cacheOptions)
+	sync := newRepositorySync(testRepo, cacheOptions, nil)
 	testRepo.repositorySync = sync
 
 	newPRDef := porchapi.PackageRevision{
@@ -346,7 +348,7 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 		CoreClient:        fakeClient,
 	}
 
-	sync := newRepositorySync(testRepo, options)
+	sync := newRepositorySync(testRepo, options, nil)
 	defer func() {
 		if sync != nil {
 			sync.Stop()
@@ -976,4 +978,176 @@ func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
 	t.Empty(cachedResources, "nil resources should result in empty cached resources")
+}
+
+// TestRepositorySync_SyncOnceWithSemaphore verifies that SyncOnce acquires and releases
+// the semaphore when one is configured
+func (t *DbTestSuite) TestRepositorySync_SyncOnceWithSemaphore() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "sem-sync-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
+	sem := semaphore.NewWeighted(1)
+	s := &repositorySync{
+		repo:          testRepo,
+		syncSemaphore: sem,
+	}
+
+	err = s.SyncOnce(ctx)
+	t.Require().NoError(err)
+
+	// Semaphore should be released — verify by acquiring it again
+	acquired := sem.TryAcquire(1)
+	t.True(acquired, "semaphore should be released after SyncOnce completes")
+	if acquired {
+		sem.Release(1)
+	}
+}
+
+// TestRepositorySync_SyncOnceSemaphoreCancelledContext verifies that SyncOnce returns
+// an error when the context is cancelled while waiting for the semaphore
+func (t *DbTestSuite) TestRepositorySync_SyncOnceSemaphoreCancelledContext() {
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "sem-cancel-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	sem := semaphore.NewWeighted(1)
+	// Exhaust the semaphore so the next acquire blocks
+	sem.Acquire(context.Background(), 1)
+
+	s := &repositorySync{
+		repo:          testRepo,
+		syncSemaphore: sem,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	err := s.SyncOnce(ctx)
+	t.Require().Error(err)
+	t.Contains(err.Error(), "failed to acquire sync semaphore")
+
+	sem.Release(1)
+}
+
+// TestRepositorySync_SyncOnceNilSemaphore verifies that SyncOnce works without a semaphore
+func (t *DbTestSuite) TestRepositorySync_SyncOnceNilSemaphore() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "nil-sem-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
+	s := &repositorySync{
+		repo:          testRepo,
+		syncSemaphore: nil,
+	}
+
+	err = s.SyncOnce(ctx)
+	t.Require().NoError(err)
+}
+
+// TestNewRepositorySyncWithSemaphore verifies that newRepositorySync stores the semaphore
+func (t *DbTestSuite) TestNewRepositorySyncWithSemaphore() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "new-sync-sem-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme)
+
+	sem := semaphore.NewWeighted(2)
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 1 * time.Second,
+		CoreClient:        fakeClient,
+	}
+
+	s := newRepositorySync(testRepo, options, sem)
+	defer func() {
+		if s != nil {
+			s.Stop()
+		}
+	}()
+
+	t.NotNil(s)
+	t.Equal(sem, s.syncSemaphore)
+}
+
+// TestRepositorySync_SyncOnceConcurrencyLimit verifies that the semaphore actually
+// limits concurrent syncs by blocking until a slot is free
+func (t *DbTestSuite) TestRepositorySync_SyncOnceConcurrencyLimit() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("test-ns", "conc-limit-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
+	// Create a semaphore with capacity 1
+	sem := semaphore.NewWeighted(1)
+
+	// Acquire the semaphore to simulate another sync in progress
+	sem.Acquire(ctx, 1)
+
+	s := &repositorySync{
+		repo:          testRepo,
+		syncSemaphore: sem,
+	}
+
+	// SyncOnce should block waiting for the semaphore
+	done := make(chan error, 1)
+	go func() {
+		done <- s.SyncOnce(ctx)
+	}()
+
+	// Verify it hasn't completed yet (still waiting for semaphore)
+	select {
+	case <-done:
+		t.Fail("SyncOnce should block while semaphore is held, not return immediately")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: still waiting
+	}
+
+	// Release the semaphore — SyncOnce should now proceed and complete
+	sem.Release(1)
+
+	select {
+	case err := <-done:
+		t.Require().NoError(err)
+	case <-time.After(10 * time.Second):
+		t.Fail("SyncOnce should complete after semaphore is released")
+	}
 }

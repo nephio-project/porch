@@ -28,6 +28,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -38,8 +39,9 @@ var tracer = otel.Tracer("dbcache")
 var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
-	repositories repomap.SafeRepoMap
-	options      cachetypes.CacheOptions
+	repositories  repomap.SafeRepoMap
+	options       cachetypes.CacheOptions
+	syncSemaphore *semaphore.Weighted
 }
 
 func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
@@ -81,7 +83,7 @@ func (c *dbCache) createRepository(ctx context.Context, key repository.Repositor
 		return nil, err
 	}
 
-	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
+	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options, c.syncSemaphore)
 	return dbRepo, nil
 }
 

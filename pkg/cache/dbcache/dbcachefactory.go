@@ -21,6 +21,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 )
 
 var _ cachetypes.CacheFactory = &DBCacheFactory{}
@@ -40,8 +41,14 @@ func (f *DBCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheO
 		return nil, fmt.Errorf("kptfile_status backfill failed: %w", err)
 	}
 
+	var syncSem *semaphore.Weighted
+	if options.DBCacheOptions.MaxConcurrentSyncs > 0 {
+		syncSem = semaphore.NewWeighted(int64(options.DBCacheOptions.MaxConcurrentSyncs))
+	}
+
 	return &dbCache{
-		repositories: repomap.SafeRepoMap{},
-		options:      options,
+		repositories:  repomap.SafeRepoMap{},
+		options:       options,
+		syncSemaphore: syncSem,
 	}, nil
 }

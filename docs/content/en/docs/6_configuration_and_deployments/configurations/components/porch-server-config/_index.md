@@ -37,6 +37,7 @@ args:
 args:
 - --db-cache-driver=pgx                      # Database driver (pgx, mysql)
 - --db-cache-data-source=connection-string   # Database connection string
+- --max-concurrent-db-syncs=20               # Max concurrent DB cache repo syncs (0 = no limit)
 ```
 
 #### Function Runtime Arguments
