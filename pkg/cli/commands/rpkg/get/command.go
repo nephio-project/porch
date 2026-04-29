@@ -134,7 +134,7 @@ func (r *runner) validateNamespaceFlag(cmd *cobra.Command) error {
 // resolveNamespace ensures a namespace is set when none was explicitly provided on ConfigFlags.
 func (r *runner) resolveNamespace() error {
 	if r.getFlags.Namespace == nil || *r.getFlags.Namespace == "" {
-		namespace, _, err := r.getFlags.ConfigFlags.ToRawKubeConfigLoader().Namespace()
+		namespace, _, err := r.getFlags.ToRawKubeConfigLoader().Namespace()
 		if err != nil {
 			return fmt.Errorf("error resolving namespace from kubeconfig: %w", err)
 		}

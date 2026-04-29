@@ -18,13 +18,13 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +49,7 @@ func newTestEventLoopPCM(kubeClient client.Client) (*podCacheManager, chan *conn
 		functions:                  map[string]*functionInfo{},
 		maxWaitlistLength:          2,
 		maxParallelPodsPerFunction: 1,
-		configMap:                  map[string]podCacheConfigEntry{},
+		functionConfigMap:          fnconf.NewFunctionConfigStore(runneroptions.GHCRImagePrefix, "/functions"),
 		podManager: &podManager{
 			kubeClient:         kubeClient,
 			namespace:          defaultNamespace,
@@ -277,48 +277,7 @@ func TestEventLoop_PodFailedNoRedistribution(t *testing.T) {
 	}
 }
 
-// ---------- warmupCache Tests ----------
-
-func TestWarmupCache_FileReadError(t *testing.T) {
-	pcm := &podCacheManager{
-		functions: map[string]*functionInfo{},
-	}
-	err := pcm.warmupCache("/nonexistent/path/cache-config.yaml")
-	assert.Error(t, err)
-}
-
-func TestWarmupCache_UnmarshalError(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "bad-cache-*.yaml")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	_, err = tmpFile.WriteString("{{invalid yaml")
-	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
-
-	pcm := &podCacheManager{
-		functions: map[string]*functionInfo{},
-	}
-	err = pcm.warmupCache(tmpFile.Name())
-	assert.Error(t, err)
-}
-
 // ---------- retrieveFunctionPods Tests ----------
-
-func TestRetrieveFunctionPods_TemplateFails(t *testing.T) {
-	pcm := &podCacheManager{
-		functions: map[string]*functionInfo{},
-		podManager: &podManager{
-			kubeClient:              fake.NewClientBuilder().Build(),
-			namespace:               defaultNamespace,
-			functionPodTemplateName: "nonexistent-configmap",
-			managerNamespace:        defaultNamespace,
-		},
-	}
-	err := pcm.retrieveFunctionPods(context.Background())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to generate a base pod template")
-}
 
 func TestRetrieveFunctionPods_ListFails(t *testing.T) {
 	kubeClient := fake.NewClientBuilder().

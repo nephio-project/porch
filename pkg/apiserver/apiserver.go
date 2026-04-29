@@ -26,6 +26,7 @@ import (
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -47,9 +48,13 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+const NameIndexKey = "metadata.name"
 
 var (
 	// Scheme defines methods for serializing and deserializing API objects.
@@ -82,9 +87,13 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CoreAPIKubeconfigPath    string
-	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
-	CacheOptions             cachetypes.CacheOptions
+	CoreAPIKubeconfigPath string
+
+	GRPCRuntimeOptions engine.GRPCRuntimeOptions
+	CacheOptions       cachetypes.CacheOptions
+
+	PodNameSpace  string
+	FunctionStore *reconciler.FunctionConfigStore
 }
 
 // Config defines the config for the apiserver
@@ -266,6 +275,68 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 	return corev1Client, nil
 }
 
+func (c completedConfig) buildFunctionConfigReconciler(ctx context.Context, scheme *runtime.Scheme, withIndex bool) (*reconciler.FunctionConfigReconciler, error) {
+	restConfig, err := c.getRestConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	_ = cancel
+
+	var cacheOpts ctrlcache.Options
+	cacheOpts.Scheme = scheme
+	//cacheOpts.DefaultNamespaces = map[string]cache.Config{o.exec.PodNamespace: {}}
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
+		Scheme: scheme,
+		Cache:  cacheOpts,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error at creating manager: %w", err)
+	}
+
+	if withIndex {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &configapi.Repository{}, NameIndexKey, func(o client.Object) []string {
+			repository := o.(*configapi.Repository)
+
+			// Example: index by spec.ref.name (adjust to your schema)
+			if repository.Name == "" {
+				return nil
+			}
+			return []string{repository.Name}
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	functionConfigStore := reconciler.NewFunctionConfigStore(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix, "")
+
+	rec := &reconciler.FunctionConfigReconciler{
+		Client:              mgr.GetClient(),
+		FunctionConfigStore: functionConfigStore,
+		For:                 reconciler.ReconcilerForServer,
+	}
+
+	c.ExtraConfig.FunctionStore = functionConfigStore
+
+	err = ctrl.NewControllerManagedBy(mgr).
+		For(&configapi.FunctionConfig{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Complete(rec)
+	if err != nil {
+		return nil, fmt.Errorf("error at creating controller: %w", err)
+	}
+
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			klog.Infof("manager stopped: %v", err)
+		}
+	}()
+
+	return rec, nil
+}
+
 // New returns a new instance of PorchServer from the given config.
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	// TODO: REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
@@ -280,6 +351,13 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build client for core apiserver: %w", err)
 	}
+
+	fnConfigReconciler, err := c.buildFunctionConfigReconciler(ctx, coreClient.Scheme(), true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build function config reconciler: %w", err)
+	}
+
+	c.ExtraConfig.FunctionStore = fnConfigReconciler.FunctionConfigStore
 
 	coreV1Client, err := c.getCoreV1Client()
 	if err != nil {
@@ -339,7 +417,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
-		engine.WithBuiltinFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix),
+		engine.WithBuiltinFunctionRuntime(c.ExtraConfig.FunctionStore),
 		engine.WithGRPCFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions),
 		engine.WithCredentialResolver(credentialResolver),
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),

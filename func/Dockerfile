@@ -15,18 +15,16 @@
 ARG ALPINE_VERSION=latest
 ARG GOLANG_ALPINE_VERSION=latest
 
-FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0 AS apply-setters
-FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-v1
-FROM ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.1.1 AS ensure-name-substring
-FROM ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0 AS search-replace
-FROM ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 AS set-annotations
+FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.2 AS apply-setters
+FROM ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.2.1 AS ensure-name-substring
+FROM ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.1 AS search-replace
+FROM ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.5 AS set-annotations
 FROM ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.2 AS set-image
-FROM ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5 AS set-labels
-FROM ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.2.0 AS set-namespace
-FROM ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.3.4 AS set-namespace-v3
-FROM ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0 AS set-project-id
-FROM ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3.0 AS starlark
-FROM ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0 AS upsert-resource
+FROM ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.2.2 AS set-labels
+FROM ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.2 AS set-namespace
+FROM ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.1 AS set-project-id
+FROM ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.2 AS starlark
+FROM ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.1 AS upsert-resource
 
 
 FROM golang:${GOLANG_ALPINE_VERSION} AS builder
@@ -50,27 +48,24 @@ COPY ./func ./func
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     cd func ; go build -trimpath -ldflags="-s -w" -v -o /server ./server
-COPY func/config.yaml /config.yaml
 
 FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 10001 nonroot && \
     adduser -D -G nonroot -u 10001 nonroot
 
 COPY --from=apply-setters          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters
-COPY --from=apply-setters-v1       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters-v1
 COPY --from=ensure-name-substring  --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/ensure-name-substring
 COPY --from=search-replace         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/search-replace
 COPY --from=set-annotations        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-annotations
 COPY --from=set-image              --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-image
 COPY --from=set-labels             --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-labels
 COPY --from=set-namespace          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace
-COPY --from=set-namespace-v3       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace-v3
 COPY --from=set-project-id         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-project-id
-COPY --from=starlark               --chown=root:root --chmod=555 /usr/local/bin/star     /home/nonroot/functions/starlark
+COPY --from=starlark               --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/starlark
 COPY --from=upsert-resource        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/upsert-resource
+
 COPY --from=builder                --chown=root:root --chmod=555 /server /grpc-health-probe /home/nonroot/
-COPY --from=builder                --chown=root:root --chmod=444 /config.yaml /home/nonroot/
 
 USER nonroot:nonroot
 EXPOSE 9445/tcp
-ENTRYPOINT [ "/home/nonroot/server", "--config=/home/nonroot/config.yaml", "--functions=/home/nonroot/functions" ]
+ENTRYPOINT [ "/home/nonroot/server", "--functions=/home/nonroot/functions" ]
