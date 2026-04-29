@@ -37,6 +37,11 @@ Recovering from data loss scenarios:
 - DB cache loss with and without backups
 - Backup strategies for Porch components
 
+### [Porch Lazy Dog (Lathund)]({{% relref "lazy0dog" %}})
+
+A quick reference of tips, tricks, workarounds, and shortcuts for developers working with Porch. Please raise a PR to
+add your Porch magic spells to the Lazy Dog.
+
 ## Getting Help
 
 If you encounter issues not covered in this guide:
