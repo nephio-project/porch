@@ -52,9 +52,3 @@ into your Starlark script, which will cause an error and trigger the output:
 
   i = 10/0 # Deliberate division by zero error
 ```
-
----
-
-{{% alert title="Note" color="primary" %}}
-OCI repository support is experimental and may not have full feature parity with Git repositories.
-{{% /alert %}}
