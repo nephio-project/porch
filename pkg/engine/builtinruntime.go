@@ -22,57 +22,17 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
-	"github.com/kptdev/kpt/pkg/lib/runneroptions"
-	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
-	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
-	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
-)
-
-// When updating the version for the builtin functions, please also update the image version
-// in test TestBuiltinFunctionEvaluator in porch/test/e2e/api/fn_runner_test.go, if the versions mismatch
-// the e2e test will fail in local deployment mode.
-var (
-	applyReplacementsImageAliases = []string{
-		"apply-replacements:v0.1.1",
-		"apply-replacements:v0.1",
-		"apply-replacements@sha256:85913d4ec8db62053eb060ff1b7e26d13ff8853b75cae4d0461b8a1c7ddd4947",
-	}
-	setNamespaceImageAliases = []string{
-		"set-namespace:v0.4.1",
-		"set-namespace:v0.4",
-		"set-namespace@sha256:f930d9248001fa763799cc81cf2d89bbf83954fc65de0db20ab038a21784f323",
-	}
-	starlarkImageAliases = []string{
-		"starlark:v0.4.3",
-		"starlark:v0.4",
-		"starlark@sha256:6ba3971c64abcd6c3d93039d45721bb5ab496c7fbbc9ac1e685b11577f368ce0",
-	}
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 )
 
 type builtinRuntime struct {
 	fnMapping map[string]fnsdk.ResourceListProcessor
 }
 
-func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
-	fnMap := map[string]fnsdk.ResourceListProcessor{}
-
-	applyMappings := func(aliases []string, fn fnsdk.ResourceListProcessorFunc) {
-		for _, img := range aliases {
-			fnMap[img] = fn
-			fnMap[runneroptions.GHCRImagePrefix+img] = fn
-			if imagePrefix != "" && imagePrefix != runneroptions.GHCRImagePrefix {
-				fnMap[imagePrefix+"/"+img] = fn
-			}
-		}
-	}
-
-	applyMappings(applyReplacementsImageAliases, replacements.ApplyReplacements)
-	applyMappings(setNamespaceImageAliases, set_namespace.Run)
-	applyMappings(starlarkImageAliases, starlark.Process)
-
+func newBuiltinRuntime(functionConfigStore *reconciler.FunctionConfigStore) *builtinRuntime {
 	return &builtinRuntime{
-		fnMapping: fnMap,
+		fnMapping: functionConfigStore.GetExecCache(),
 	}
 }
 

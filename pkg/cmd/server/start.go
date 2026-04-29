@@ -84,6 +84,8 @@ type PorchServerOptions struct {
 	StdErr io.Writer
 
 	UseUserDefinedCaBundle bool
+
+	PodNamespace string
 }
 
 // NewPorchServerOptions returns a new PorchServerOptions
@@ -345,6 +347,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
+			PodNameSpace: o.PodNamespace,
 		},
 	}
 	return config, nil
@@ -396,6 +399,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
+	fs.StringVar(&o.PodNamespace, "pod-namespace", "porch-fn-system", "Namespace get FunctionConfig objects for krm functions")
 
 	// Repository operations configuration
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")

@@ -173,8 +173,7 @@ func (c *dbCache) ListPackageRevisions(ctx context.Context, filter repository.Li
 	if err != nil {
 		return nil, err
 	}
-	var prs []repository.PackageRevision
-	prs = make([]repository.PackageRevision, len(dbprs))
+	prs := make([]repository.PackageRevision, len(dbprs))
 	for i, dbpr := range dbprs {
 		prs[i] = dbpr
 	}

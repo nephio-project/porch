@@ -18,18 +18,19 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"slices"
-	"sync"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	fnconf "github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
+	"github.com/nephio-project/porch/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 // podCacheManager manages the cache of the pods and the corresponding GRPC clients.
@@ -49,22 +50,13 @@ type podCacheManager struct {
 	podReadyCh <-chan *podReadyResponse
 
 	// functions maps KRM function image names to its pods and waitlist information.
-	mu        sync.RWMutex
 	functions map[string]*functionInfo
 
 	podManager *podManager
 
 	maxWaitlistLength          int
 	maxParallelPodsPerFunction int
-	configMap                  map[string]podCacheConfigEntry
-}
-
-type podCacheConfigEntry struct {
-	Name                       string                      `json:"name,omitempty"`
-	TimeToLive                 string                      `json:"timeToLive,omitempty"`
-	MaxWaitlistLength          int                         `json:"maxWaitlistLength,omitempty"`
-	MaxParallelPodsPerFunction int                         `json:"maxParallelPodsPerFunction,omitempty"`
-	Resources                  corev1.ResourceRequirements `json:"resources,omitempty"`
+	functionConfigMap          *fnconf.FunctionConfigStore
 }
 
 // functionInfo holds the list of all pod instances for the same KRM function image.
@@ -116,6 +108,9 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 	for {
 		select {
 		case req := <-pcm.connectionRequestCh:
+			if pcm.podManager.imageResolver != nil {
+				req.image = pcm.podManager.imageResolver(req.image)
+			}
 			fn := pcm.FunctionInfo(req.image)
 
 			shouldScaleUp := false
@@ -134,7 +129,13 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 				klog.Infof("Scaling up for image %s. No idle pods available. Starting a new pod.", req.image)
 
 				fn.pods = append(fn.pods, NewPodInfo(req.responseCh))
-				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, len(fn.pods), pcm.configMap[req.image], true)
+
+				functionConfig, exists := pcm.functionConfigMap.GetFunctionConfig(util.GetImageName(req.image))
+				if !exists {
+					functionConfig = &configapi.FunctionConfig{}
+				}
+
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, len(fn.pods), functionConfig.Spec.PodExecutor, true)
 			} else {
 				pod := &fn.pods[bestPodIndex]
 				klog.Infof("Queuing request for %s on pod instance #%d (queue length will be %d)", req.image, bestPodIndex, bestWaitlistLen+1)
@@ -203,43 +204,21 @@ func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 	}
 }
 
-// loadPodCacheConfig loads the pod cache configuration from the given YAML file path.
-// It parses the YAML into a slice of podCacheConfigEntry, then builds a map from function image name to its config entry.
-// This map is used to look up per-function pod cache parameters (TTL, maxWaitlist, maxPods).
-func loadPodCacheConfig(configPath string) (map[string]podCacheConfigEntry, error) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-	var entries []podCacheConfigEntry
-	if err := yaml.Unmarshal(data, &entries); err != nil {
-		return nil, err
-	}
-	configMap := make(map[string]podCacheConfigEntry)
-	for _, entry := range entries {
-		configMap[entry.Name] = entry
-		klog.V(2).Infof("Loaded pod cache config: %s -> TTL: %s, MaxWaitlistLength: %d, MaxParallelPodsPerFunction: %d",
-			entry.Name, entry.TimeToLive, entry.MaxWaitlistLength, entry.MaxParallelPodsPerFunction)
-	}
-
-	klog.Infof("Loaded %d pod cache configurations from %s", len(configMap), configPath)
-	return configMap, nil
-}
-
 // getParamsForImage returns the pod cache parameters (TTL, maxWaitlist, maxPods) for the given function image.
 // If the image is present in the configMap, it returns the specific parameters for that image.
 // Otherwise, it falls back to the global defaults (pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction).
 func (pcm *podCacheManager) getParamsForImage(image string) (ttl time.Duration, maxWaitlist, maxPods int) {
-	if entry, ok := pcm.configMap[image]; ok {
-		parsedTTL, err := time.ParseDuration(entry.TimeToLive)
-		if err != nil || parsedTTL == 0 {
+	if entry, ok := pcm.functionConfigMap.GetFunctionConfig(util.GetImageName(image)); ok && entry.Spec.PodExecutor != nil {
+		podExecutorConfig := entry.Spec.PodExecutor
+		parsedTTL := podExecutorConfig.TimeToLive.Duration
+		if parsedTTL <= 0 {
 			parsedTTL = pcm.podTTL
 		}
-		maxWaitlist := entry.MaxWaitlistLength
+		maxWaitlist := podExecutorConfig.PreferredMaxQueueLength
 		if maxWaitlist == 0 {
 			maxWaitlist = pcm.maxWaitlistLength
 		}
-		maxPods := entry.MaxParallelPodsPerFunction
+		maxPods := podExecutorConfig.MaxParallelExecutions
 		if maxPods == 0 {
 			maxPods = pcm.maxParallelPodsPerFunction
 		}
@@ -258,7 +237,7 @@ func (pcm *podCacheManager) FunctionInfo(image string) *functionInfo {
 }
 
 func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
-	_, templateVersion, err := pcm.podManager.getBasePodTemplate(ctx)
+	template, err := pcm.podManager.getBasePodTemplate(ctx)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return fmt.Errorf("failed to generate a base pod template: %w", err)
@@ -272,8 +251,7 @@ func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
 	if err == nil && len(podList.Items) > 0 {
 		for _, pod := range podList.Items {
 			if pod.DeletionTimestamp == nil {
-				if isPodTemplateSameVersion(&pod, templateVersion) {
-
+				if isPodTemplateSameVersion(&pod, template.ResourceVersion) {
 					// Service name is Image Label set on Pod manifest
 					serviceName := pod.Labels[krmFunctionImageLabel]
 					podKey := client.ObjectKeyFromObject(&pod)
@@ -324,49 +302,43 @@ func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
 }
 
 // warmupCache starts preloading 1 pod in the background for each function specified in podCacheConfig
-func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
+func (pcm *podCacheManager) warmupCache(defaultImagePrefix string) error {
 	start := time.Now()
 	defer func() {
 		klog.Infof("cache warming is completed and it took %v", time.Since(start))
 	}()
-	content, err := os.ReadFile(podCacheConfig)
-	if err != nil {
-		return err
-	}
-	var entries []podCacheConfigEntry
-	err = yaml.Unmarshal(content, &entries)
-	if err != nil {
-		return err
-	}
-
-	forEachConcurrently(entries, func(entry podCacheConfigEntry) {
-		pcm.mu.Lock()
-		fn := pcm.FunctionInfo(entry.Name)
-		pcm.mu.Unlock()
-		if len(fn.pods) == 0 {
-			fn.pods = append(fn.pods, NewPodInfo(nil))
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			pcm.podManager.getFuncEvalPodClient(ctx, entry.Name, 1, pcm.configMap[entry.Name], false)
+	for _, entry := range pcm.functionConfigMap.List() {
+		if entry.Spec.PodExecutor != nil && len(entry.Spec.PodExecutor.Tags) > 0 {
+			image := entry.Spec.Image
+			if len(entry.Spec.PodExecutor.Tags[0]) > 0 {
+				image = fmt.Sprintf("%s:%s", entry.Spec.Image, entry.Spec.PodExecutor.Tags[0])
+			}
+			if len(entry.Spec.Prefixes) > 0 && entry.Spec.Prefixes[0] != "" {
+				image = ImageJoin(entry.Spec.Prefixes[0], image)
+			} else {
+				image = ImageJoin(defaultImagePrefix, image)
+			}
+			image = pcm.podManager.imageResolver(image)
+			fn := pcm.FunctionInfo(image)
+			if len(fn.pods) == 0 {
+				fn.pods = append(fn.pods, NewPodInfo(nil))
+				go func(fnImage string) {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+					defer cancel()
+					functionConfig, exists := pcm.functionConfigMap.GetFunctionConfig(entry.Spec.Image)
+					if !exists {
+						functionConfig = &configapi.FunctionConfig{}
+					}
+					pcm.podManager.getFuncEvalPodClient(ctx, fnImage, 1, functionConfig.Spec.PodExecutor, false)
+				}(image)
+			}
 		}
-		klog.Infof("preloaded pod cache for function %v", entry.Name)
-	})
+	}
 	return nil
 }
 
-func forEachConcurrently(m []podCacheConfigEntry, fn func(k podCacheConfigEntry)) {
-	var wg sync.WaitGroup
-	for _, v := range m {
-		v := v
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fn(v)
-		}()
-	}
-	// Wait for all the functions to complete.
-	wg.Wait()
+func ImageJoin(prefix, image string) string {
+	return strings.TrimRight(prefix, "/") + "/" + strings.TrimLeft(image, "/")
 }
 
 // findBestPod returns with the index of the best pod for the given function.
