@@ -22,6 +22,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/nephio-project/porch/func/evaluator"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -112,4 +113,24 @@ func (gr *grpcRunner) Run(r io.Reader, w io.Writer) error {
 		return fmt.Errorf("failed to write function runner output: %w", err)
 	}
 	return nil
+}
+
+// NewMultiFunctionRuntime creates a FunctionRuntime that tries builtin functions
+// first, then falls back to the gRPC fn-runner.
+func NewMultiFunctionRuntime(grpcAddress string, maxGrpcMessageSize int, functionConfigStore *reconciler.FunctionConfigStore) (fn.FunctionRuntime, error) {
+	builtin := newBuiltinRuntime(functionConfigStore)
+
+	if grpcAddress == "" {
+		return builtin, nil
+	}
+
+	grpc, err := newGRPCFunctionRuntime(GRPCRuntimeOptions{
+		FunctionRunnerAddress: grpcAddress,
+		MaxGrpcMessageSize:    maxGrpcMessageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return fn.NewMultiRuntime([]fn.FunctionRuntime{builtin, grpc}), nil
 }

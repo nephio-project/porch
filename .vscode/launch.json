@@ -70,15 +70,60 @@
             }
         },
         {
-            "name": "Launch Controllers",
+            "name": "Launch Controllers (repositories)",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/controllers",
+            "args": [
+                "--reconcilers=repositories",
+                "--repositories.cache-directory=${workspaceFolder}/.cache-controller-repo",
+                "--repositories.max-concurrent-reconciles=100",
+                "--repositories.max-concurrent-syncs=50",
+                "--repositories.repo-operation-retry-attempts=3",
+                "--repositories.health-check-frequency=1m",
+                "--repositories.full-sync-frequency=3m",
+                "-v=2"
+            ],
             "cwd": "${workspaceFolder}",
             "env": {
-                "ENABLE_PACKAGEVARIANTS": "true",
-                "ENABLE_PACKAGEVARIANTSETS": "true"
+                "GIT_CACHE_DIR": "${workspaceFolder}/.cache-controller-repo",
+                "DB_HOST": "172.18.255.201",
+                "DB_PORT": "5432",
+                "DB_NAME": "porch",
+                "DB_USER": "porch",
+                "DB_PASSWORD": "porch",
+                "DB_DRIVER": "pgx"
+            }
+        },
+        {
+            "name": "Launch Controllers (repositories + packagerevisions v1alpha2)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/controllers",
+            "args": [
+                "--reconcilers=repositories,packagerevisions",
+                "--repositories.create-v1alpha2-rpkg=true",
+                "--repositories.max-concurrent-reconciles=100",
+                "--repositories.max-concurrent-syncs=50",
+                "--repositories.cache-directory=${workspaceFolder}/.cache-controller-v1alpha2",
+                "--repositories.repo-operation-retry-attempts=3",
+                "--repositories.health-check-frequency=1m",
+                "--repositories.full-sync-frequency=3m",
+                "--packagerevisions.repo-operation-retry-attempts=3",
+                "-v=2"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "GIT_CACHE_DIR": "${workspaceFolder}/.cache-controller-v1alpha2",
+                "DB_HOST": "172.18.255.201",
+                "DB_PORT": "5432",
+                "DB_NAME": "porch",
+                "DB_USER": "porch",
+                "DB_PASSWORD": "porch",
+                "DB_DRIVER": "pgx",
+                "FUNCTION_RUNNER_ADDRESS": "172.18.255.202:9445"
             }
         },
         // A configuration for running a porchctl command using the VS Code debugger.

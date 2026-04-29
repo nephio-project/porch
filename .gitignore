@@ -9,7 +9,7 @@ apiserver.local.config/
 default.etcd/
 
 # Local cache files
-.cache/
+.cache*
 
 # Local backup files
 .$*.bkp

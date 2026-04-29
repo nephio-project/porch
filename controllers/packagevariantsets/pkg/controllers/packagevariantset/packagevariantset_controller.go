@@ -56,10 +56,11 @@ type PackageVariantSetReconciler struct {
 	Options
 
 	serializer *json.Serializer
-	loggerName string
 }
 
 const (
+	reconcilerName = "packagevariantsets"
+
 	PackageVariantSetOwnerLabel = "config.porch.kpt.dev/packagevariantset"
 
 	ConditionTypeStalled = "Stalled" // whether or not the resource reconciliation is making progress or not
@@ -69,10 +70,7 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
-// SetLogger sets the logger name for this reconciler
-func (r *PackageVariantSetReconciler) SetLogger(name string) {
-	r.loggerName = name
-}
+func (r *PackageVariantSetReconciler) Name() string { return reconcilerName }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 

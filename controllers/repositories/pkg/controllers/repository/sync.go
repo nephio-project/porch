@@ -80,6 +80,10 @@ func (s *Sync) HandleSync(ctx context.Context, repo *api.Repository) SyncResult 
 	}
 	log.Info("Repository full sync completed successfully", "trigger", syncReason)
 
+	// Mark this repo as synced since startup (cold start complete)
+	repoKey := repo.Namespace + "/" + repo.Name
+	s.reconciler.coldStartRepos.Store(repoKey, true)
+
 	// Update status fields
 	now := metav1.Now()
 	repo.Status.LastFullSyncTime = &now
@@ -144,6 +148,13 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 		return 0, "", err
 	}
 
+	if r.CreateV1Alpha2Rpkg && repo.Annotations[api.AnnotationKeyV1Alpha2Migration] == api.AnnotationValueMigrationEnabled {
+		if err := r.syncPackageRevisions(ctx, repo, pkgRevs); err != nil {
+			log.Error(err, "Failed to sync v1alpha2 PackageRevisions", "repo", repo.Name)
+			// Non-fatal: don't fail the entire sync for v1alpha2 creation failures
+		}
+	}
+
 	// Get commit hash (best effort - don't fail sync if this fails)
 	commitHash, _ = repoHandle.BranchCommitHash(ctx)
 
@@ -156,6 +167,17 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 	if r.isSyncInProgress(ctx, repo) {
 		// Use exponential backoff to avoid tight loops while waiting for sync to complete
 		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, UseExponentialBackoff: true}
+	}
+
+	// After a controller restart the git cache is cold but LastFullSyncTime
+	// may still be recent (persisted in etcd by the previous pod). Force a
+	// full sync for each repo on the first reconcile to re-warm the cache.
+	// Note: with many repos (1000+), the syncLimiter bounds concurrency
+	// (MaxConcurrentSyncs) so repos sync in batches, not all at once.
+	repoKey := repo.Namespace + "/" + repo.Name
+	if _, synced := r.coldStartRepos.Load(repoKey); !synced {
+		log.FromContext(ctx).Info("Cold start: forcing full sync to re-warm cache")
+		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
 	}
 
 	switch {

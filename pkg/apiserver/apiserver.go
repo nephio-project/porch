@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -167,6 +168,12 @@ func buildCompleteScheme() (*runtime.Scheme, error) {
 				return nil
 			},
 			func(s *runtime.Scheme) error {
+				if e := porchv1alpha2.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding porchv1alpha2 to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
 				if e := corev1.AddToScheme(s); e != nil {
 					return fmt.Errorf("error adding corev1 to scheme: %w", e)
 				}
@@ -258,6 +265,10 @@ func (c completedConfig) buildClient(ctx context.Context) (client.WithWatch, err
 			// informer cache, a subsequent Get can miss the just-created object.
 			// This is not ideal, but crcache doesn't support a level of resources where caching makes a difference
 			&internalapi.PackageRev{},
+			// v1alpha2 PackageRevision is a CRD patched by patchRenderRequestAnnotation
+			// right after a write; bypass the cache to avoid stale reads and the
+			// cluster-scope watch that the informer would require.
+			&porchv1alpha2.PackageRevision{},
 		},
 	}})
 }

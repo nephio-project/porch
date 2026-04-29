@@ -40,6 +40,9 @@ packages:
       Repository: {}
       PackageRevision: {}
       PackageRevisionDraft: {}
+      ContentCache: {}
+      PackageContent: {}
+      ExternalPackageFetcher: {}
 
   github.com/nephio-project/porch/pkg/engine:
     interfaces:

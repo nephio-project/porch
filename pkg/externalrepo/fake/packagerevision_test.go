@@ -51,4 +51,8 @@ func TestPackageRevisionGetters(t *testing.T) {
 
 	assert.True(t, fakePr.SetMeta(context.TODO(), meta) == nil)
 	assert.True(t, fakePr.IsLatestRevision())
+
+	ts, author := fakePr.GetCommitInfo()
+	assert.True(t, ts.IsZero())
+	assert.Empty(t, author)
 }
