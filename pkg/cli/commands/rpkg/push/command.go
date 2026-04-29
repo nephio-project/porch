@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageName,
-			Namespace: *r.cfg.Namespace,
+			Namespace: util.EnsureNamespace(r.cfg),
 		},
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: resources,

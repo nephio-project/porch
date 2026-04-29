@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,13 +54,29 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command = c
 
-	c.Flags().StringVar(&r.Description, "description", "sample description", "short description of the package.")
+	c.Flags().StringVarP(&r.Description, "description", "d", "sample description", "short description of the package.")
 	c.Flags().StringSliceVar(&r.Keywords, "keywords", []string{}, "list of keywords for the package.")
 	c.Flags().StringVar(&r.Site, "site", "", "link to page with information about the package.")
-	c.Flags().StringVar(&r.repository, "repository", "", "Repository to which package will be created.")
-	c.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the package.")
+	c.Flags().StringVarP(&r.repository, "repository", "r", "", "Repository to which package will be created.")
+	c.Flags().StringVarP(&r.workspace, "workspace", "w", "", "Workspace name of the package.")
+
+	c.Flags().SetNormalizeFunc(aliasNormalizeFunc)
 
 	return r
+}
+
+// aliasNormalizeFunc adds some sensible short versions of flags
+func aliasNormalizeFunc(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	switch name {
+	case "repo":
+		name = "repository"
+	case "desc":
+		name = "description"
+	case "ws":
+		name = "workspace"
+	}
+
+	return pflag.NormalizedName(name)
 }
 
 type runner struct {
@@ -110,7 +128,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: *r.cfg.Namespace,
+			Namespace: util.EnsureNamespace(r.cfg),
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    r.name,

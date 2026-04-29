@@ -18,6 +18,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -45,10 +46,16 @@ func createScheme() (*runtime.Scheme, error) {
 }
 
 func TestCmd(t *testing.T) {
-	repoName := "test-repo"
-	ns := "ns"
-	pkgRevName := "test-package"
-	var scheme, err = createScheme()
+	const (
+		ns            = "ns"
+		repoName      = "test-repo"
+		pkgName       = "test-package"
+		workspaceName = "v1"
+	)
+
+	pkgRevName := strings.Join([]string{repoName, pkgName, workspaceName}, ".")
+	scheme, err := createScheme()
+
 	if err != nil {
 		t.Fatalf("error creating scheme: %v", err)
 	}
@@ -109,8 +116,11 @@ func TestCmd(t *testing.T) {
 						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 					},
 					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 						RepositoryName: repoName,
+						PackageName:    pkgName,
+						WorkspaceName:  workspaceName,
+						Revision:       1,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: ns,
@@ -119,9 +129,8 @@ func TestCmd(t *testing.T) {
 		},
 	}
 
-	for tn := range testCases {
-		tc := testCases[tn]
-		t.Run(tn, func(t *testing.T) {
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
 
 			cmd := &cobra.Command{}
 			o := os.Stdout
@@ -155,7 +164,7 @@ func TestCmd(t *testing.T) {
 			os.Stdout = o
 			os.Stderr = e
 
-			if diff := cmp.Diff(string(tc.output), string(out)); diff != "" {
+			if diff := cmp.Diff(tc.output, string(out)); diff != "" {
 				t.Errorf("Unexpected result (-want, +got): %s", diff)
 			}
 		})

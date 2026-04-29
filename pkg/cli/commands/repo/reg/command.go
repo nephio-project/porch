@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -56,14 +58,35 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	c.Flags().StringVar(&r.branch, "branch", "main", "Branch in the repository where finalized packages are committed.")
 	c.Flags().BoolVar(&r.createBranch, "create-branch", false, "Create the package branch if it doesn't already exist.")
 	c.Flags().StringVar(&r.name, "name", "", "Name of the package repository. If unspecified, will use the name portion (last segment) of the repository URL.")
-	c.Flags().StringVar(&r.description, "description", "", "Brief description of the package repository.")
+	c.Flags().StringVarP(&r.description, "description", "d", "", "Brief description of the package repository.")
 	c.Flags().BoolVar(&r.deployment, "deployment", false, "Repository is a deployment repository; packages in a deployment repository are considered deployment-ready.")
 	c.Flags().StringVar(&r.username, "repo-basic-username", "", "Username for repository authentication using basic auth.")
 	c.Flags().StringVar(&r.password, "repo-basic-password", "", "Password for repository authentication using basic auth.")
 	c.Flags().BoolVar(&r.workloadIdentity, "repo-workload-identity", false, "Use workload identity for authentication with the repo")
 	c.Flags().StringVar(&r.syncSchedule, "sync-schedule", "", "Cron schedule for reconciling packages in the repository.")
 
+	c.Flags().SetNormalizeFunc(aliasNormalizeFunc)
+
 	return r
+}
+
+// aliasNormalizeFunc adds some sensible short versions of flags
+// TODO: document
+func aliasNormalizeFunc(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	switch name {
+	case "user", "username":
+		name = "repo-basic-username"
+	case "pw", "pass", "password":
+		name = "repo-basic-password"
+	case "deploy":
+		name = "deployment"
+	case "desc":
+		name = "description"
+	case "dir", "folder":
+		name = "directory"
+	}
+
+	return pflag.NormalizedName(name)
 }
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
@@ -92,21 +115,11 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	// todo if namespace flag missing, use kubeconfig
-	if *r.cfg.Namespace == "" {
-		// Get the namespace from kubeconfig
-		namespace, _, err := r.cfg.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
-			return fmt.Errorf("error getting namespace: %w", err)
-		}
-		r.cfg.Namespace = &namespace
-	}
-
-	client, err := cliutils.CreateClientWithFlags(r.cfg)
+	var err error
+	r.client, err = cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	r.client = client
 	return nil
 }
 
@@ -185,7 +198,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.name,
-			Namespace: *r.cfg.Namespace,
+			Namespace: util.EnsureNamespace(r.cfg),
 		},
 		Spec: configapi.RepositorySpec{
 			Description: r.description,
@@ -225,7 +238,7 @@ func (r *runner) buildAuthSecret() (*coreapi.Secret, error) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("%s-auth", r.name),
-				Namespace: *r.cfg.Namespace,
+				Namespace: util.EnsureNamespace(r.cfg),
 			},
 			Data: map[string][]byte{},
 			Type: "kpt.dev/workload-identity-auth",
@@ -238,7 +251,7 @@ func (r *runner) buildAuthSecret() (*coreapi.Secret, error) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("%s-auth", r.name),
-				Namespace: *r.cfg.Namespace,
+				Namespace: util.EnsureNamespace(r.cfg),
 			},
 			Data: map[string][]byte{
 				"username": []byte(r.username),
