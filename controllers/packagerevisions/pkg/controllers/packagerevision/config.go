@@ -76,7 +76,7 @@ func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
 	)
 
 	fnRunnerAddr := os.Getenv("FUNCTION_RUNNER_ADDRESS")
-	functionRuntime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, r.MaxGRPCMessageSize, "")
+	functionRuntime, err := engine.NewMultiFunctionRuntime(fnRunnerAddr, r.MaxGRPCMessageSize, r.FunctionConfigStore)
 	if err != nil {
 		return fmt.Errorf("failed to create function runtime: %w", err)
 	}

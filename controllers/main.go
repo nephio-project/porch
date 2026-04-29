@@ -38,6 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/nephio-project/porch/controllers/packagerevisions/pkg/controllers/packagerevision"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
@@ -50,6 +52,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -248,6 +251,12 @@ func enableReconcilers(mgr ctrl.Manager, enabledReconcilersString string) error 
 			return fmt.Errorf("%s reconciler requires %s reconciler (shared cache)", prReconciler.Name(), repoReconciler.Name())
 		}
 		prReconciler.ContentCache = contentcache.NewContentCache(repoReconciler.Cache)
+
+		functionConfigStore, err := setupFunctionConfigReconciler(mgr)
+		if err != nil {
+			return err
+		}
+		prReconciler.FunctionConfigStore = functionConfigStore
 	}
 	started, err = setupReconciler(mgr, enabled, prReconciler, started)
 	if err != nil {
@@ -288,6 +297,30 @@ func setupReconciler(mgr ctrl.Manager, enabled []string, r Reconciler, started [
 		return started, fmt.Errorf("error creating %s reconciler: %w", name, err)
 	}
 	return append(started, name), nil
+}
+
+func setupFunctionConfigReconciler(mgr ctrl.Manager) (*reconciler.FunctionConfigStore, error) {
+	prefix := os.Getenv("DEFAULT_IMAGE_PREFIX")
+	if prefix == "" {
+		prefix = runneroptions.GHCRImagePrefix
+	}
+	functionConfigStore := reconciler.NewFunctionConfigStore(prefix, "")
+
+	rec := &reconciler.FunctionConfigReconciler{
+		Client:              mgr.GetClient(),
+		FunctionConfigStore: functionConfigStore,
+		For:                 reconciler.ReconcilerForController,
+	}
+
+	if err := ctrl.NewControllerManagedBy(mgr).
+		For(&configapi.FunctionConfig{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Complete(rec); err != nil {
+		return nil, fmt.Errorf("error creating FunctionConfig controller: %w", err)
+	}
+
+	klog.Infof("FunctionConfig reconciler registered (for: %s)", reconciler.ReconcilerForController)
+	return functionConfigStore, nil
 }
 
 

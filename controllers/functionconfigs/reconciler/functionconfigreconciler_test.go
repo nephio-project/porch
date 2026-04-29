@@ -238,6 +238,10 @@ func TestFinalizersAdded(t *testing.T) {
 			forValue:  ReconcilerForServer,
 			finalizer: ServerFinalizer,
 		},
+		string(ReconcilerForController): {
+			forValue:  ReconcilerForController,
+			finalizer: ControllerFinalizer,
+		},
 	}
 
 	for name, tc := range cases {
@@ -290,6 +294,10 @@ func TestFinalizersRemoved(t *testing.T) {
 		string(ReconcilerForServer): {
 			forValue:  ReconcilerForServer,
 			finalizer: ServerFinalizer,
+		},
+		string(ReconcilerForController): {
+			forValue:  ReconcilerForController,
+			finalizer: ControllerFinalizer,
 		},
 	}
 

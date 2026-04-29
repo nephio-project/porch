@@ -11,56 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
----
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: ClusterRoleBinding
 metadata:
+  name: porch-system:porch-controllers-packagerevisions
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
   name: porch-controllers-packagerevisions
-rules:
-- apiGroups:
-  - config.porch.kpt.dev
-  resources:
-  - functionconfigs
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - config.porch.kpt.dev
-  resources:
-  - functionconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - config.porch.kpt.dev
-  resources:
-  - repositories
-  verbs:
-  - get
-- apiGroups:
-  - porch.kpt.dev
-  resources:
-  - packagerevisions
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - porch.kpt.dev
-  resources:
-  - packagerevisions/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - porch.kpt.dev
-  resources:
-  - packagerevisions/status
-  verbs:
-  - get
-  - patch
-  - update
+subjects:
+- kind: ServiceAccount
+  name: porch-controllers
+  namespace: porch-system

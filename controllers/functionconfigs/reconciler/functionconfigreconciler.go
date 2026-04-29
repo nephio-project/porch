@@ -41,6 +41,7 @@ import (
 const BaseFinalizer = "config.porch.kpt.dev/functionconfig"
 const ServerFinalizer = BaseFinalizer + "-porch-server"
 const FunctionRunnerFinalizer = BaseFinalizer + "-function-runner"
+const ControllerFinalizer = BaseFinalizer + "-controller"
 
 type BinaryCacheEntry struct {
 	PrefixRegex string
@@ -212,6 +213,7 @@ type ReconcilerFor string
 const (
 	ReconcilerForFunctionRunner ReconcilerFor = "function-runner"
 	ReconcilerForServer         ReconcilerFor = "server"
+	ReconcilerForController     ReconcilerFor = "controller"
 )
 
 type FunctionConfigReconciler struct {
@@ -259,6 +261,8 @@ func (r *FunctionConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				obj.Status.FunctionRunnerObservedGeneration = obj.Generation
 			case ReconcilerForServer:
 				obj.Status.ApiServerObservedGeneration = obj.Generation
+			case ReconcilerForController:
+				obj.Status.ControllerObservedGeneration = obj.Generation
 			}
 		}
 
@@ -297,6 +301,8 @@ func (r *FunctionConfigReconciler) removeFinalizer(ctx context.Context, obj *con
 		controllerutil.RemoveFinalizer(obj, FunctionRunnerFinalizer)
 	case ReconcilerForServer:
 		controllerutil.RemoveFinalizer(obj, ServerFinalizer)
+	case ReconcilerForController:
+		controllerutil.RemoveFinalizer(obj, ControllerFinalizer)
 	}
 
 	if err := r.Client.Patch(ctx, obj, patch); err != nil {
@@ -316,6 +322,8 @@ func (r *FunctionConfigReconciler) addFinalizer(ctx context.Context, obj *config
 		updated = controllerutil.AddFinalizer(obj, FunctionRunnerFinalizer)
 	case ReconcilerForServer:
 		updated = controllerutil.AddFinalizer(obj, ServerFinalizer)
+	case ReconcilerForController:
+		updated = controllerutil.AddFinalizer(obj, ControllerFinalizer)
 	}
 
 	if updated {

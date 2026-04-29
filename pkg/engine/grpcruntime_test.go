@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -303,4 +304,39 @@ type errorWriter struct{}
 
 func (e *errorWriter) Write(p []byte) (n int, err error) {
 	return 0, errors.New("write error")
+}
+
+func TestNewMultiFunctionRuntime_BuiltinOnly(t *testing.T) {
+	store := newTestFunctionConfigStore()
+	runtime, err := NewMultiFunctionRuntime("", 1024, store)
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+
+	// Should be a builtinRuntime (no gRPC fallback)
+	_, ok := runtime.(*builtinRuntime)
+	assert.True(t, ok, "expected builtinRuntime when no gRPC address is provided")
+}
+
+func TestNewMultiFunctionRuntime_WithGRPC(t *testing.T) {
+	addr, stop := startMockServer(t)
+	defer stop()
+
+	store := newTestFunctionConfigStore()
+	runtime, err := NewMultiFunctionRuntime(addr, 1024, store)
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+
+	// Should be a MultiRuntime wrapping builtin + gRPC
+	_, ok := runtime.(*builtinRuntime)
+	assert.False(t, ok, "expected MultiRuntime when gRPC address is provided")
+}
+
+func TestNewMultiFunctionRuntime_NilStorePanics(t *testing.T) {
+	assert.Panics(t, func() {
+		_, _ = NewMultiFunctionRuntime("", 1024, nil)
+	})
+}
+
+func newTestFunctionConfigStore() *reconciler.FunctionConfigStore {
+	return reconciler.NewFunctionConfigStore("", "")
 }

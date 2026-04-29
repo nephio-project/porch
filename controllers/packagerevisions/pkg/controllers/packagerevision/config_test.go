@@ -4,6 +4,7 @@ import (
 	"flag"
 	"testing"
 
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -61,6 +62,7 @@ func TestInit_NilCache(t *testing.T) {
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
 		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
+		FunctionConfigStore:        reconciler.NewFunctionConfigStore("", ""),
 	}
 	err := r.Init(mgr)
 	require.NoError(t, err)
@@ -73,6 +75,7 @@ func TestInit_SetsCredResolverAndFetcher(t *testing.T) {
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
 		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
+		FunctionConfigStore:        reconciler.NewFunctionConfigStore("", ""),
 	}
 
 	err := r.Init(mgr)
@@ -90,6 +93,7 @@ func TestInit_RendererEnabledWithFnRunner(t *testing.T) {
 	r := &PackageRevisionReconciler{
 		RepoOperationRetryAttempts: 3,
 		MaxGRPCMessageSize:         defaultMaxGRPCMessageSize,
+		FunctionConfigStore:        reconciler.NewFunctionConfigStore("", ""),
 	}
 
 	t.Setenv("FUNCTION_RUNNER_ADDRESS", "localhost:0")

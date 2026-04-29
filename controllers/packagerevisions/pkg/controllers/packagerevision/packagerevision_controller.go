@@ -20,6 +20,7 @@ import (
 	"time"
 
 	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +37,8 @@ import (
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories,verbs=get
+//+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=functionconfigs,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=functionconfigs/status,verbs=get;update;patch
 
 const reconcilerName = "packagerevisions"
 
@@ -47,6 +50,7 @@ type PackageRevisionReconciler struct {
 	Scheme                 *runtime.Scheme
 	ContentCache           repository.ContentCache
 	ExternalPackageFetcher repository.ExternalPackageFetcher
+	FunctionConfigStore    *reconciler.FunctionConfigStore
 	Renderer               renderer // nil = skip rendering
 
 	MaxConcurrentReconciles    int
