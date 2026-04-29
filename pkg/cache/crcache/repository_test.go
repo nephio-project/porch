@@ -100,6 +100,10 @@ func TestCachedRepoRefresh(t *testing.T) {
 	}
 	assert.False(t, cr.cachedPackageRevisions[prKey].IsLatestRevision())
 
+	ts, author := cr.cachedPackageRevisions[prKey].GetCommitInfo()
+	assert.True(t, ts.IsZero())
+	assert.Empty(t, author)
+
 	err := cr.Refresh(context.TODO())
 	assert.True(t, err == nil)
 

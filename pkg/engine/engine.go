@@ -47,6 +47,7 @@ type CaDEngine interface {
 	ObjectCache() WatcherManager
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
+	UpdatePackageResourcesWithoutRender(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, error)
 
 	ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
@@ -525,6 +526,49 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 
 func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
 	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
+}
+
+// UpdatePackageResourcesWithoutRender writes new resources without rendering.
+// Used by the PRR handler for v1alpha2 repos where the PR controller renders async.
+func (cad *cadEngine) UpdatePackageResourcesWithoutRender(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *porchapi.PackageRevisionResources) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResourcesWithoutRender", trace.WithAttributes())
+	defer span.End()
+
+	klog.InfoS("[CaD Engine] Writing resources without render for v1alpha2", context1.LogMetadataFrom(ctx)...)
+
+	newRV := newRes.GetResourceVersion()
+	if len(newRV) == 0 {
+		return nil, fmt.Errorf("resourceVersion must be specified for an update")
+	}
+	if newRV != oldRes.GetResourceVersion() {
+		return nil, apierrors.NewConflict(porchapi.Resource("packagerevisionresources"), oldRes.GetName(), errors.New(OptimisticLockErrorMsg))
+	}
+
+	switch lifecycle := pr2Update.Lifecycle(ctx); lifecycle {
+	case porchapi.PackageRevisionLifecycleDraft:
+	default:
+		return nil, fmt.Errorf("cannot update a package revision with lifecycle value %q; package must be Draft", lifecycle)
+	}
+
+	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
+	if err != nil {
+		return nil, err
+	}
+	draft, err := repo.UpdatePackageRevision(ctx, pr2Update)
+	if err != nil {
+		return nil, err
+	}
+
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: newRes.Spec.Resources,
+		},
+	}
+	if err := draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender}); err != nil {
+		return nil, err
+	}
+
+	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
 }
 
 // handleMutationError decides whether to bail out or allow push-on-render-failure.

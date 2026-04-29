@@ -891,3 +891,122 @@ func TestUpdatePackageResourcesRenderFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdatePackageResourcesWithoutRender(t *testing.T) {
+	tests := []struct {
+		name          string
+		lifecycle     porchapi.PackageRevisionLifecycle
+		oldRV         string
+		newRV         string
+		closeErr      error
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:      "success - draft lifecycle",
+			lifecycle: porchapi.PackageRevisionLifecycleDraft,
+			oldRV:     "1",
+			newRV:     "1",
+		},
+		{
+			name:          "failure - published lifecycle rejected",
+			lifecycle:     porchapi.PackageRevisionLifecyclePublished,
+			oldRV:         "1",
+			newRV:         "1",
+			expectError:   true,
+			errorContains: "cannot update a package revision with lifecycle value",
+		},
+		{
+			name:          "failure - empty resource version",
+			lifecycle:     porchapi.PackageRevisionLifecycleDraft,
+			oldRV:         "1",
+			newRV:         "",
+			expectError:   true,
+			errorContains: "resourceVersion must be specified",
+		},
+		{
+			name:          "failure - resource version conflict",
+			lifecycle:     porchapi.PackageRevisionLifecycleDraft,
+			oldRV:         "1",
+			newRV:         "2",
+			expectError:   true,
+			errorContains: OptimisticLockErrorMsg,
+		},
+		{
+			name:          "failure - close draft error",
+			lifecycle:     porchapi.PackageRevisionLifecycleDraft,
+			oldRV:         "1",
+			newRV:         "1",
+			closeErr:      fmt.Errorf("git push failed"),
+			expectError:   true,
+			errorContains: "git push failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockrepo.MockRepository{}
+			mockCache := &mockCache{}
+			mockPkgRev := &mockrepo.MockPackageRevision{}
+			mockDraft := &mockrepo.MockPackageRevisionDraft{}
+
+			repositoryObj := &configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-repo",
+					Namespace: "default",
+				},
+			}
+
+			oldRes := &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-pkg",
+					ResourceVersion: tt.oldRV,
+				},
+			}
+			newRes := &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-pkg",
+					ResourceVersion: tt.newRV,
+				},
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{"Kptfile": "test"},
+				},
+			}
+
+			mockPkgRev.On("Lifecycle", mock.Anything).Return(tt.lifecycle).Maybe()
+			mockPkgRev.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+
+			// Only expect repo open + draft flow when we pass validation
+			needsDraft := tt.newRV != "" && tt.oldRV == tt.newRV && tt.lifecycle == porchapi.PackageRevisionLifecycleDraft
+			if needsDraft {
+				mockCache.On("OpenRepository", mock.Anything, repositoryObj).Return(mockRepo, nil)
+				mockRepo.On("UpdatePackageRevision", mock.Anything, mockPkgRev).Return(mockDraft, nil)
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+				closeRet := mockrepo.MockPackageRevision{}
+				if tt.closeErr != nil {
+					mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mockDraft, 0).Return(nil, tt.closeErr)
+				} else {
+					mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mockDraft, 0).Return(&closeRet, nil)
+				}
+			}
+
+			engine := &cadEngine{cache: mockCache}
+
+			result, err := engine.UpdatePackageResourcesWithoutRender(context.Background(), repositoryObj, mockPkgRev, oldRes, newRes)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, tt.errorContains)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+			}
+
+			mockRepo.AssertExpectations(t)
+			mockCache.AssertExpectations(t)
+			mockPkgRev.AssertExpectations(t)
+		})
+	}
+}

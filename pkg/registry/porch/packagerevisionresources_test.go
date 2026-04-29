@@ -63,7 +63,8 @@ func setupResourcesTest(t *testing.T) (mockClient *mockclient.MockClient, mockEn
 }
 
 func TestListResources(t *testing.T) {
-	_, mockEngine := setupResourcesTest(t)
+	mockClient, mockEngine := setupResourcesTest(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
@@ -86,6 +87,10 @@ func TestListResources(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
+	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "repo"}},
+	}).Maybe()
+	mockPkgRev.On("KubeObjectNamespace").Return("").Maybe()
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
@@ -95,7 +100,8 @@ func TestListResources(t *testing.T) {
 }
 
 func TestGetResources(t *testing.T) {
-	_, mockEngine := setupResourcesTest(t)
+	mockClient, mockEngine := setupResourcesTest(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
