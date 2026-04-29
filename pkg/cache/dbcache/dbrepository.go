@@ -380,6 +380,10 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 		return nil, fmt.Errorf("cannot update DB package revision %T", updatePR)
 	}
 
+	if updatePkgRev.repo == nil {
+		updatePkgRev.repo = r
+	}
+
 	if err := updatePkgRev.UpdatePackageRevision(ctx); err != nil {
 		return nil, err
 	}

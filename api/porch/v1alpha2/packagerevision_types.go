@@ -35,6 +35,11 @@ import (
 // +kubebuilder:printcolumn:name="Lifecycle",type=string,JSONPath=`.spec.lifecycle`
 // +kubebuilder:printcolumn:name="Repository",type=string,JSONPath=`.spec.repository`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:selectablefield:JSONPath=`.spec.lifecycle`
+// +kubebuilder:selectablefield:JSONPath=`.spec.repository`
+// +kubebuilder:selectablefield:JSONPath=`.spec.packageName`
+// +kubebuilder:selectablefield:JSONPath=`.spec.workspaceName`
+// +kubebuilder:selectablefield:JSONPath=`.status.revision`
 type PackageRevision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -57,6 +62,19 @@ type PackageRevisionList struct {
 const (
 	LatestPackageRevisionKey   = "porch.kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
+)
+
+// AnnotationRenderRequest triggers async rendering when patched by the PRR handler.
+const AnnotationRenderRequest = "porch.kpt.dev/render-request"
+
+// PackageRevisionFinalizer prevents deletion of packages that have not been through DeletionProposed.
+const PackageRevisionFinalizer = "porch.kpt.dev/packagerevisions"
+
+const (
+	// PushOnFnRenderFailureKey controls whether resources are written back
+	// to storage when the render pipeline fails.
+	PushOnFnRenderFailureKey   = "porch.kpt.dev/push-on-render-failure"
+	PushOnFnRenderFailureValue = "true"
 )
 
 // PkgRevFieldSelector defines field selectors for PackageRevision.
@@ -137,6 +155,10 @@ type ReadinessGate struct {
 
 // PackageRevisionStatus defines the observed state of PackageRevision
 type PackageRevisionStatus struct {
+	// ObservedGeneration is the generation of the PackageRevision spec that was last reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// Revision identifies the version of the package.
 	// This is assigned by the system when the package is published.
 	Revision int `json:"revision,omitempty"`
@@ -151,7 +173,8 @@ type PackageRevisionStatus struct {
 	PublishedBy string `json:"publishedBy,omitempty"`
 
 	// PublishedAt is the time when the packagerevision were approved.
-	PublishedAt metav1.Time `json:"publishedAt,omitempty"`
+	// +optional
+	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`
 
 	// Deployment is true if this is a deployment package (in a deployment repository).
 	Deployment bool `json:"deployment,omitempty"`
@@ -173,7 +196,9 @@ type PackageRevisionStatus struct {
 	// PackageConditions from Kptfile. Set by KRM functions, used for ReadinessGates.
 	PackageConditions []PackageCondition `json:"packageConditions,omitempty"`
 
-	// Conditions for controller state (e.g., Ready).
+	// Conditions for controller state (e.g., Ready, Rendered).
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -220,21 +245,20 @@ const (
 )
 
 // Condition types for PackageRevision.Conditions (controller state)
-// Additional condition types may be added in future (e.g., Rendered, Validated, Synced)
 const (
 	// ConditionReady indicates the package is ready for use.
 	// This is a summary condition that aggregates other conditions.
 	ConditionReady = "Ready"
+
+	// ConditionRendered indicates whether the latest content has been rendered.
+	ConditionRendered = "Rendered"
 )
 
 // Condition reasons for PackageRevision.Conditions
 const (
-	// ReasonReady indicates the package is ready
-	ReasonReady = "Ready"
-
-	// ReasonPending indicates the package is pending some operation
-	ReasonPending = "Pending"
-
-	// ReasonFailed indicates an operation failed
-	ReasonFailed = "Failed"
+	ReasonReady        = "Ready"
+	ReasonPending      = "Pending"
+	ReasonFailed       = "Failed"
+	ReasonRendered     = "Rendered"
+	ReasonRenderFailed = "RenderFailed"
 )

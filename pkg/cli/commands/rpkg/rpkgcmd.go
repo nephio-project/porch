@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,9 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		rc.UserAgent = fmt.Sprintf("porchctl/%s", version)
 		return rc
 	}
+
+	pf.String(cliutils.FlagAPIVersion, "",
+		"API version for PackageRevision (v1alpha1 or v1alpha2). Default: v1alpha1. Env: PORCHCTL_API_VERSION")
 
 	pf.AddGoFlagSet(flag.CommandLine)
 

@@ -1933,14 +1933,27 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		commitHash = newRef.Hash()
 	}
 
+	// Set publish metadata on the actual Proposed → Published transition.
+	var updatedTime time.Time
+	var updatedBy string
+	if d.lifecycle == porchapi.PackageRevisionLifecyclePublished {
+		updatedTime = time.Now()
+		if r.userInfoProvider != nil {
+			if userInfo := r.userInfoProvider.GetUserInfo(ctx); userInfo != nil {
+				updatedBy = userInfo.Email
+			}
+		}
+	}
+
 	return &gitPackageRevision{
-		prKey:   d.prKey,
-		repo:    d.repo,
-		updated: d.updated,
-		ref:     newRef,
-		tree:    d.tree,
-		commit:  commitHash,
-		tasks:   d.tasks,
+		prKey:     d.prKey,
+		repo:      d.repo,
+		updated:   updatedTime,
+		updatedBy: updatedBy,
+		ref:       newRef,
+		tree:      d.tree,
+		commit:    commitHash,
+		tasks:     d.tasks,
 	}, nil
 }
 

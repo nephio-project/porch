@@ -247,3 +247,13 @@ func TestLastErrWorkaround(t *testing.T) {
 		t.Fatal("expected error but got nil")
 	}
 }
+
+func TestNewCommand(t *testing.T) {
+	ns := "default"
+	flags := genericclioptions.NewConfigFlags(true)
+	flags.Namespace = &ns
+	cmd := NewCommand(context.Background(), flags)
+	if cmd == nil {
+		t.Fatal("NewCommand returned nil")
+	}
+}

@@ -16,6 +16,7 @@ package fake
 
 import (
 	"context"
+	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -123,6 +124,10 @@ func (fpr *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 
 func (fpr *FakePackageRevision) IsLatestRevision() bool {
 	return true
+}
+
+func (fpr *FakePackageRevision) GetCommitInfo() (time.Time, string) {
+	return time.Time{}, ""
 }
 
 func (fpr *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {

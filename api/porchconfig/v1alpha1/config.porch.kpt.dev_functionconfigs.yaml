@@ -34,6 +34,9 @@ spec:
     - jsonPath: .status.functionRunnerObservedGeneration
       name: FnRunner Applied
       type: integer
+    - jsonPath: .status.controllerObservedGeneration
+      name: Controller Applied
+      type: integer
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -909,6 +912,11 @@ spec:
               apiServerObservedGeneration:
                 description: ApiServerObservedGeneration indicates which generation
                   of the config the porch server has applied to the build-in runtime
+                format: int64
+                type: integer
+              controllerObservedGeneration:
+                description: ControllerObservedGeneration indicates which generation
+                  of the config the porch controller has applied to its builtin runtime
                 format: int64
                 type: integer
               error:

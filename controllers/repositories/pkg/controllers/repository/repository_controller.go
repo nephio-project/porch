@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	porchcontext "github.com/nephio-project/porch/pkg/util/context"
@@ -37,6 +38,7 @@ import (
 )
 
 const (
+	reconcilerName      = "repositories"
 	RepositoryFinalizer = "config.porch.kpt.dev/repository"
 )
 
@@ -54,14 +56,18 @@ type RepositoryReconciler struct {
 	SyncStaleTimeout           time.Duration // How long before sync is considered stale
 	RepoOperationRetryAttempts int           // Git operation retry attempts
 
+	// Feature flags
+	CreateV1Alpha2Rpkg bool // Create v1alpha2 PackageRevision resources during repo sync
+	PushDraftsToGit    bool // Push draft/proposed branches to git (DB cache only)
+
 	// Configuration (set via flags or defaults)
 	cacheType              string // Cache type (DB or CR)
 	cacheDirectory         string // Directory for git repository cache
 	useUserDefinedCaBundle bool   // Whether to use custom CA bundles from secrets
 
 	// Private implementation details
-	syncLimiter chan struct{} // Semaphore for sync concurrency
-	loggerName  string        // Logger name for this reconciler
+	syncLimiter    chan struct{} // Semaphore for sync concurrency
+	coldStartRepos sync.Map     // Tracks repos that have synced since startup
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -70,6 +76,8 @@ type RepositoryReconciler struct {
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagerevs,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=porch.kpt.dev,resources=packagerevisions/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
@@ -252,10 +260,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
-// SetLogger sets the logger name for this reconciler
-func (r *RepositoryReconciler) SetLogger(name string) {
-	r.loggerName = name
-}
+func (r *RepositoryReconciler) Name() string { return reconcilerName }
 
 // ensureFinalizer adds finalizer if missing using patch to avoid generation increment
 func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Repository) (bool, error) {
@@ -284,7 +289,7 @@ func getRepoFields(repo *api.Repository) (repoURL, branch, directory string) {
 
 // SetupWithManager sets up the controller with the Manager
 func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := ctrl.Log.WithName(r.loggerName)
+	log := ctrl.Log.WithName(r.Name())
 	log.Info("SetupWithManager called", "reconcilerPtr", fmt.Sprintf("%p", r), "cacheIsNil", r.Cache == nil)
 
 	// Log controller configuration

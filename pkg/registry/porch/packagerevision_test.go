@@ -130,8 +130,20 @@ func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockeng
 	return
 }
 
+// filterCalls removes expected calls for a given method name, used to reset mock expectations.
+func filterCalls(calls []*mock.Call, method string) []*mock.Call {
+	var filtered []*mock.Call
+	for _, c := range calls {
+		if c.Method != method {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
 func TestList(t *testing.T) {
-	_, mockEngine := setup(t)
+	mockClient, mockEngine := setup(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		packageRevision,
 	}, nil).Once()
@@ -154,6 +166,10 @@ func TestList(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
+	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "repo"}},
+	}).Maybe()
+	mockPkgRev.On("KubeObjectNamespace").Return("").Maybe()
 	mockPkgRev.On("KubeObjectName").Return("test-package").Maybe()
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
@@ -164,7 +180,8 @@ func TestList(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	_, mockEngine := setup(t)
+	mockClient, mockEngine := setup(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	pkgRevName := "repo.1234567890.ws"
 
 	// Success case
@@ -205,6 +222,7 @@ func TestGet(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	mockClient, mockEngine := setup(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	ctx := request.WithNamespace(context.TODO(), "someDummyNamespace")
 
 	// Success case - Init task
@@ -219,7 +237,6 @@ func TestCreate(t *testing.T) {
 		},
 	}
 
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(packageRevision, nil).Once()
 
 	result, err := packagerevisions.Create(ctx, newPkgRev, nil, &metav1.CreateOptions{})
@@ -261,13 +278,29 @@ func TestCreate(t *testing.T) {
 	//=========================================================================================
 
 	// Error from CreatePackageRevision
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("creation failed")).Once()
 
 	result, err = packagerevisions.Create(ctx, newPkgRev, nil, &metav1.CreateOptions{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.True(t, apierrors.IsInternalError(err))
+
+	//=========================================================================================
+
+	// v1alpha2 repo returns Forbidden
+	// Reset Get mock to return v1alpha2 annotation
+	mockClient.ExpectedCalls = filterCalls(mockClient.ExpectedCalls, "Get")
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).
+		Run(func(args mock.Arguments) {
+			repo := args.Get(2).(*configapi.Repository)
+			repo.Annotations = map[string]string{configapi.AnnotationKeyV1Alpha2Migration: configapi.AnnotationValueMigrationEnabled}
+		}).Return(nil).Maybe()
+
+	result, err = packagerevisions.Create(ctx, newPkgRev, nil, &metav1.CreateOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.True(t, apierrors.IsGone(err))
+	assert.ErrorContains(t, err, "managed by v1alpha2")
 }
 
 func TestDelete(t *testing.T) {
@@ -317,8 +350,8 @@ info:
 		},
 	}
 
-	// Need 1 Get call for validateDelete->getRepositoryObj
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	// Need Get calls for getRepoPkgRev->getRepositoryObj and validateDelete->getRepositoryObj
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		deletionProposedPkgRev,
 	}, nil).Once()
@@ -389,7 +422,6 @@ info:
 		},
 	}
 
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		draftPkgRev,
 	}, nil).Once()
@@ -425,7 +457,6 @@ info:
 	//=========================================================================================
 
 	// Error from DeletePackageRevision
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		deletionProposedPkgRev,
 	}, nil).Once()
@@ -809,6 +840,7 @@ func TestCheckIfUpstreamIsReferenced(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	mockClient, mockEngine := setup(t)
+	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(nil).Maybe()
 	ctx := request.WithNamespace(context.TODO(), "someDummyNamespace")
 	pkgRevName := "repo.1234567890.ws"
 
@@ -840,7 +872,6 @@ func TestUpdate(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		draftPackageRevision,
 	}, nil).Once()
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(draftPackageRevision, nil).Once()
 
 	objInfo := &mockUpdatedObjectInfo{
@@ -866,7 +897,6 @@ func TestUpdate(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		draftPackageRevision,
 	}, nil).Once()
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("update failed")).Once()
 
 	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
@@ -891,7 +921,6 @@ func TestUpdate(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		draftPackageRevision,
 	}, nil).Once()
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, apierrors.NewConflict(porchapi.Resource("packagerevisions"), pkgRevName, fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))).Once()
 
 	result, created, err = packagerevisions.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})

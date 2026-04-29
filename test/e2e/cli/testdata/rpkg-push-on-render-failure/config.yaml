@@ -25,7 +25,7 @@ commands:
   - args:
       - kubectl
       - annotate
-      - packagerevision
+      - packagerevisions.v1alpha1.porch.kpt.dev
       - git.test-push-true.v1
       - --namespace=rpkg-push-on-render-failure
       - porch.kpt.dev/push-on-render-failure=true
@@ -82,7 +82,7 @@ commands:
   - args:
       - kubectl
       - annotate
-      - packagerevision
+      - packagerevisions.v1alpha1.porch.kpt.dev
       - git.test-push-false.v1
       - --namespace=rpkg-push-on-render-failure
       - porch.kpt.dev/push-on-render-failure=false

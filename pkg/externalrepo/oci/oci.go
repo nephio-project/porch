@@ -452,3 +452,11 @@ func (p *ociPackageRevision) SetMeta(_ context.Context, metadata metav1.ObjectMe
 	p.metadata = metadata
 	return nil
 }
+
+func (p *ociPackageRevision) GetCommitInfo() (time.Time, string) {
+	return time.Time{}, ""
+}
+
+func (p *ociPackageRevision) IsLatestRevision() bool {
+	return false
+}

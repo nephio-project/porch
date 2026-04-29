@@ -17,6 +17,7 @@ package crcache
 import (
 	"context"
 	"sync"
+	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
@@ -104,4 +105,8 @@ func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.O
 
 func (c *cachedPackageRevision) IsLatestRevision() bool {
 	return c.isLatestRevision
+}
+
+func (c *cachedPackageRevision) GetCommitInfo() (time.Time, string) {
+	return c.PackageRevision.GetCommitInfo()
 }

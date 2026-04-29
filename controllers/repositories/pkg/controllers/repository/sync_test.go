@@ -836,7 +836,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 				HealthCheckFrequency: 5 * time.Minute,
 				FullSyncFrequency:    1 * time.Hour,
 			}
-			decision := r.determineSyncDecision(ctx, tt.repo)
+			r.coldStartRepos.Store(tt.repo.Namespace+"/"+tt.repo.Name, true); decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
 			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
@@ -1157,7 +1157,7 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 				HealthCheckFrequency: 5 * time.Minute,
 				FullSyncFrequency:    1 * time.Hour,
 			}
-			decision := r.determineSyncDecision(ctx, tt.repo)
+			r.coldStartRepos.Store(tt.repo.Namespace+"/"+tt.repo.Name, true); decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
 			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
@@ -1352,7 +1352,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 				HealthCheckFrequency: 5 * time.Minute,
 				FullSyncFrequency:    1 * time.Hour,
 			}
-			decision := r.determineSyncDecision(ctx, tt.repo)
+			r.coldStartRepos.Store(tt.repo.Namespace+"/"+tt.repo.Name, true); decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
 			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
@@ -1608,7 +1608,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 				HealthCheckFrequency: 5 * time.Minute,
 				FullSyncFrequency:    1 * time.Hour,
 			}
-			decision := r.determineSyncDecision(ctx, tt.repo)
+			r.coldStartRepos.Store(tt.repo.Namespace+"/"+tt.repo.Name, true); decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type, tt.description)
 			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary, tt.description)
 		})

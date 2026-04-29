@@ -234,7 +234,7 @@ commands:
   - args:
     - kubectl
     - get
-    - packagerevision
+    - packagerevisions.v1alpha1.porch.kpt.dev
     - downstream1.upgrade-orig.v2
     - --namespace=rpkg-upgrade
     - -o=jsonpath={.spec.tasks[0].upgrade.newUpstreamRef.name}
@@ -299,7 +299,7 @@ commands:
   - args:
     - kubectl
     - get
-    - packagerevision
+    - packagerevisions.v1alpha1.porch.kpt.dev
     - downstream2.upgrade-orig.v2
     - --namespace=rpkg-upgrade
     - -o=jsonpath={.spec.tasks[0].upgrade.newUpstreamRef.name}

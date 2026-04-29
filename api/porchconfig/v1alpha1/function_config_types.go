@@ -24,6 +24,7 @@ import (
 // +kubebuilder:resource:path=functionconfigs,singular=functionconfig
 // +kubebuilder:printcolumn:name="Server Applied",type=integer,JSONPath=`.status.apiServerObservedGeneration`
 // +kubebuilder:printcolumn:name="FnRunner Applied",type=integer,JSONPath=`.status.functionRunnerObservedGeneration`
+// +kubebuilder:printcolumn:name="Controller Applied",type=integer,JSONPath=`.status.controllerObservedGeneration`
 type FunctionConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -58,6 +59,8 @@ type FunctionConfigStatus struct {
 	ApiServerObservedGeneration int64 `json:"apiServerObservedGeneration,omitempty"`
 	// FunctionRunnerObservedGeneration indicates which generation of the config the function-runner has applied to the executable and pod evaluator
 	FunctionRunnerObservedGeneration int64 `json:"functionRunnerObservedGeneration,omitempty"`
+	// ControllerObservedGeneration indicates which generation of the config the porch controller has applied to its builtin runtime
+	ControllerObservedGeneration int64 `json:"controllerObservedGeneration,omitempty"`
 	// Contains an error message if one occurred whilst trying to apply the FunctionConfig
 	Error string `json:"error,omitempty"`
 }

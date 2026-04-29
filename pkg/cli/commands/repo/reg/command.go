@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	c.Flags().StringVar(&r.password, "repo-basic-password", "", "Password for repository authentication using basic auth.")
 	c.Flags().BoolVar(&r.workloadIdentity, "repo-workload-identity", false, "Use workload identity for authentication with the repo")
 	c.Flags().StringVar(&r.syncSchedule, "sync-schedule", "", "Cron schedule for reconciling packages in the repository.")
+	c.Flags().BoolVar(&r.v1alpha2, "v1alpha2", false, "Enable v1alpha2 PackageRevision management for this repository.")
 
 	return r
 }
@@ -87,6 +88,7 @@ type runner struct {
 	password         string
 	workloadIdentity bool
 	syncSchedule     string
+	v1alpha2         bool
 }
 
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
@@ -178,14 +180,20 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 	}
 
+	annotations := map[string]string{}
+	if r.v1alpha2 {
+		annotations[configapi.AnnotationKeyV1Alpha2Migration] = configapi.AnnotationValueMigrationEnabled
+	}
+
 	if err := r.client.Create(r.ctx, &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Repository",
 			APIVersion: configapi.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.name,
-			Namespace: *r.cfg.Namespace,
+			Name:        r.name,
+			Namespace:   *r.cfg.Namespace,
+			Annotations: annotations,
 		},
 		Spec: configapi.RepositorySpec{
 			Description: r.description,

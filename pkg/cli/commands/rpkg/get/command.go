@@ -42,7 +42,7 @@ import (
 
 const (
 	command      = "cmdrpkgget"
-	resourceName = "packagerevisions.porch.kpt.dev"
+	resourceName = "packagerevisions.v1alpha1.porch.kpt.dev"
 )
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
@@ -77,7 +77,9 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 }
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
-	return newRunner(ctx, rcg).Command
+	r := newRunner(ctx, rcg)
+	cliutils.WrapVersionDispatch(r.Command, r.preRunE, r.runV1Alpha2)
+	return r.Command
 }
 
 type runner struct {

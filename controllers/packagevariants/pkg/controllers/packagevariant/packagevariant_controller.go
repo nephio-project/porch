@@ -53,20 +53,17 @@ type PackageVariantReconciler struct {
 	client.Client
 	client.Reader
 	Options
-	loggerName string
 }
 
 const (
+	reconcilerName      = "packagevariants"
 	workspaceNamePrefix = "packagevariant-"
 
 	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
 	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 )
 
-// SetLogger sets the logger name for this reconciler
-func (r *PackageVariantReconciler) SetLogger(name string) {
-	r.loggerName = name
-}
+func (r *PackageVariantReconciler) Name() string { return reconcilerName }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
