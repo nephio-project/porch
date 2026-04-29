@@ -20,12 +20,16 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/registry/porch"
 	"github.com/nephio-project/porch/pkg/repository"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -64,7 +68,19 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 
 	options := r.buildCacheOptions(coreClient, dbOptions, cacheDir, credentialResolver, caBundleResolver, userInfoProvider)
 
-	r.Cache, err = cache.GetCacheImpl(ctx, options)
+	err = retry.OnError(
+		wait.Backoff{Duration: time.Second, Factor: 1.5, Steps: 20, Cap: 30 * time.Second},
+		func(err error) bool {
+			klog.Warningf("failed to create repository cache: %v; wait a sec...", err)
+			return true
+		},
+		func() error {
+			var err error
+			r.Cache, err = cache.GetCacheImpl(ctx, options)
+			return err
+		},
+	)
+
 	return err
 }
 

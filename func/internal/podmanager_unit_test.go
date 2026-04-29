@@ -158,13 +158,13 @@ func TestIsPodTemplateSameVersion(t *testing.T) {
 func TestHasImagePullSecret(t *testing.T) {
 	tests := []struct {
 		name       string
-		pod        *corev1.Pod
+		podTemplateSpec        *corev1.PodTemplateSpec
 		secretName string
 		expected   bool
 	}{
 		{
 			name: "secret found",
-			pod: &corev1.Pod{
+			podTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{Name: "my-secret"},
@@ -177,7 +177,7 @@ func TestHasImagePullSecret(t *testing.T) {
 		},
 		{
 			name: "secret not found",
-			pod: &corev1.Pod{
+			podTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{
 						{Name: "other-secret"},
@@ -189,7 +189,7 @@ func TestHasImagePullSecret(t *testing.T) {
 		},
 		{
 			name: "empty secrets list",
-			pod: &corev1.Pod{
+			podTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{},
 				},
@@ -199,7 +199,7 @@ func TestHasImagePullSecret(t *testing.T) {
 		},
 		{
 			name: "nil secrets list",
-			pod: &corev1.Pod{
+			podTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{},
 			},
 			secretName: "my-secret",
@@ -209,7 +209,7 @@ func TestHasImagePullSecret(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := hasImagePullSecret(tt.pod, tt.secretName)
+			result := hasImagePullSecret(tt.podTemplateSpec, tt.secretName)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -219,7 +219,7 @@ func TestPatchNewPodContainer(t *testing.T) {
 	pm := &podManager{maxGrpcMessageSize: 4 * 1024 * 1024}
 
 	t.Run("patches function container successfully", func(t *testing.T) {
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -235,10 +235,10 @@ func TestPatchNewPodContainer(t *testing.T) {
 			entrypoint: []string{"/my-function"},
 		}
 
-		err := pm.patchNewPodContainer(pod, de, "gcr.io/kpt-fn/my-function:latest")
+		err := pm.patchNewPodContainer(podTemplateSpec, de, "gcr.io/kpt-fn/my-function:latest")
 		require.NoError(t, err)
 
-		container := pod.Spec.Containers[0]
+		container := podTemplateSpec.Spec.Containers[0]
 		assert.Equal(t, "gcr.io/kpt-fn/my-function:latest", container.Image)
 		assert.Contains(t, container.Args, "--port")
 		assert.Contains(t, container.Args, defaultWrapperServerPort)
@@ -247,7 +247,7 @@ func TestPatchNewPodContainer(t *testing.T) {
 	})
 
 	t.Run("returns error when function container not found", func(t *testing.T) {
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -262,13 +262,13 @@ func TestPatchNewPodContainer(t *testing.T) {
 			entrypoint: []string{"/entry"},
 		}
 
-		err := pm.patchNewPodContainer(pod, de, "test-image")
+		err := pm.patchNewPodContainer(podTemplateSpec, de, "test-image")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), functionContainerName)
 	})
 
 	t.Run("handles multiple containers", func(t *testing.T) {
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: "sidecar", Image: "sidecar-image"},
@@ -285,10 +285,10 @@ func TestPatchNewPodContainer(t *testing.T) {
 			entrypoint: []string{"/fn"},
 		}
 
-		err := pm.patchNewPodContainer(pod, de, "my-image")
+		err := pm.patchNewPodContainer(podTemplateSpec, de, "my-image")
 		require.NoError(t, err)
-		assert.Equal(t, "sidecar-image", pod.Spec.Containers[0].Image, "sidecar should be unchanged")
-		assert.Equal(t, "my-image", pod.Spec.Containers[1].Image, "function container should be patched")
+		assert.Equal(t, "sidecar-image", podTemplateSpec.Spec.Containers[0].Image, "sidecar should be unchanged")
+		assert.Equal(t, "my-image", podTemplateSpec.Spec.Containers[1].Image, "function container should be patched")
 	})
 }
 
@@ -296,29 +296,29 @@ func TestPatchNewPodMetadata(t *testing.T) {
 	pm := &podManager{namespace: "test-ns"}
 
 	t.Run("sets namespace labels and annotations from scratch", func(t *testing.T) {
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{},
 		}
-		pm.patchNewPodMetadata(pod, "my-pod-id", "v2")
+		pm.patchNewPodMetadata(podTemplateSpec, "my-pod-id", "v2")
 
-		assert.Equal(t, "test-ns", pod.Namespace)
-		assert.Equal(t, "v2", pod.Annotations[templateVersionAnnotation])
-		assert.Equal(t, "my-pod-id", pod.Labels[krmFunctionImageLabel])
+		assert.Equal(t, "test-ns", podTemplateSpec.Namespace)
+		assert.Equal(t, "v2", podTemplateSpec.Annotations[templateVersionAnnotation])
+		assert.Equal(t, "my-pod-id", podTemplateSpec.Labels[krmFunctionImageLabel])
 	})
 
 	t.Run("preserves existing annotations and labels", func(t *testing.T) {
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{"existing-key": "existing-val"},
 				Labels:      map[string]string{"existing-label": "label-val"},
 			},
 		}
-		pm.patchNewPodMetadata(pod, "pod-id", "v1")
+		pm.patchNewPodMetadata(podTemplateSpec, "pod-id", "v1")
 
-		assert.Equal(t, "existing-val", pod.Annotations["existing-key"], "existing annotations preserved")
-		assert.Equal(t, "v1", pod.Annotations[templateVersionAnnotation], "template version set")
-		assert.Equal(t, "label-val", pod.Labels["existing-label"], "existing labels preserved")
-		assert.Equal(t, "pod-id", pod.Labels[krmFunctionImageLabel], "function image label set")
+		assert.Equal(t, "existing-val", podTemplateSpec.Annotations["existing-key"], "existing annotations preserved")
+		assert.Equal(t, "v1", podTemplateSpec.Annotations[templateVersionAnnotation], "template version set")
+		assert.Equal(t, "label-val", podTemplateSpec.Labels["existing-label"], "existing labels preserved")
+		assert.Equal(t, "pod-id", podTemplateSpec.Labels[krmFunctionImageLabel], "function image label set")
 	})
 }
 
@@ -328,12 +328,12 @@ func TestAppendImagePullSecret(t *testing.T) {
 			enablePrivateRegistries: true,
 			registryAuthSecretName:  "my-auth-secret",
 		}
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{},
 		}
-		pm.appendImagePullSecret("private.registry.io/my-fn:latest", pod)
-		require.Len(t, pod.Spec.ImagePullSecrets, 1)
-		assert.Equal(t, "my-auth-secret", pod.Spec.ImagePullSecrets[0].Name)
+		pm.appendImagePullSecret("private.registry.io/my-fn:latest", podTemplateSpec)
+		require.Len(t, podTemplateSpec.Spec.ImagePullSecrets, 1)
+		assert.Equal(t, "my-auth-secret", podTemplateSpec.Spec.ImagePullSecrets[0].Name)
 	})
 
 	t.Run("does not append if secret already exists", func(t *testing.T) {
@@ -341,15 +341,15 @@ func TestAppendImagePullSecret(t *testing.T) {
 			enablePrivateRegistries: true,
 			registryAuthSecretName:  "my-auth-secret",
 		}
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				ImagePullSecrets: []corev1.LocalObjectReference{
 					{Name: "my-auth-secret"},
 				},
 			},
 		}
-		pm.appendImagePullSecret("private.registry.io/my-fn:latest", pod)
-		assert.Len(t, pod.Spec.ImagePullSecrets, 1, "should not duplicate")
+		pm.appendImagePullSecret("private.registry.io/my-fn:latest", podTemplateSpec)
+		assert.Len(t, podTemplateSpec.Spec.ImagePullSecrets, 1, "should not duplicate")
 	})
 
 	t.Run("does not append for default registry", func(t *testing.T) {
@@ -357,11 +357,11 @@ func TestAppendImagePullSecret(t *testing.T) {
 			enablePrivateRegistries: true,
 			registryAuthSecretName:  "my-auth-secret",
 		}
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{},
 		}
-		pm.appendImagePullSecret(defaultRegistry+"my-fn:latest", pod)
-		assert.Empty(t, pod.Spec.ImagePullSecrets)
+		pm.appendImagePullSecret(defaultRegistry+"my-fn:latest", podTemplateSpec)
+		assert.Empty(t, podTemplateSpec.Spec.ImagePullSecrets)
 	})
 
 	t.Run("does not append when private registries disabled", func(t *testing.T) {
@@ -369,11 +369,11 @@ func TestAppendImagePullSecret(t *testing.T) {
 			enablePrivateRegistries: false,
 			registryAuthSecretName:  "my-auth-secret",
 		}
-		pod := &corev1.Pod{
+		podTemplateSpec := &corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{},
 		}
-		pm.appendImagePullSecret("private.registry.io/my-fn:latest", pod)
-		assert.Empty(t, pod.Spec.ImagePullSecrets)
+		pm.appendImagePullSecret("private.registry.io/my-fn:latest", podTemplateSpec)
+		assert.Empty(t, podTemplateSpec.Spec.ImagePullSecrets)
 	})
 }
 

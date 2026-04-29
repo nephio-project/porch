@@ -23,12 +23,13 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
@@ -37,8 +38,8 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -131,9 +132,6 @@ func TestPodManager(t *testing.T) {
 		Namespace: defaultNamespace,
 		Labels: map[string]string{
 			krmFunctionImageLabel: defaultFunctionImageLabel,
-		},
-		Annotations: map[string]string{
-			templateVersionAnnotation: inlineTemplateVersionv1,
 		},
 	}
 
@@ -255,99 +253,8 @@ func TestPodManager(t *testing.T) {
 		},
 	}
 
-	dummySecretTemplate := &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-secret",
-			Namespace: "test-namespace",
-		},
-		Data: map[string][]byte{
-			"test-key": []byte("test-value"),
-		},
-	}
-
-	basePodTemplate := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
-			},
-		},
-		Spec: corev1.PodSpec{
-			InitContainers: []corev1.Container{
-				{
-					Name:  "copy-wrapper-server",
-					Image: "wrapper-server-init",
-					Command: []string{
-						"cp",
-						"-a",
-						"/home/nonroot/wrapper-server/.",
-						volumeMountPath,
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
-						},
-					},
-				},
-			},
-			Containers: []corev1.Container{
-				{
-					Name:    functionContainerName,
-					Image:   "to-be-replaced",
-					Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
-					ReadinessProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
-							// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
-							Exec: &corev1.ExecAction{
-								Command: []string{
-									filepath.Join(volumeMountPath, gRPCProbeBin),
-									"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
-								},
-							},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
-						},
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: volumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-		},
-	}
-
-	baseServiceTemplate := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Service",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      defaultServiceName,
-			Namespace: defaultNamespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:      corev1.ServiceTypeClusterIP,
-			ClusterIP: defaultServiceIP,
-		},
-	}
+	basePodTemplate := inlineBasePodTemplate.DeepCopy()
+	baseServiceTemplate := inlineBaseServiceTemplate.DeepCopy()
 
 	// Fake client. When Pod creation is invoked, it creates the Pod if not present
 	// When Service creation is invoked, it creates endpoint object in additon to service
@@ -392,19 +299,22 @@ func TestPodManager(t *testing.T) {
 		return nil
 	}
 
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = configapi.AddToScheme(scheme)
+
 	tests := []struct {
-		name                    string
-		expectFail              bool
-		skip                    bool
-		kubeClient              client.WithWatch
-		namespace               string
-		wrapperServerImage      string
-		imageMetadataCache      map[string]*digestAndEntrypoint
-		evalFunc                func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error)
-		functionImage           string
-		functionPodTemplateName string
-		managerNamespace        string
-		podPatchAfter           time.Duration
+		name               string
+		expectFail         bool
+		skip               bool
+		kubeClient         client.WithWatch
+		namespace          string
+		wrapperServerImage string
+		imageMetadataCache map[string]*digestAndEntrypoint
+		evalFunc           func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error)
+		functionImage      string
+		managerNamespace   string
+		podPatchAfter      time.Duration
 	}{
 		{
 			name:          "Pod is in deleting state",
@@ -429,10 +339,14 @@ func TestPodManager(t *testing.T) {
 			skip:          false,
 			expectFail:    false,
 			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
-				Create: fakeClientCreateFixInterceptor,
-				Get:    withGetInterceptor(podStatusRunning),
-			}).WithStatusSubresource(&corev1.Pod{}).Build(),
+			kubeClient: fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Create: fakeClientCreateFixInterceptor,
+					Get:    withGetInterceptor(podStatusRunning),
+				}).
+				WithStatusSubresource(&corev1.Pod{}).
+				Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
@@ -580,156 +494,61 @@ func TestPodManager(t *testing.T) {
 			evalFunc:           defaultSuccessEvalFunc,
 		},
 		{
-			name:                    "Function template configmap not found",
-			skip:                    false,
-			expectFail:              true,
-			functionImage:           defaultImageName,
-			kubeClient:              fake.NewClientBuilder().Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
-		},
-		{
-			name:          "Function template invalid resource type",
-			skip:          false,
-			expectFail:    true,
-			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"template":        string(marshalToYamlOrPanic(dummySecretTemplate)),
-					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
-				},
-			}}...).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
-		},
-		{
-			name:          "Service template invalid resource type",
-			skip:          false,
-			expectFail:    true,
-			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
-					"serviceTemplate": string(marshalToYamlOrPanic(dummySecretTemplate)),
-				},
-			}}...).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
-		},
-		{
-			name:          "Function template under invalid key",
-			skip:          false,
-			expectFail:    true,
-			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"not-template": string(marshalToYamlOrPanic(basePodTemplate)),
-				},
-			}}...).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
-		},
-		{
-			name:          "Function template present but Service template missing",
-			skip:          false,
-			expectFail:    true,
-			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"template": string(marshalToYamlOrPanic(basePodTemplate)),
-				},
-			}}...).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
+			name:               "Function template configmap not found",
+			skip:               false,
+			expectFail:         true,
+			functionImage:      defaultImageName,
+			kubeClient:         fake.NewClientBuilder().Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			managerNamespace:   defaultManagerNamespace,
 		},
 		{
 			name:          "Function template generates pod",
 			skip:          false,
 			expectFail:    false,
 			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
-					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
-				},
-			},
-				defaultEndpointObject,
-			}...).WithInterceptorFuncs(interceptor.Funcs{
-				Get: withGetInterceptor(podStatusRunning),
-			}).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
+			kubeClient: fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(
+					basePodTemplate,
+					baseServiceTemplate,
+					defaultEndpointObject,
+				).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: withGetInterceptor(podStatusRunning),
+				}).
+				Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			managerNamespace:   defaultManagerNamespace,
 		},
 		{
 			name:          "Function template update is applied when pod is requested",
 			skip:          false,
 			expectFail:    false,
 			functionImage: defaultImageName,
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultFunctionPodTemplateName,
-					Namespace: defaultManagerNamespace,
-				},
-				Data: map[string]string{
-					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
-					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
-				},
-			},
-				defaultPodObject,
-				defaultEndpointObject,
-			}...).WithInterceptorFuncs(interceptor.Funcs{
-				Get: withGetInterceptor(podStatusRunning),
-			}).Build(),
-			namespace:               defaultNamespace,
-			wrapperServerImage:      defaultWrapperServerImage,
-			imageMetadataCache:      defaultImageMetadataCache,
-			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: defaultFunctionPodTemplateName,
-			managerNamespace:        defaultManagerNamespace,
+			kubeClient: fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(
+					basePodTemplate,
+					baseServiceTemplate,
+					defaultPodObject,
+					defaultEndpointObject,
+				).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: withGetInterceptor(podStatusRunning),
+				}).
+				Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			managerNamespace:   defaultManagerNamespace,
 		},
 		{
 			name:          "Failed pod is deleted and new one is created",
@@ -774,14 +593,13 @@ func TestPodManager(t *testing.T) {
 			//Set up the pod manager
 			podReadyCh := make(chan *podReadyResponse)
 			pm := &podManager{
-				kubeClient:              tt.kubeClient,
-				namespace:               tt.namespace,
-				wrapperServerImage:      tt.wrapperServerImage,
-				imageMetadataCache:      sync.Map{},
-				podReadyCh:              podReadyCh,
-				podReadyTimeout:         5 * time.Second,
-				functionPodTemplateName: tt.functionPodTemplateName,
-				managerNamespace:        tt.managerNamespace,
+				kubeClient:         tt.kubeClient,
+				namespace:          tt.namespace,
+				wrapperServerImage: tt.wrapperServerImage,
+				imageMetadataCache: sync.Map{},
+				podReadyCh:         podReadyCh,
+				podReadyTimeout:    5 * time.Second,
+				managerNamespace:   tt.managerNamespace,
 
 				maxGrpcMessageSize: 4 * 1024 * 1024,
 
@@ -799,7 +617,7 @@ func TestPodManager(t *testing.T) {
 
 			fakeServer.evalFunc = tt.evalFunc
 
-			podConfig := podCacheConfigEntry{}
+			podConfig := &configapi.PodExecutorConfig{}
 
 			//Execute the function under test
 			go pm.getFuncEvalPodClient(ctx, tt.functionImage, 1, podConfig, false)

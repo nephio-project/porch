@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025-2026 The kpt and Nephio Authors
+# Copyright 2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,29 @@ source "$(dirname "$0")/common.sh"
 IMAGE_REPO=${IMAGE_REPO:-porch-kind}
 IMAGE_TAG=${IMAGE_TAG:-test}
 
+PATCH_TEMPLATE=`cat <<EOF
+{
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/restartedAt": "__DATE__"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "__CONTAINER_NAME__",
+            "image": "__IMAGE_NAME__"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+`
+
 COMPONENT=$1
 
 if [ -z "$COMPONENT" ]; then
@@ -37,21 +60,24 @@ case $COMPONENT in
         echo "Building ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG}"
         IMAGE_NAME="${PORCH_FUNCTION_RUNNER_IMAGE}" WRAPPER_SERVER_IMAGE_NAME="${PORCH_WRAPPER_SERVER_IMAGE}" make -C func/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG} ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-        kubectl rollout restart -n porch-system deployment/function-runner
+        PATCH=$(echo $PATCH_TEMPLATE | sed s/__DATE__/$(date +%s)/ | sed s/__CONTAINER_NAME__/function-runner/ | sed s/__IMAGE_NAME__/${IMAGE_REPO}\\/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG}/)
+        kubectl patch -n porch-system deployment/function-runner -p "$PATCH"
         kubectl rollout status deployment function-runner -n porch-system 2>/dev/null || true
         ;;
     "server")
         echo "Building ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG}"
         IMAGE_NAME="${PORCH_SERVER_IMAGE}" make -C build/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-        kubectl rollout restart -n porch-system deployment/porch-server
+        PATCH=$(echo $PATCH_TEMPLATE | sed s/__DATE__/$(date +%s)/ | sed s/__CONTAINER_NAME__/porch-server/ | sed s/__IMAGE_NAME__/${IMAGE_REPO}\\/${PORCH_SERVER_IMAGE}:${IMAGE_TAG}/)
+        kubectl patch -n porch-system deployment/porch-server -p "$PATCH"
         kubectl rollout status deployment porch-server -n porch-system 2>/dev/null || true
         ;;
     "controllers")
         echo "Building ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG}"
         IMAGE_NAME="${PORCH_CONTROLLERS_IMAGE}" make -C controllers/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-        kubectl rollout restart -n porch-system deployment/porch-controllers
+        PATCH=$(echo $PATCH_TEMPLATE | sed s/__DATE__/$(date +%s)/ | sed s/__CONTAINER_NAME__/porch-controllers/ | sed s/__IMAGE_NAME__/${IMAGE_REPO}\\/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG}/)
+        kubectl patch -n porch-system deployment/porch-controllers -p "$PATCH"
         kubectl rollout status deployment porch-controllers -n porch-system 2>/dev/null || true
         ;;
     *)

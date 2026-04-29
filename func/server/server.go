@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -23,6 +24,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/nephio-project/porch/func/internal"
@@ -30,8 +34,17 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	contextsignal "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -49,6 +62,8 @@ type options struct {
 	// The verbosity level of the logs (0-5)
 	logLevel int
 
+	defaultImagePrefix string
+
 	// Parameters of ExecEvaluator
 	exec internal.ExecutableEvaluatorOptions
 	// Parameters of PodEvaluator
@@ -61,16 +76,14 @@ func main() {
 	flag.IntVar(&o.port, "port", 9445, "The server port")
 	flag.StringVar(&o.disableRuntimes, "disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
 	flag.IntVar(&o.logLevel, "log-level", 2, "The verbosity level of the logs (0-5)")
+	flag.StringVar(&o.defaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	// flags for the exec runtime
 	flag.StringVar(&o.exec.FunctionCacheDir, "functions", "./functions", "Path to cached functions.")
-	flag.StringVar(&o.exec.ConfigFileName, "config", "./config.yaml", "Path to the config file of the exec runtime.")
 	// flags for the pod runtime
-	flag.StringVar(&o.pod.PodCacheConfigFileName, "pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
 	flag.BoolVar(&o.pod.WarmUpPodCacheOnStartup, "warm-up-pod-cache", true, "if true, pod-cache-config image pods will be deployed at startup")
 	flag.StringVar(&o.pod.PodNamespace, "pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
 	flag.DurationVar(&o.pod.PodTTL, "pod-ttl", 30*time.Minute, "TTL for pods before GC.")
 	flag.DurationVar(&o.pod.GcScanInterval, "scan-interval", time.Minute, "The interval of GC between scans.")
-	flag.StringVar(&o.pod.FunctionPodTemplateName, "function-pod-template", "", "Configmap that contains a pod specification")
 	flag.BoolVar(&o.pod.EnablePrivateRegistries, "enable-private-registries", false, "if true enables the use of private registries and their authentication")
 	flag.StringVar(&o.pod.RegistryAuthSecretPath, "registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used for authenticating to custom registries")
 	flag.StringVar(&o.pod.RegistryAuthSecretName, "registry-auth-secret-name", "auth-secret", "The name of the secret used for authenticating to custom registries")
@@ -94,6 +107,8 @@ func run(o *options) error {
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.logLevel)})
+
+	ctrllog.SetLogger(textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(o.logLevel))))
 
 	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
@@ -122,11 +137,21 @@ func run(o *options) error {
 			delete(availableRuntimes, rt)
 		}
 	}
+
+	scheme, err := buildScheme()
+	if err != nil {
+		return err
+	}
+	fnConfigReconciler, err := buildFnConfigReconciler(o, scheme)
+	if err != nil {
+		return err
+	}
+
 	runtimes := []internal.Evaluator{}
 	for rt := range availableRuntimes {
 		switch rt {
 		case execRuntime:
-			execEval, err := internal.NewExecutableEvaluator(o.exec)
+			execEval, err := internal.NewExecutableEvaluator(fnConfigReconciler.FunctionConfigStore)
 			if err != nil {
 				return fmt.Errorf("failed to initialize executable evaluator: %w", err)
 			}
@@ -136,7 +161,8 @@ func run(o *options) error {
 			if o.pod.WrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(ctx, o.pod)
+			o.pod.DefaultImagePrefix = o.defaultImagePrefix
+			podEval, err := internal.NewPodEvaluator(ctx, o.pod, fnConfigReconciler.Client, fnConfigReconciler.FunctionConfigStore)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
@@ -167,4 +193,83 @@ func run(o *options) error {
 		return fmt.Errorf("server failed: %w", err)
 	}
 	return nil
+}
+
+func getRestConfig() (*rest.Config, error) {
+	restCfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Give it a slightly higher QPS to prevent unnecessary client-side throttling.
+	if restCfg.QPS < 30 {
+		restCfg.QPS = 30.0
+		restCfg.Burst = 45
+	}
+
+	return restCfg, nil
+}
+
+func buildScheme() (*runtime.Scheme, error) {
+	scheme := runtime.NewScheme()
+	if err := configapi.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	return scheme, nil
+}
+
+func buildFnConfigReconciler(o *options, scheme *runtime.Scheme) (*reconciler.FunctionConfigReconciler, error) {
+	restCfg, err := getRestConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var cacheOpts cache.Options
+
+	cacheOpts.Scheme = scheme
+	cacheOpts.DefaultNamespaces = map[string]cache.Config{
+		o.pod.PodNamespace: {},
+	}
+
+	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
+		Scheme: scheme,
+		Cache:  cacheOpts,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	functionConfigStore := reconciler.NewFunctionConfigStore(o.defaultImagePrefix, o.exec.FunctionCacheDir)
+
+	rec := &reconciler.FunctionConfigReconciler{
+		Client:              mgr.GetClient(),
+		FunctionConfigStore: functionConfigStore,
+		For:                 reconciler.ReconcilerForFunctionRunner,
+	}
+
+	if err := ctrl.NewControllerManagedBy(mgr).
+		For(&configapi.FunctionConfig{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Complete(rec); err != nil {
+		panic(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	_ = cancel
+
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			klog.Infof("manager stopped: %v", err)
+		}
+	}()
+
+	if ok := mgr.GetCache().WaitForCacheSync(ctx); !ok {
+		return nil, fmt.Errorf("cache didn't sync: %w", err)
+	}
+
+	return rec, nil
 }

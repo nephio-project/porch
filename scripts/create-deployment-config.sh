@@ -35,6 +35,7 @@ mkdir -p "${DEPLOYPORCHCONFIGDIR}"
   --fn-runner-warm-up-pod-cache "${FN_RUNNER_WARM_UP_POD_CACHE}" \
   --porch-cache-type "${PORCH_CACHE_TYPE}" \
   --db-push-drafts-to-git "${DB_PUSH_DRAFTS_TO_GIT}" \
-  $(if [ -n "${PORCH_GHCR_PREFIX_URL}" ]; then echo "--ghcr-image-prefix \"${PORCH_GHCR_PREFIX_URL}\""; fi)
+  $(if [ -n "${PORCH_GHCR_PREFIX_URL}" ]; then echo "--ghcr-image-prefix \"${PORCH_GHCR_PREFIX_URL}\""; fi) \
+  $(if [ -n "${DOCKERHUB_MIRROR}" ]; then echo "--dockerhub-mirror ${DOCKERHUB_MIRROR}"; fi)
 
 echo "Deployment configuration created."

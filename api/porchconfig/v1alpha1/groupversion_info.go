@@ -37,7 +37,19 @@ var (
 		objects:  []runtime.Object{&Repository{}, &RepositoryList{}},
 	}
 
-	AllKinds = []TypeInfo{TypeRepository}
+	TypeFunctionConfig = TypeInfo{
+		Kind:     "FunctionConfig",
+		Resource: GroupVersion.WithResource("functionconfigs"),
+		objects:  []runtime.Object{&FunctionConfig{}, &FunctionConfigList{}},
+	}
+
+	TypeServiceTemplate = TypeInfo{
+		Kind:     "ServiceTemplate",
+		Resource: GroupVersion.WithResource("servicetemplates"),
+		objects:  []runtime.Object{&ServiceTemplate{}, &ServiceTemplateList{}},
+	}
+
+	AllKinds = []TypeInfo{TypeRepository, TypeFunctionConfig, TypeServiceTemplate}
 )
 
 //+kubebuilder:object:generate=false
