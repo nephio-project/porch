@@ -44,7 +44,7 @@ kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=tru
 ```
 
 If the mutation pipeline is passing, you won't get any output from your `print()` statement because Porch assumes
-everything is OK and does not print any output. The easiest way to work around this is to put a deliberate run time error
+everything is OK and does not print any output. The easiest way to work around this is to put a deliberate runtime error
 into your Starlark script, which will cause an error and trigger the output:
 
 ```python
