@@ -14,7 +14,7 @@ tricks, workarounds, and shortcuts for developers working with Porch. Please rai
 
 Debugging Starlark scripts can be difficult, especially when running mutation pipelines in Porch. One technique is to put `print` statements in the code to print the value of variables. For example:
 
-```
+```python
 def set_package_name(resources, root_kptfile_path, root_package_name):
   for r in resources:
     resource_path = r["metadata"]["annotations"]["internal.config.kubernetes.io/package-path"]
@@ -27,7 +27,7 @@ But that's not enough in Porch.
 
 To force output of the result of partial rendering of failing pipelines in kpt, you must set [the following annotation](https://kpt.dev/book/04-using-functions/#debugging-render-failures) on the `Kptfile`:
 
-```
+```yaml
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
@@ -39,7 +39,7 @@ metadata:
 You also must set an annotation on the Package Revision so that Porch will [push draft package revisions even when they
 fail](https://docs.porch.nephio.org/docs/4_tutorials_and_how-tos/working_with_package_revisions/#troubleshooting).
 
-```
+```bash
 kubectl annotate packagerevision <name> porch.kpt.dev/push-on-render-failure=true
 ```
 
@@ -47,7 +47,7 @@ If the mutation pipeline is passing, you won't get any output from your `print()
 everything is OK and does not print any output. The easiest way to work around this is to put a deliberate run time error
 into your Starlark script, which will cause an error and trigger the output:
 
-```
+```python
   set_package_name(ctx.resource_list["items"], root_kptfile_path, root_package_name)
 
   i = 10/0 # Deliberate division by zero error
