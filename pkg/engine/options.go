@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/controllers/functionconfigs/reconciler"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -79,13 +78,6 @@ func WithGRPCFunctionRuntime(options GRPCRuntimeOptions) EngineOption {
 func WithFunctionRuntime(runtime fn.FunctionRuntime) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.taskHandler.SetRuntime(runtime)
-		return nil
-	})
-}
-
-func WithSimpleFunctionRuntime() EngineOption {
-	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.taskHandler.SetRuntime(kptops.NewSimpleFunctionRuntime())
 		return nil
 	})
 }
