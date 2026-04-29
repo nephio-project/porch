@@ -26,6 +26,7 @@ import (
 	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -145,7 +146,7 @@ func TestApprovalUpdate(t *testing.T) {
 	}
 
 	result, created, err := approval.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.False(t, created)
 	assert.IsType(t, &porchapi.PackageRevision{}, result)
@@ -160,7 +161,6 @@ func TestApprovalUpdate(t *testing.T) {
 	mockEngine.On("UpdatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("approval update failed")).Once()
 
 	result, created, err = approval.Update(ctx, pkgRevName, objInfo, nil, nil, false, &metav1.UpdateOptions{})
-	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.False(t, created)
 	assert.True(t, apierrors.IsInternalError(err))
