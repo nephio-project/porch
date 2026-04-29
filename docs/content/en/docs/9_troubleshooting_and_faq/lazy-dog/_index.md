@@ -5,7 +5,7 @@ weight: 9
 description: Tips, tricks, and shortcuts for Porch developers
 ---
 
-![Lazy Dog](/static/images/porch/LazyDog.svg)
+![Lazy Dog](/images/porch/LazyDog.svg)
 
 A quick reference [Lazy Dog/Lathund](https://watchingtheswedes.com/2021/09/05/swedish-expression-lazy-dog/) of tips,
 tricks, workarounds, and shortcuts for developers working with Porch. Please raise a PR to add your Porch magic spells to the Lazy Dog.
