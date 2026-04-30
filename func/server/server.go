@@ -30,6 +30,7 @@ import (
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/nephio-project/porch/func/internal"
+	"github.com/nephio-project/porch/internal/metrics"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -104,6 +105,10 @@ func main() {
 func run(o *options) error {
 	ctx := contextsignal.SetupSignalContext()
 
+	pyro := &metrics.PyroscopeProfiling{}
+	pyro.Start()
+	defer pyro.Stop()
+
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.logLevel)})
@@ -120,12 +125,17 @@ func run(o *options) error {
 		lis.Close()
 	}()
 
-	err = porchotel.SetupOpenTelemetry(ctx)
+	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
 	if err != nil {
 		contextsignal.RequestShutdown()
 		klog.Errorf("%v\n", err)
 		return err
 	}
+	defer func() {
+		if err := otelResources.ShutdownWithTimeout(10 * time.Second); err != nil {
+			klog.Warningf("failed to gracefully shutdown OpenTelemetry: %v", err)
+		}
+	}()
 
 	availableRuntimes := map[string]struct{}{
 		execRuntime: {},

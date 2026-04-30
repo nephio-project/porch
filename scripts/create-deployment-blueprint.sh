@@ -90,6 +90,10 @@ while [[ $# -gt 0 ]]; do
       GHCR_IMAGE_PREFIX="${2}"
       shift 2
       ;;
+    --dockerhub-mirror)
+      DOCKERHUB_MIRROR="${2}"
+      shift 2
+      ;;
     --fn-runner-warm-up-pod-cache)
       FN_RUNNER_WARM_UP_POD_CACHE="${2}"
       shift 2
@@ -281,7 +285,7 @@ function configure_porch_cache() {
           -- "source=
 for resource in ctx.resource_list['items']:
     podspec = resource['spec']['template']['spec']
-    
+
     # Update containers
     for container in podspec.get('containers', []):
         if 'envFrom' in container:
@@ -411,10 +415,13 @@ function main() {
     "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
 
-  if [[ -n "${DOCKERHUB_MIRROR}" ]]; then
+  if [[ "${DOCKERHUB_MIRROR}" != "docker.io" ]]; then
     customize_image \
-    "docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4" \
-    "${DOCKERHUB_MIRROR}/bitnamilegacy/postgresql:17.6.0-debian-12-r4"
+      "postgres:17-alpine" \
+      "${DOCKERHUB_MIRROR}/postgres:17-alpine"
+    customize_image \
+      "docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4" \
+      "${DOCKERHUB_MIRROR}/bitnamilegacy/postgresql:17.6.0-debian-12-r4"
   fi
 }
 

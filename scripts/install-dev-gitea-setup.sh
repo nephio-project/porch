@@ -23,6 +23,14 @@ git_repo_name=${1:-porch-test}
 gitea_ip=${2:-172.18.255.200}  # should be from the address range in deployments/local/metallb-conf.yaml
  
 git_root="$(readlink -f "${self_dir}/..")"
+
+DOT_ENV_PATH="${git_root}/.env"
+if [ -f "$DOT_ENV_PATH" ]; then
+    export $(grep -v '^#' "$DOT_ENV_PATH" | xargs)
+fi
+
+DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-docker.io}"
+SET_IMAGE_IMG="ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.1"
 TEST_BLUEPRINTS_PATH="${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle"
 cd "${git_root}"
  
@@ -104,7 +112,15 @@ else
 fi
  
 cd "${git_root}/.build/gitea"
- 
+
+# Update gitea images to use DOCKERHUB_MIRROR
+if [ "${DOCKERHUB_MIRROR}" != "docker.io" ]; then
+  h1 "Updating gitea images to use DOCKERHUB_MIRROR: ${DOCKERHUB_MIRROR}"
+  kpt fn eval . --image "${SET_IMAGE_IMG}" -- \
+    "name=gitea/gitea" \
+    "newName=${DOCKERHUB_MIRROR}/gitea/gitea"
+fi
+
 # Check if the gitea service of type LoadBalancer exists in the 'gitea' namespace
 if kubectl get svc gitea-lb -n gitea --no-headers 2>/dev/null | grep -q LoadBalancer; then
   h1 Gitea LoadBalancer service exists. Skipping mutations

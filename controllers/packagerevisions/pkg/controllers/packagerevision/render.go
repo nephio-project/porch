@@ -150,7 +150,6 @@ func renderTrigger(pr *porchv1alpha2.PackageRevision) (requested string, annotat
 	return
 }
 
-
 // isRenderStale returns true if the annotation changed during render.
 func isRenderStale(currentAnnotation, rendered string) bool {
 	return currentAnnotation != rendered

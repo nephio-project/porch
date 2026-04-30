@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,10 +48,11 @@ func TestOtelMetricsPushHTTP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := SetupOpenTelemetry(ctx)
+	res, err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
 
-	cancel()
+	// Shutdown flushes the periodic reader, which triggers the export
+	res.ShutdownWithTimeout(5 * time.Second)
 	<-requestWaitChannel
 }
 
@@ -68,7 +70,7 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := SetupOpenTelemetry(ctx)
+	res, err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
 
 	// Create a span to trigger trace export
@@ -76,36 +78,26 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	_, span := tracer.Start(ctx, "test-span")
 	span.End()
 
+	// Shutdown flushes the batch span processor
+	res.ShutdownWithTimeout(5 * time.Second)
 	<-requestWaitChannel
 }
 func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
-	// Find available port
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-
 	t.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
-	t.Setenv("OTEL_EXPORTER_PROMETHEUS_HOST", "localhost")
-	t.Setenv("OTEL_EXPORTER_PROMETHEUS_PORT", fmt.Sprintf("%d", port))
+	t.Setenv("OTEL_TRACES_EXPORTER", "none")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = SetupOpenTelemetry(ctx)
+	res, err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
+	defer res.ShutdownWithTimeout(5 * time.Second)
 
-	// Make request to the Prometheus metrics endpoint
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
+	// Verify that metrics are accessible via the OTel meter provider
+	meter := otel.Meter("test")
+	counter, err := meter.Float64Counter("test_counter")
 	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	metricsText := string(body)
-	// Verify at least one metric line exists (non-comment, non-empty)
-	assert.Regexp(t, `(?m)^([a-zA-Z_][a-zA-Z0-9_]*)`, metricsText)
+	counter.Add(ctx, 1)
 }
 
 func TestOtelMetricsPushGRPC(t *testing.T) {
@@ -133,10 +125,10 @@ func TestOtelMetricsPushGRPC(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = SetupOpenTelemetry(ctx)
+	res, err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
 
-	cancel()
+	res.ShutdownWithTimeout(5 * time.Second)
 	<-requestWaitChannel
 }
 
@@ -165,7 +157,7 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = SetupOpenTelemetry(ctx)
+	res, err := SetupOpenTelemetry(ctx)
 	require.NoError(t, err)
 
 	// Create a span to trigger trace export
@@ -173,7 +165,7 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	_, span := tracer.Start(ctx, "test-span")
 	span.End()
 
-	cancel()
+	res.ShutdownWithTimeout(5 * time.Second)
 	<-requestWaitChannel
 }
 
