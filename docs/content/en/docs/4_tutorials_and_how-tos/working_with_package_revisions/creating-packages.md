@@ -19,8 +19,8 @@ You will learn how to:
 ---
 
 {{% alert title="Note" color="primary" %}}
-Please note the tutorial assumes a porch repository is initialized with the "porch-test" name.
-We recommended to use this for simpler copy pasting of commands otherwise replace any "porch-test" value with your repository's name in the below commands.
+The tutorial assumes a porch repository is initialized with the "porch-test" name.
+We recommended to use this for simpler copy-pasting of commands otherwise replace any "porch-test" value with your repository's name in the below commands.
 {{% /alert %}}
 
 ## Step 1: Initialize Your First Package Revision
@@ -35,16 +35,11 @@ porchctl rpkg init my-first-package \
   --description="My first Porch package"
 ```
 
-**What this does:**
-
-- Creates a new PackageRevision named `my-first-package`
-- Places it in the `porch-test` repository
-- Uses `v1` as the workspace name (must be unique within this package)
-- Starts in `Draft` lifecycle state
+This command creates a new PackageRevision named `my-first-package` and places it in the `porch-test` repository, using `v1` as the workspace name (must be unique within this package). The PackageRevision starts in `Draft` lifecycle state.
 
 ![Diagram](/static/images/porch/guides/init-workflow.drawio.svg)
 
-**Verify the package revision was created:**
+Verify the package revision was created:
 
 ```bash
 porchctl rpkg get --namespace default
@@ -67,24 +62,17 @@ Download the package revision contents to your local filesystem:
 porchctl rpkg pull porch-test.my-first-package.v1 ./my-first-package --namespace default
 ```
 
-**What this does:**
-
-- Fetches all resources from the PackageRevision
-- Saves them to the `./my-first-package` directory
-- Includes the Kptfile and any other resources
+This command fetches all resources from the PackageRevision and saves them to the `./my-first-package` directory. This includes the Kptfile and any other resources.
 
 ![Diagram](/static/images/porch/guides/pull-workflow.drawio.svg)
 
-**Explore the package revision contents:**
+Explore the package revision contents:
 
 ```bash
 ls -al ./my-first-package
 ```
 
-You'll see:
-
-- The `Kptfile` - PackageRevision metadata and pipeline configuration
-- Other YAML files (if any were created)
+You should see the `Kptfile`, which contains PackageRevision metadata and pipeline configuration, as well as other YAML files, if any were created.
 
 ```bash
 total 24
@@ -96,9 +84,7 @@ drwxr-xr-x 4 user user 4096 Nov 24 13:27 ..
 -rw-r--r-- 1 user user  148 Nov 24 13:27 package-context.yaml
 ```
 
-**Alternatively:**
-
-If you have the tree command installed on your system you can use it to view the hierarchy of the package
+Alternatively, if you have the tree command installed on your system you can use it to view the hierarchy of the package
 
 ```bash
 tree ./my-first-package/
@@ -119,9 +105,7 @@ my-first-package/
 
 ## Step 3: Modify the Package Revision
 
-Let's add a simple KRM function to the pipeline.
-
-Open the `Kptfile` in your editor of choice:
+Let's add a simple KRM function to the pipeline. Open the `Kptfile` in your editor of choice:
 
 ```bash
 vim ./my-first-package/Kptfile
@@ -145,21 +129,15 @@ pipeline:
         namespace: production
 ```
 
-**What this does:**
+This command adds a `set-namespace` function to the pipeline. This function will set the namespace to `production` for all resources. The functions are not rendered until the package is "pushed" to porch.
 
-- Adds a `set-namespace` function to the pipeline
-- This function will set the namespace to `production` for all resources
-- These Functions are not rendered until the package is "pushed" to porch
-
-**Add new resource:**
-
-Create a new configmap:
+Add new resource. First, create a new configmap:
 
 ```bash
 vim ./my-first-package/test-config.yaml
 ```
 
-Now add the following content to this new configmap
+Then add the following content to this new configmap:
 
 ```yaml
 apiVersion: v1
@@ -170,7 +148,7 @@ data:
   key: "value"
 ```
 
-**Save and close the file.**
+Save and close the file.
 
 {{% alert title="Note" color="primary" %}}
 Changes are LOCAL ONLY (Porch doesn't know about them yet) at this stage
@@ -186,17 +164,11 @@ Upload your modified package revision back to Porch:
 porchctl rpkg push porch-test.my-first-package.v1 ./my-first-package --namespace default
 ```
 
-**What this does:**
-
-- Updates the PackageRevision in Porch
-- Triggers rendering (executes pipeline functions)
-- PackageRevision remains in `Draft` state
+This command updates the PackageRevision in Porch and triggers rendering (executes pipeline functions). The PackageRevision remains in `Draft` state.
 
 ![Diagram](/static/images/porch/guides/push-workflow.drawio.svg)
 
-**Successful output:**
-
-This describes how the KRM function was run by porch and has updated the namespace in our new configmap.
+Successful output should look like a following. This describes how the KRM function was run by porch and has updated the namespace in our new configmap.
 
 ```bash
 [RUNNING] "gcr.io/kpt-fn/set-namespace:v0.4.1"
@@ -216,11 +188,7 @@ Move the package revision to `Proposed` state for review:
 porchctl rpkg propose porch-test.my-first-package.v1 --namespace default
 ```
 
-**What this does:**
-
-- Changes lifecycle from `Draft` to `Proposed`
-- Signals the package revision is ready for review
-- Package revision contents can no longer be modified directly; to make further changes, the proposal must first be rejected back to `Draft`
+This command changes lifecycle from `Draft` to `Proposed` and signals that the package revision is ready for review. After this, the package revision contents can no longer be modified directly. To make further changes, you must first reject the proposal back to `Draft`.
 
 ![Diagram](/static/images/porch/guides/propose-workflow.drawio.svg)
 
@@ -228,7 +196,7 @@ porchctl rpkg propose porch-test.my-first-package.v1 --namespace default
 A lifecycle state change from `Draft` to `Proposed` means that in Git the package revision has moved from the `draft` branch to the `proposed` branch
 {{% /alert %}}
 
-**Verify the state change:**
+Verify the state change:
 
 ```bash
 porchctl rpkg get porch-test.my-first-package.v1 --namespace default
@@ -251,22 +219,17 @@ If the package revision looks good, approve it to publish:
 porchctl rpkg approve porch-test.my-first-package.v1 --namespace default
 ```
 
-**What this does:**
-
-- Changes PackageRevision lifecycle from `Proposed` (revision 0) to `Published` (revision 1)
-- PackageRevision becomes **immutable** (content cannot be changed)
-- Records who approved and when
-- PackageRevision is now available for cloning/deployment
+This command changes the PackageRevision lifecycle from `Proposed` (revision 0) to `Published` (revision 1). With this, the PackageRevision becomes **immutable**, which means that the content cannot be changed. The command also records who approved and when. The PackageRevision is now available for cloning/deployment.
 
 ![Diagram](/static/images/porch/guides/approve-workflow.drawio.svg)
 
-**Verify publication:**
+Verify the publication:
 
 ```bash
 porchctl rpkg get porch-test.my-first-package.v1 --namespace default -o yaml | grep -E "lifecycle|publishedBy|publishTimestamp"
 ```
 
-**Verify the state change:**
+Verify the state change:
 
 ```bash
 porchctl rpkg get porch-test.my-first-package.v1 --namespace default
@@ -294,11 +257,7 @@ If the package revision needs more work, reject it to return to `Draft`:
 porchctl rpkg reject porch-test.my-first-package.v1 --namespace default
 ```
 
-**What this does:**
-
-- Changes lifecycle from `Proposed` back to `Draft`
-- Allows further modifications
-- You can then make changes and re-propose
+This command changes the lifecycle from `Proposed` back to `Draft`, which allows further modifications. You can then make changes and re-propose.
 
 ![Diagram](/static/images/porch/guides/reject-workflow.drawio.svg)
 

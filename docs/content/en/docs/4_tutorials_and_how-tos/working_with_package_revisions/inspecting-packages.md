@@ -21,11 +21,7 @@ Get all package revisions across all repositories in a namespace:
 porchctl rpkg get --namespace default
 ```
 
-**What this does:**
-
-- Queries Porch for all PackageRevisions in the specified namespace
-- Displays a summary table with key information
-- Shows PackageRevisions from all registered repositories
+This command queries Porch for all PackageRevisions in the specified namespace and displays a summary table with key information. It also shows PackageRevisions from all registered repositories.
 
 {{% alert title="Note" color="primary" %}}
 `porchctl rpkg list` is an alias for `porchctl rpkg get` and can be used interchangeably: 
@@ -36,7 +32,7 @@ porchctl rpkg list --namespace default
 
 {{% /alert %}}
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -46,44 +42,17 @@ blueprints.nginx.main            nginx              main            5          t
 blueprints.postgres.v1           postgres           v1              0          false    Proposed    blueprints
 ```
 
-**Understanding the output:**
+Understanding the output:
 
-- **NAME**: Full package revision identifier following the pattern `repository.([pathnode.]*)package.workspace`
-  - Format: `<repository>.[<path-nodes>.]<package>.<workspace>`
-  - Example: `porch-test.basedir.subdir.edge-function.v1`
-    - Repository: `porch-test`
-    - Path: `basedir/subdir` (directory structure)
-    - Package: `edge-function`
-    - Workspace: `v1`
-  - Simple example: `blueprints.nginx.main` (no path nodes)
-    - Repository: `blueprints`
-    - Package: `nginx`
-    - Workspace: `main`
-
-- **PACKAGE**: Package name with directory path if not in repository root
-  - Example: `basedir/subdir/network-function` shows location in repository
-
-- **WORKSPACENAME**: User-selected identifier for this PackageRevision
-  - Scoped to the package - `v1` in package A is independent from `v1` in package B
-  - Maps to Git branch or tag name
-
-- **REVISION**: Version number indicating publication status
-  - `1+`: Published PackageRevisions (increments with each publish: 1, 2, 3...)
-  - `0`: Unpublished PackageRevisions (Draft or Proposed)
-  - `-1`: Placeholder PackageRevisions pointing to Git branch/tag head
-
-- **LATEST**: Whether this is the latest published PackageRevision
-  - Only one PackageRevision per package marked as latest
-  - Based on highest revision number
-
-- **LIFECYCLE**: Current state of the PackageRevision
-  - `Draft`: Work-in-progress, freely editable, visible to authors
-  - `Proposed`: Read-only, awaiting approval, can be approved or rejected
-  - `Published`: Immutable, production-ready, assigned revision numbers
-  - `DeletionProposed`: Marked for removal, awaiting deletion approval
-
-- **REPOSITORY**: Source repository name
-
+| Column | Description | Example |
+|--------|-------------|---------|
+| **NAME** | Full package revision identifier: `repository.([pathnode.]*)package.workspace`, i.e. `<repository>.[<path-nodes>.]<package>.<workspace>` where path nodes reflect directory structure under the repo. | `porch-test.basedir.subdir.edge-function.v1` |
+| **PACKAGE** | Package name, including subdirectory path when the package is not at the repository root. | `basedir/subdir/network-function` |
+| **WORKSPACENAME** | User-chosen identifier for this PackageRevision, scoped to the package (so `v1` in package A is unrelated to `v1` in package B); corresponds to the Git branch or tag name. | `v1` |
+| **REVISION** | Version number indicating publication status. <br> `1+` = published (increments with each publish: 1, 2, 3…) <br> `0` = unpublished (Draft or Proposed) <br> `-1` = placeholder pointing at Git branch/tag head. | `2` (published), `0` (unpublished), `-1` (placeholder) |
+| **LATEST** | Indicates the latest published PackageRevision for the package (only one; highest revision number). | `true` / `false` |
+| **LIFECYCLE** | Current state of the PackageRevision. <br> **Draft** — in progress, editable, visible to authors <br> **Proposed** — read-only, pending approval (approve or reject) <br> **Published** — immutable, production-ready, has revision numbers <br> **DeletionProposed** — marked for removal, pending deletion approval. | `Draft`, `Proposed`, `Published`, `DeletionProposed` |
+| **REPOSITORY** | Name of the source repository. | `porch-test` |
 ---
 
 ### Get Detailed PackageRevision Information
@@ -94,13 +63,9 @@ Get complete details about a specific PackageRevision:
 porchctl rpkg get porch-test.my-app.v1 --namespace default -o yaml
 ```
 
-**What this does:**
+This command retrieves the full PackageRevision resource and shows all metadata, spec, and status fields. Displayed in YAML format for easy reading.
 
-- Retrieves the full PackageRevision resource
-- Shows all metadata, spec, and status fields
-- Displays in YAML format for easy reading
-
-**Example output:**
+Example output:
 
 ```yaml
 apiVersion: porch.kpt.dev/v1alpha1
@@ -128,7 +93,7 @@ status:
   upstreamLock: {}
 ```
 
-**Key fields to inspect:**
+Key fields to inspect:
 
 - **spec.lifecycle**: Current PackageRevision state
 - **spec.tasks**: History of operations performed on this PackageRevision
@@ -148,13 +113,9 @@ Display the root Kptfile of a specific package revision without downloading the 
 porchctl rpkg get porch-test.my-app.v1 --show-kptfile --namespace default
 ```
 
-**What this does:**
+This command fetches the PackageRevisionResources for the specified package revision and extracts and displays only the root `Kptfile`. It is useful for quickly inspecting package metadata, pipeline configuration, and status.
 
-- Fetches the PackageRevisionResources for the specified package revision
-- Extracts and displays only the root `Kptfile`
-- Useful for quickly inspecting package metadata, pipeline configuration, and status
-
-**Example output:**
+Example output:
 
 ```yaml
 apiVersion: kpt.dev/v1
@@ -189,13 +150,9 @@ Read the actual contents of a PackageRevision:
 porchctl rpkg read porch-test.my-first-package.v1 --namespace default
 ```
 
-**What this does:**
+This command fetches PackageRevision resources and outputs to stdout and shows all KRM resources in ResourceList format. It displays the complete PackageRevision content.
 
-- Fetches PackageRevision resources and outputs to stdout
-- Shows all KRM resources in ResourceList format
-- Displays the complete PackageRevision contents
-
-**Example output:**
+Example output:
 
 ```yaml
 apiVersion: config.kubernetes.io/v1
@@ -253,27 +210,25 @@ Porch provides multiple ways to filter PackageRevisions. You can either use `por
 
 ### Using Porchctl Flags
 
-Filter PackageRevisions using built-in porchctl flags:
-
-**Filter by package name (substring match):**
+Filter by package name (substring match):
 
 ```bash
 porchctl rpkg get --namespace default --name my-app
 ```
 
-**Filter by revision number (exact match):**
+Filter by revision number (exact match):
 
 ```bash
 porchctl rpkg get --namespace default --revision 1
 ```
 
-**Filter by workspace name:**
+Filter by workspace name:
 
 ```bash
 porchctl rpkg get --namespace default --workspace v1
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 $ porchctl rpkg get --namespace default --name network-function
@@ -289,13 +244,13 @@ porch-test.network-function.main        network-function   main            0    
 
 Filter using Kubernetes [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#list-and-watch-filtering) with the `--selector` flag:
 
-**Get all "latest" published PackageRevisions:**
+Get all "latest" published PackageRevisions:
 
 ```bash
 kubectl get packagerevisions -n default --selector 'kpt.dev/latest-revision=true'
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 $ kubectl get packagerevisions -n default --show-labels --selector 'kpt.dev/latest-revision=true'
@@ -314,7 +269,7 @@ PackageRevision resources have limited labels. To filter by repository, package 
 
 Filter using PackageRevision [fields](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/) with the `--field-selector` flag:
 
-**Supported fields:**
+Supported fields:
 
 - `metadata.name`
 - `metadata.namespace`
@@ -324,32 +279,32 @@ Filter using PackageRevision [fields](https://kubernetes.io/docs/concepts/overvi
 - `spec.workspaceName`
 - `spec.lifecycle`
 
-**Filter by repository:**
+Filter by repository:
 
 ```bash
 kubectl get packagerevisions -n default --field-selector 'spec.repository==porch-test'
 ```
 
-**Filter by lifecycle:**
+Filter by lifecycle:
 
 ```bash
 kubectl get packagerevisions -n default --field-selector 'spec.lifecycle==Published'
 ```
 
-**Filter by package name:**
+Filter by package name:
 
 ```bash
 kubectl get packagerevisions -n default --field-selector 'spec.packageName==my-app'
 ```
 
-**Combine multiple filters:**
+Combine multiple filters:
 
 ```bash
 kubectl get packagerevisions -n default \
   --field-selector 'spec.repository==porch-test,spec.lifecycle==Published'
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 $ kubectl get packagerevisions -n default --field-selector 'spec.repository==porch-test'
@@ -371,15 +326,11 @@ Beyond basic listing and filtering, these operations help you monitor changes an
 
 ### Watch for PackageRevision Changes
 
-Monitor PackageRevisions in real-time:
-
 ```bash
 kubectl get packagerevisions -n default --watch
 ```
 
 ### Sort by Creation Time
-
-Find recently created PackageRevisions:
 
 ```bash
 kubectl get packagerevisions -n default --sort-by=.metadata.creationTimestamp

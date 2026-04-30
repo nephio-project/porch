@@ -58,7 +58,7 @@ First, list available PackageRevisions to find one to clone:
 porchctl rpkg get --namespace default
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -67,11 +67,7 @@ blueprints.wordpress.v1          wordpress          v1              3          t
 deployments.my-app.v1            my-app             v1              1          true     Published   deployments
 ```
 
-**What to look for:**
-
-- Published PackageRevisions from blueprint repositories are good candidates for cloning
-- Note the full NAME (e.g., `blueprints.nginx.main`)
-- Check the REPOSITORY column to identify the source repository
+Look for published PackageRevisions from blueprint repositories that are good candidates for cloning. Note the full NAME (e.g., `blueprints.nginx.main`) and check the REPOSITORY column to identify the source repository.
 
 ---
 
@@ -88,22 +84,15 @@ porchctl rpkg clone \
   --workspace v1
 ```
 
-**What this does:**
+This command creates a new PackageRevision based on `blueprints.nginx.main` and names the new PackageRevision `my-nginx` (package name). The package is placed in the `deployments` repository (different from source) and receives `v1` as the workspace name. This PackageRevision starts in `Draft` lifecycle state. An upstream reference to `blueprints.nginx.main` is maintained.
 
-- Creates a new PackageRevision based on `blueprints.nginx.main`
-- Names the new PackageRevision `my-nginx` (package name)
-- Places it in the `deployments` repository (different from source)
-- Uses `v1` as the workspace name
-- Starts in `Draft` lifecycle state
-- Maintains an upstream reference to `blueprints.nginx.main`
-
-**Verify the clone was created:**
+Verify the clone was created:
 
 ```bash
 porchctl rpkg get --namespace default --name my-nginx
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -120,7 +109,7 @@ After cloning, you can modify the new PackageRevision. Pull it locally:
 porchctl rpkg pull deployments.my-nginx.v1 ./my-nginx --namespace default
 ```
 
-**Make your changes:**
+Make your changes:
 
 ```bash
 vim ./my-nginx/Kptfile
@@ -150,7 +139,7 @@ pipeline:
         namespace: production
 ```
 
-**Push the changes back:**
+Push the changes back:
 
 ```bash
 porchctl rpkg push deployments.my-nginx.v1 ./my-nginx --namespace default
@@ -166,32 +155,32 @@ Once you're satisfied with the changes, propose the PackageRevision:
 porchctl rpkg propose deployments.my-nginx.v1 --namespace default
 ```
 
-**Verify the state change:**
+Verify the state change:
 
 ```bash
 porchctl rpkg get deployments.my-nginx.v1 --namespace default
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
 deployments.my-nginx.v1          my-nginx           v1              0          false    Proposed    deployments
 ```
 
-**Approve to publish:**
+Approve to publish:
 
 ```bash
 porchctl rpkg approve deployments.my-nginx.v1 --namespace default
 ```
 
-**Verify publication:**
+Verify publication:
 
 ```bash
 porchctl rpkg get deployments.my-nginx.v1 --namespace default
 ```
 
-**Example output:**
+Example output:
 
 ```bash
 NAME                             PACKAGE            WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -259,13 +248,13 @@ Common issues when cloning PackageRevisions and how to resolve them.
 
 **Clone fails with "repository not found"?**
 
-- Verify the target repository exists: `porchctl repo get --namespace default`
-- Check the repository name is correct
+- Verify the target repository exists with the `porchctl repo get --namespace default` command
+- Check that the repository name is correct
 - Ensure you have permission to write to the target repository
 
 **Clone fails with "source not found"?**
 
-- Verify the source PackageRevision exists: `porchctl rpkg get --namespace default`
+- Verify the source PackageRevision exists with the `porchctl rpkg get --namespace default` command
 - Check the exact name including repository, package, and workspace
 - Ensure you have permission to read the source PackageRevision
 
@@ -278,19 +267,19 @@ Common issues when cloning PackageRevisions and how to resolve them.
 **Clone fails with "workspace already exists"?**
 
 - The workspace name must be unique within the package in the target repository
-- Choose a different workspace name: `--workspace v2` or `--workspace prod`
-- List existing workspaces: `porchctl rpkg get --namespace default --name <package>`
+- Choose a different workspace name, `--workspace v2` or `--workspace prod`
+- List existing workspaces with the `porchctl rpkg get --namespace default --name <package>` command
 
 **Cloned PackageRevision has unexpected content?**
 
 - The clone includes all resources from the source at the time of cloning
-- Pull and inspect: `porchctl rpkg pull <name> ./dir --namespace default`
+- Pull and inspect with the `porchctl rpkg pull <name> ./dir --namespace default` command
 - Make corrections and push back
 
 **Need to clone within the same repository?**
 
 - Use `porchctl rpkg copy` instead of `clone` for same-repository operations
-- The `copy` command is simpler and doesn't maintain upstream references
+- The `copy` command is simpler and does not maintain upstream references
 - See [Copying Package Revisions Guide]({{% relref "/docs/4_tutorials_and_how-tos/working_with_package_revisions/copying-packages.md" %}})
 
 ---

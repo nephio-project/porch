@@ -40,7 +40,7 @@ porchctl rpkg approve porch-test.blueprint.1 --namespace=porch-demo
 
 ![Step 1: Create Base Blueprint](/static/images/porch/upgrade-step1.drawio.svg)
 
-**PackageRevisions State After Step 1:**
+PackageRevisions state after step 1:
 ```bash
 $ porchctl rpkg get --namespace=porch-demo
 NAME                        PACKAGE     WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -73,7 +73,7 @@ At this point, we have two published blueprint versions: `v1` (the original) and
 
 ![Step 2: Create New Blueprint Revision](/static/images/porch/upgrade-step2.drawio.svg)
 
-**PackageRevisions State After Step 2:**
+PackageRevisions state after step 2:
 ```bash
 $ porchctl rpkg get --namespace=porch-demo
 NAME                        PACKAGE     WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -106,7 +106,7 @@ porchctl rpkg approve porch-test.deployment.1 --namespace=porch-demo
 
 ![Step 3: Clone Blueprint into Deployment Package](/static/images/porch/upgrade-step3.drawio.svg)
 
-**PackageRevisions State After Step 3:**
+PackageRevisions state after step 3:
 ```bash
 $ porchctl rpkg get --namespace=porch-demo
 NAME                         PACKAGE      WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -135,13 +135,11 @@ porchctl rpkg propose porch-test.deployment.2 --namespace=porch-demo
 porchctl rpkg approve porch-test.deployment.2 --namespace=porch-demo
 ```
 
-After approval, `porch-test.deployment.2` is the new, published deployment package. It now contains:
-1.  The `new-configmap.yaml` from the upstream `blueprint.2`.
-2.  The local `kpt.dev/annotation=true` customization applied in Step 3.
+After approval, `porch-test.deployment.2` is the new, published deployment package. It now contains the `new-configmap.yaml` from the upstream `blueprint.2` and the local `kpt.dev/annotation=true` customization applied in Step 3.
 
 ![Step 4: Discover and Perform Upgrade](/static/images/porch/upgrade-step4.drawio.svg)
 
-**PackageRevisions State After Step 4:**
+PackageRevisions state after step 4:
 ```bash
 $ porchctl rpkg get --namespace=porch-demo
 NAME                         PACKAGE      WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -236,24 +234,16 @@ The outcome of an upgrade depends on the changes made in the upstream blueprint 
 ### Detailed Strategy Explanations
 
 #### **resource-merge (Default)**
-This is a structural 3-way merge designed for Kubernetes resources. It understands the structure of YAML files and attempts to intelligently merge changes from the upstream and local packages.
-
-*   **Use case:** This is the **recommended default strategy** for managing Kubernetes configuration. Use it when you want to preserve local customizations while incorporating upstream updates.
+This is a structural 3-way merge designed for Kubernetes resources. It understands the structure of YAML files and attempts to intelligently merge changes from the upstream and local packages. This is the **recommended default strategy** for managing Kubernetes configuration. Use it when you want to preserve local customizations while incorporating upstream updates.
 
 #### **copy-merge**
-A file-level replacement strategy. For any file present in both local and upstream, the upstream version is used, overwriting local changes. Files that only exist locally are kept.
-
-*   **Use case:** When you trust the upstream source more than local changes or when Porch cannot parse the file contents (e.g., non-KRM files).
+A file-level replacement strategy. For any file present in both local and upstream, the upstream version is used, overwriting local changes. Files that only exist locally are kept. Use copy-merge when you trust the upstream source more than local changes or when Porch cannot parse the file contents (e.g., non-KRM files).
 
 #### **force-delete-replace**
-The most aggressive strategy. It completely discards the local package's contents and replaces them with the contents of the new upstream package.
-
-*   **Use case:** To completely reset a deployment package to a new blueprint version, abandoning all previous customizations.
+The most aggressive strategy. It completely discards the local package's contents and replaces them with the contents of the new upstream package. Used to completely reset a deployment package to a new blueprint version, abandoning all previous customizations.
 
 #### **fast-forward**
-A fail-fast safety check. The upgrade only succeeds if the local package has **zero modifications** compared to the original blueprint version it was cloned from.
-
-*   **Use case:** To guarantee that you are only upgrading unmodified packages, preventing accidental overwrites of important local customizations.
+A fail-fast safety check. The upgrade only succeeds if the local package has **zero modifications** compared to the original blueprint version it was cloned from. Use fast-forward to guarantee that you are only upgrading unmodified packages, preventing accidental overwrites of important local customizations.
 
 ## Practical examples: upgrade strategies in action
 
@@ -262,8 +252,6 @@ This section contains short, focused examples showing how each merge strategy be
 ### Example A — resource-merge (default)
 
 Scenario: Upstream adds a new ConfigMap and local changes added an annotation to Kptfile. `resource-merge` should apply the upstream addition while preserving the local annotation.
-
-Commands:
 
 ```bash
 # discover available upgrades
@@ -281,8 +269,6 @@ Outcome: A new draft `porch-test.deployment.2` is created containing both the ne
 
 Scenario: Upstream changes a file that the local package also modified, but you want the upstream version to win (file-level overwrite).
 
-Commands:
-
 ```bash
 porchctl rpkg upgrade porch-test.deployment.1 --namespace=porch-demo --revision=2 --workspace=2 --strategy=copy-merge
 ```
@@ -293,8 +279,6 @@ Outcome: Files present in both upstream and local are replaced with the upstream
 
 Scenario: The blueprint has diverged substantially; you want to reset the deployment package to exactly match upstream v2.
 
-Commands:
-
 ```bash
 porchctl rpkg upgrade porch-test.deployment.1 --namespace=porch-demo --revision=2 --workspace=2 --strategy=force-delete-replace
 ```
@@ -304,8 +288,6 @@ Outcome: The new draft contains only the upstream contents; local customizations
 ### Example D — fast-forward
 
 Scenario: You want to ensure upgrades are only applied to unmodified, pristine clones.
-
-Commands:
 
 ```bash
 porchctl rpkg upgrade porch-test.deployment.1 --namespace=porch-demo --revision=2 --workspace=2 --strategy=fast-forward
@@ -327,9 +309,11 @@ For more details, run `porchctl rpkg upgrade --help`.
 
 ### Best Practices
 
-*   **Separate Repositories:** For better organization and access control, keep blueprint packages and deployment packages in separate Git repositories.
-*   **Understand Your Strategy:** Before upgrading, be certain which merge strategy fits your use case to avoid accidentally losing important local customizations. When in doubt, the default `resource-merge` is the safest and most intelligent option.
-*   **Use Fixed Revisions:** Do not upgrade packages' placeholder/main package revisions or attempt to use them as upstream for an upgrade - this is not supported. Select defined package revisions instead - see [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder package revision
+For better organization and access control, keep blueprint packages and deployment packages in separate Git repositories.
+
+Before upgrading, be certain which merge strategy fits your use case to avoid accidentally losing important local customizations. When in doubt, the default `resource-merge` is the safest and most intelligent option.
+
+Do not upgrade packages' placeholder/main package revisions or attempt to use them as upstream for an upgrade - this is not supported. Select defined package revisions instead - see [Core Concepts]({{% relref "/docs/2_concepts#core-concepts" %}}) for the rules which identify a placeholder package revision.
 
 ### Cleanup
 

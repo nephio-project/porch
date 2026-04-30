@@ -17,12 +17,7 @@ Remove a repository from Porch:
 porchctl repo unregister porch-test --namespace default
 ```
 
-**What this does:**
-
-- Removes the Repository resource from Kubernetes
-- Stops synchronizing packages from the repository
-- Removes Porch's cached metadata for the repository
-- Does not delete the underlying Git repository or its contents
+This command removes the Repository resource from Kubernetes, it stops synchronizing packages from the repository, removes Porch's cached metadata for the repository and does not delete the underlying Git repository or its contents.
 
 {{% alert title="Warning" color="warning" %}}
 Unregistering a repository does not delete the underlying Git repository or its contents. It only removes Porch's connection to it.
