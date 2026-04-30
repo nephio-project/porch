@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	rpkgutil "github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -195,14 +196,14 @@ func TestCmd(t *testing.T) {
 			os.Stdout = write
 			os.Stderr = write
 
-			r := &runner{
-				ctx: context.Background(),
-				cfg: &genericclioptions.ConfigFlags{
+			r := &runner{Runner: rpkgutil.Runner{
+				Ctx: context.Background(),
+				Cfg: &genericclioptions.ConfigFlags{
 					Namespace: &ns,
 				},
-				client:  tc.fakeclient,
+				Client:  tc.fakeclient,
 				Command: cmd,
-			}
+			}}
 			go func() {
 				defer write.Close()
 				err := r.runE(cmd, []string{pkgRevName})
@@ -236,12 +237,12 @@ func TestLastErrWorkaround(t *testing.T) {
 		t.Fatalf("error creating client: %v", err)
 	}
 	ns := "ns"
-	r := &runner{
-		ctx:     context.Background(),
-		cfg:     &genericclioptions.ConfigFlags{Namespace: &ns},
-		client:  c,
+	r := &runner{Runner: rpkgutil.Runner{
+		Ctx:     context.Background(),
+		Cfg:     &genericclioptions.ConfigFlags{Namespace: &ns},
+		Client:  c,
 		Command: &cobra.Command{},
-	}
+	}}
 	err = r.runE(r.Command, []string{"test-pkg"})
 	if err == nil {
 		t.Fatal("expected error but got nil")
