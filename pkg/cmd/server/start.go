@@ -373,7 +373,6 @@ func (o PorchServerOptions) RunPorchServer(ctx context.Context) error {
 		})
 	}
 
-
 	return server.Run(ctx)
 }
 

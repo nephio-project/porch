@@ -184,7 +184,6 @@ func run(o *options) error {
 	}
 	evaluator := internal.NewMultiEvaluator(runtimes...)
 
-
 	klog.Infof("Listening on %s", address)
 
 	// Start the gRPC server

@@ -172,7 +172,7 @@ func (v *v1alpha2FilteringWatcher) OnPackageRevisionChange(eventType watch.Event
 }
 
 func (r *packageCommon) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
-	var watcher engine.ObjectWatcher = callback
+	var watcher = callback
 
 	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced && ns != "" {
 		watcher = &namespaceFilteringWatcher{ns: ns, delegate: watcher}

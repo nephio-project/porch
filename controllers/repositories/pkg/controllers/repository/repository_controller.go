@@ -67,7 +67,7 @@ type RepositoryReconciler struct {
 
 	// Private implementation details
 	syncLimiter    chan struct{} // Semaphore for sync concurrency
-	coldStartRepos sync.Map     // Tracks repos that have synced since startup
+	coldStartRepos sync.Map      // Tracks repos that have synced since startup
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac

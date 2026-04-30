@@ -136,7 +136,6 @@ func InitMetrics() {
 	}
 }
 
-
 // Porch server and function runner metric recording functions
 func RecordAPICallDuration(resource, verb string, durationSeconds float64) {
 	if apiCallDurationSeconds == nil {

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nephio-project/porch/internal/metrics"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -207,7 +208,7 @@ func newManager(ctx context.Context, scheme *runtime.Scheme) (ctrl.Manager, erro
 	otel.SetLogger(klog.NewKlogr())
 	otelResources, err := porchotel.SetupOpenTelemetry(ctx)
 	if err != nil {
-		return fmt.Errorf("error setting up OpenTelemetry: %w", err)
+		return nil, fmt.Errorf("error setting up OpenTelemetry: %w", err)
 	}
 	defer func() {
 		if shutdownErr := otelResources.ShutdownWithTimeout(10 * time.Second); shutdownErr != nil {
@@ -330,7 +331,6 @@ func setupFunctionConfigReconciler(mgr ctrl.Manager) (*reconciler.FunctionConfig
 	klog.Infof("FunctionConfig reconciler registered (for: %s)", reconciler.ReconcilerForController)
 	return functionConfigStore, nil
 }
-
 
 // --- Helpers ---
 
