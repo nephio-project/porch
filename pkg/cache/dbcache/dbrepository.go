@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The Nephio Authors
+// Copyright 2024-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -474,6 +474,12 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 		dbPrd.gitPR = gitPR
 		dbPrd.gitPRDraft = nil
 		r.setCachedGitPR(dbPrd.Key().PkgKey, dbPrd.Key().WorkspaceName, gitPR)
+	}
+
+	if dbPrd.resourcesSizeBytes == 0 {
+		for _, fileString := range dbPrd.resources {
+			dbPrd.resourcesSizeBytes += len(fileString)
+		}
 	}
 
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)

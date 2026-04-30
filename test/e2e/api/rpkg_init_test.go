@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,11 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
+	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var defaultEmptyResourcesSize = "893B"
 
 func (t *PorchSuite) TestInitEmptyPackage() {
 	// Create a new package via init, no task specified
@@ -40,6 +43,10 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	t.validateKptFileMetadata(pr, packageName, &kptfilev1.PackageInfo{
 		Description: description,
 	})
+
+	if t.UsingDBCache {
+		assert.Equal(t, defaultEmptyResourcesSize, pr.Status.PrrSizeOnDisk)
+	}
 }
 
 func (t *PorchSuite) TestInitTaskPackage() {

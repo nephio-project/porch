@@ -122,8 +122,8 @@ spec:
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
-name: catalog-v4-0-0
-namespace: default
+  name: catalog-v4-0-0
+  namespace: default
 spec:
   content: Package
   deployment: false
@@ -138,14 +138,14 @@ spec:
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
-name: catalog-v3-0-0
-namespace: default
+  name: catalog-v3-0-0
+  namespace: default
 spec:
   content: Package
   deployment: false
   type: git
   git:
-    branch: v3.0.0
+    branch: v3
     directory: /
     repo: https://github.com/nephio-project/catalog.git
 ```
