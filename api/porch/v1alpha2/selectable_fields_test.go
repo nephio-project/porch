@@ -71,3 +71,24 @@ func crdsDir() string {
 	_, filename, _, _ := runtime.Caller(0)
 	return filepath.Join(filename, "..", "..", "..", "generated", "crds")
 }
+
+// copied from k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1@v0.36.3 with modifications
+// so that we don't have to import it
+// Copyright 2019 The Kubernetes Authors
+
+type CustomResourceDefinition struct {
+	Spec CustomResourceDefinitionSpec `json:"spec"`
+}
+
+type CustomResourceDefinitionSpec struct {
+	Versions []CustomResourceDefinitionVersion `json:"versions"`
+}
+
+type CustomResourceDefinitionVersion struct {
+	Name             string            `json:"name"`
+	SelectableFields []SelectableField `json:"selectableFields,omitempty"`
+}
+
+type SelectableField struct {
+	JSONPath string `json:"jsonPath"`
+}
