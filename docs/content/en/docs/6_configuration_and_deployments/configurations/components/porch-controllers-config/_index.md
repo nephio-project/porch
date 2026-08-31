@@ -126,3 +126,8 @@ Both the PackageRevision and Repository webhooks run in the porch-controllers po
 For webhook TLS certificate setup and management, see [Webhook Certificate Management](../porch-webhooks/cert-manager-webhooks.md).
 
 For details on webhook validation rules, see [Webhook Validation Rules](../porch-webhooks/validation-rules.md).
+
+
+## Observability
+
+For tracing, metrics, and pprof configuration, see [OpenTelemetry Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry" %}}). For a local Prometheus, Grafana, Jaeger, Pyroscope, and Grafana Alloy stack, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}).
