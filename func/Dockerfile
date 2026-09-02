@@ -24,7 +24,6 @@ FROM ${PORCH_GHCR_PREFIX_URL}/set-annotations:v0.1.8 AS set-annotations
 FROM ${PORCH_GHCR_PREFIX_URL}/set-image:v0.2.3 AS set-image
 FROM ${PORCH_GHCR_PREFIX_URL}/set-labels:v0.2.5 AS set-labels
 FROM ${PORCH_GHCR_PREFIX_URL}/set-namespace:v0.4.6 AS set-namespace
-FROM ${PORCH_GHCR_PREFIX_URL}/set-project-id:v0.2.1 AS set-project-id
 FROM ${PORCH_GHCR_PREFIX_URL}/starlark:v0.5.6 AS starlark
 FROM ${PORCH_GHCR_PREFIX_URL}/upsert-resource:v0.2.4 AS upsert-resource
 
@@ -61,7 +60,6 @@ COPY --from=set-annotations        --chown=root:root --chmod=555 /usr/local/bin/
 COPY --from=set-image              --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-image
 COPY --from=set-labels             --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-labels
 COPY --from=set-namespace          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace
-COPY --from=set-project-id         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-project-id
 COPY --from=starlark               --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/starlark
 COPY --from=upsert-resource        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/upsert-resource
 
