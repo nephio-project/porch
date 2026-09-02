@@ -17,16 +17,16 @@ ARG GOLANG_ALPINE_VERSION=latest
 ARG PORCH_GHCR_PREFIX_URL=ghcr.io/kptdev/krm-functions-catalog
 ARG DOCKERHUB_MIRROR=docker.io
 
-FROM ${PORCH_GHCR_PREFIX_URL}/apply-setters:v0.2.4 AS apply-setters
+FROM ${PORCH_GHCR_PREFIX_URL}/apply-setters:v0.3.0 AS apply-setters
 FROM ${PORCH_GHCR_PREFIX_URL}/ensure-name-substring:v0.3.0 AS ensure-name-substring
-FROM ${PORCH_GHCR_PREFIX_URL}/search-replace:v0.2.3 AS search-replace
-FROM ${PORCH_GHCR_PREFIX_URL}/set-annotations:v0.1.7 AS set-annotations
-FROM ${PORCH_GHCR_PREFIX_URL}/set-image:v0.2.2 AS set-image
-FROM ${PORCH_GHCR_PREFIX_URL}/set-labels:v0.2.4 AS set-labels
-FROM ${PORCH_GHCR_PREFIX_URL}/set-namespace:v0.4.5 AS set-namespace
+FROM ${PORCH_GHCR_PREFIX_URL}/search-replace:v0.2.4 AS search-replace
+FROM ${PORCH_GHCR_PREFIX_URL}/set-annotations:v0.1.8 AS set-annotations
+FROM ${PORCH_GHCR_PREFIX_URL}/set-image:v0.2.3 AS set-image
+FROM ${PORCH_GHCR_PREFIX_URL}/set-labels:v0.2.5 AS set-labels
+FROM ${PORCH_GHCR_PREFIX_URL}/set-namespace:v0.4.6 AS set-namespace
 FROM ${PORCH_GHCR_PREFIX_URL}/set-project-id:v0.2.1 AS set-project-id
-FROM ${PORCH_GHCR_PREFIX_URL}/starlark:v0.5.5 AS starlark
-FROM ${PORCH_GHCR_PREFIX_URL}/upsert-resource:v0.2.3 AS upsert-resource
+FROM ${PORCH_GHCR_PREFIX_URL}/starlark:v0.5.6 AS starlark
+FROM ${PORCH_GHCR_PREFIX_URL}/upsert-resource:v0.2.4 AS upsert-resource
 
 
 FROM ${DOCKERHUB_MIRROR}/golang:${GOLANG_ALPINE_VERSION} AS builder
