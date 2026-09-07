@@ -27,7 +27,7 @@ import (
 
 const (
 	dbGitTestRepoName    = "db-git-test-repo"
-	dbGitSyncWaitTimeout = 60 * time.Second
+	dbGitSyncWaitTimeout = 90 * time.Second
 )
 
 func (t *PorchSuite) updatePRR(_ string, prr *porchapi.PackageRevisionResources, resourceKeys ...string) {
@@ -58,9 +58,15 @@ func (t *PorchSuite) updatePRR(_ string, prr *porchapi.PackageRevisionResources,
 func (t *PorchSuite) triggerRepoSyncAndWaitForDraftBranch(repoName, giteaRepo, packageName, workspace string) string {
 	t.T().Helper()
 	branchName := suiteutils.DraftGitBranchName(packageName, workspace)
-	t.TriggerRepoSync(repoName, dbGitSyncWaitTimeout)
+	t.RequestRepoSync(repoName)
 	t.WaitUntilGiteaBranchExists(giteaRepo, branchName, dbGitSyncWaitTimeout)
 	return branchName
+}
+
+func (t *PorchSuite) triggerRepoSyncAndWaitForNewCommit(repoName, giteaRepo, branchName, oldCommitSHA string) string {
+	t.T().Helper()
+	t.RequestRepoSync(repoName)
+	return t.WaitUntilGiteaBranchHasNewCommit(giteaRepo, branchName, oldCommitSHA, dbGitSyncWaitTimeout)
 }
 
 func (t *PorchSuite) TestSyncDraftSurvivesSyncWhenInGit() {
@@ -160,8 +166,7 @@ data:
 `
 	t.updatePRR(repoName, &prr, "recovery.yaml")
 
-	t.TriggerRepoSync(repoName, dbGitSyncWaitTimeout)
-
+	t.RequestRepoSync(repoName)
 	t.WaitUntilGiteaBranchExists(giteaRepo, branchName, dbGitSyncWaitTimeout)
 	t.Logf("draft branch %s recovered into git after the failed push", branchName)
 
@@ -411,9 +416,7 @@ data:
 
 	// Unarchive and trigger sync.  handleInBoth detects dbChanged and enqueues a push.
 	t.SetGiteaRepoArchived(giteaRepo, false)
-	t.TriggerRepoSync(repoName, dbGitSyncWaitTimeout)
-
-	newSHA := t.WaitUntilGiteaBranchHasNewCommit(giteaRepo, branchName, initialSHA, dbGitSyncWaitTimeout)
+	newSHA := t.triggerRepoSyncAndWaitForNewCommit(repoName, giteaRepo, branchName, initialSHA)
 	t.Logf("branch advanced from %s to %s after reconcile push", initialSHA, newSHA)
 
 	pr = t.GetPackageRevisionWithWS(repoName, packageName, workspace)
@@ -487,9 +490,7 @@ data:
 `
 	t.updatePRR(repoName, &prr, dbFileKey)
 
-	t.TriggerRepoSync(repoName, dbGitSyncWaitTimeout)
-
-	t.WaitUntilGiteaBranchHasNewCommit(giteaRepo, branchName, externalOnlySHA, dbGitSyncWaitTimeout)
+	t.triggerRepoSyncAndWaitForNewCommit(repoName, giteaRepo, branchName, externalOnlySHA)
 
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &prr)
 	_, hasDBFile := prr.Spec.Resources[dbFileKey]

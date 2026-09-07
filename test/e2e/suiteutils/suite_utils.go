@@ -798,6 +798,28 @@ func (t *TestSuite) GetPackageRevisionWithFilter(repo, pkgName string, filter Pa
 	return &prList.Items[0]
 }
 
+// RequestRepoSync schedules a one-time repository sync via spec.sync.runOnceAt.
+// Unlike TriggerRepoSync, it does not wait for the sync to complete.
+func (t *TestSuite) RequestRepoSync(repoName string) time.Time {
+	t.T().Helper()
+	repoKey := client.ObjectKey{Namespace: t.Namespace, Name: repoName}
+
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+
+	if repo.Spec.Sync == nil {
+		repo.Spec.Sync = &configapi.RepositorySync{}
+	}
+	// Schedule runOnceAt slightly in the past so the controller's isOneTimeSyncDue
+	// check triggers a full sync on the next reconcile without an extra delay.
+	runOnceAt := metav1.NewTime(time.Now().Add(-1 * time.Second))
+	repo.Spec.Sync.RunOnceAt = new(runOnceAt)
+	t.UpdateF(&repo)
+
+	t.Logf("RequestRepoSync: set runOnceAt for repo %s", repoName)
+	return runOnceAt.Time
+}
+
 func (t *TestSuite) TriggerRepoSync(repoName string, timeout time.Duration) {
 	t.T().Helper()
 	repoKey := client.ObjectKey{Namespace: t.Namespace, Name: repoName}
@@ -810,17 +832,10 @@ func (t *TestSuite) TriggerRepoSync(repoName string, timeout time.Duration) {
 		baselineLastSync = repo.Status.LastFullSyncTime.Time
 	}
 
-	if repo.Spec.Sync == nil {
-		repo.Spec.Sync = &configapi.RepositorySync{}
-	}
-	// Schedule runOnceAt slightly in the past so the controller's isOneTimeSyncDue
-	// check triggers a full sync on the next reconcile without an extra delay.
-	runOnceAt := metav1.NewTime(time.Now().Add(-1 * time.Second))
-	repo.Spec.Sync.RunOnceAt = new(runOnceAt)
-	t.UpdateF(&repo)
+	runOnceAt := t.RequestRepoSync(repoName)
 
-	t.Logf("TriggerRepoSync: set runOnceAt for repo %s, waiting for sync to complete", repoName)
-	t.WaitForNextRepoSync(repoName, timeout, baselineLastSync, runOnceAt.Time)
+	t.Logf("TriggerRepoSync: waiting for sync to complete for repo %s", repoName)
+	t.WaitForNextRepoSync(repoName, timeout, baselineLastSync, runOnceAt)
 }
 
 func (t *TestSuite) WaitForNextRepoSync(repoName string, timeout time.Duration, baselineLastSync, triggeredRunOnceAt time.Time) {

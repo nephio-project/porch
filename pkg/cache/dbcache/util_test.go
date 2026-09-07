@@ -98,9 +98,9 @@ func (t *DbTestSuite) TestLockManagerWaitsOnSameMutex() {
 		lm.unlockKey(key)
 	}()
 
-	<-time.After(50 * time.Millisecond)
-	t.Same(km, lm.locks[key])
-	t.Equal(2, km.refs)
+	t.Eventually(func() bool {
+		return lm.locks[key] == km && km.refs == 2
+	}, time.Second, 5*time.Millisecond)
 
 	lm.unlockKey(key)
 
