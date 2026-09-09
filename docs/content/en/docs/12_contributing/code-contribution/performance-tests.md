@@ -5,7 +5,7 @@ weight: 2
 description: Run Porch package revision lifecycle performance and load tests
 ---
 
-Performance tests measure Porch package revision lifecycle latency and throughput under configurable load. They create Gitea and Porch repositories, run package revisions through the full lifecycle (create → update resources → propose → approve/publish), optionally delete them, and record per-operation timings plus optional Prometheus metrics.
+Performance tests measure Porch package revision lifecycle latency and throughput under configurable load. They create Gitea and Porch repositories in a local kind cluster. Then run package revisions through the full lifecycle (create → update resources → propose → approve/publish), optionally delete them, and record per-operation timings plus optional Prometheus metrics.
 
 For the local Prometheus, Grafana, Jaeger, Pyroscope, and Grafana Alloy stack used with these tests, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}). Server-side metrics and pprof configuration are documented in [OpenTelemetry Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry" %}}).
 
@@ -99,7 +99,7 @@ Tests are gated by environment variables and skipped otherwise. Run from the rep
 cd test/performance/
 ```
 
-### Scale / Load Test (`TestPorchScalePerformance`)
+### Load Test
 
 Creates a configured number of repositories, packages, and revisions to simulate load. Runs repositories and packages in parallel up to the configured parallelism limits.
 
@@ -124,7 +124,7 @@ LOAD_TEST=1 go test -v ./... \
   -timeout 2h
 ```
 
-### Maximum Package Revisions Test (`TestIncreasePRsPerformance`)
+### Maximum Package Revisions Test
 
 Creates package revisions sequentially in a single repository until the error-rate threshold is exceeded. Designed for long-running soak tests.
 

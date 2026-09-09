@@ -21,7 +21,6 @@ For a local monitoring stack, see [Local Performance Monitoring Deployment]({{% 
 **Current Implementation Status**: Porch currently implements metrics and traces export. Logs export is not supported.
 {{% /alert %}}
 
-
 ## Traces Configuration
 
 ### Quick Start with Jaeger
@@ -208,7 +207,7 @@ ports:
 
 ### Pod Annotations for Pyroscope
 
-Add these annotations on the pod template so Grafana Alloy scrapes the pprof port:
+Add these annotations on the pod template so that Grafana Alloy can scrape the pprof port:
 
 ```yaml
 metadata:
@@ -599,7 +598,7 @@ spec:
 
 The wrapper-server component can be configured with OpenTelemetry settings through the pod templating mechanism used by the function runner. This is done by creating a ConfigMap with a pod template that includes the necessary environment variables.
 
-wrapper-server does not expose pprof. Configure Prometheus metrics and optional OTLP traces only.
+The wrapper-server does not expose pprof. Configure Prometheus metrics and optional OTLP traces only.
 
 #### ConfigMap Pod Template with OpenTelemetry Configuration
 
