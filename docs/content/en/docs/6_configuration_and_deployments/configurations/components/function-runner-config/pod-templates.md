@@ -28,10 +28,10 @@ Cluster-wide defaults (node selectors, extra volumes, security context that ever
 ## Template contract
 
 Any custom `base-pod-template` must keep a container named `function`.
-That container's command must start the wrapper gRPC server; the function-runner replaces the image and appends the original function entrypoint to `args`.
+That container's command must start the wrapper gRPC server. The function-runner replaces the image and appends the original function entrypoint to `args`.
 An init container named `copy-wrapper-server` is expected as the first init container when `templateOverrides.initContainer` is used, because overrides are merged by index.
 
-The Function Runner patches the template before creating pods. Leave the function image as a placeholder; it is always replaced.
+The Function Runner patches the template before creating pods. Leave the function image as a placeholder. It is always replaced.
 
 ## Default templates
 

@@ -64,7 +64,7 @@ The builtin runtime (in porch-server and porch-controllers) handles images liste
 Everything else is sent over gRPC to the **function-runner**, which tries a local binary from `binaryExecutor` first and falls back to a Kubernetes pod from `podExecutor`.
 
 The **pod executor** is the default path for arbitrary function images: the function-runner creates (or reuses) a pod, injects a wrapper gRPC server, and runs the function image in isolation.
-TTL, parallelism, and pod-spec overrides come from the matching FunctionConfig.
+Time to Live (TTL), parallelism, and pod-spec overrides come from the matching FunctionConfig.
 The **binary executor** runs a pre-built binary inside the function-runner process, which avoids pod startup cost.
 The **Go executor** calls a compiled-in `ResourceListProcessor` (today: apply-replacements, set-namespace, and starlark) with no extra process at all.
 

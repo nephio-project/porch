@@ -387,7 +387,7 @@ spec:
 
 The wrapper-server can pick up OpenTelemetry settings from the function-runner's base **PodTemplate**.
 Edit `base-pod-template` in `porch-fn-system` (see [Pod Templates]({{% relref "/docs/6_configuration_and_deployments/configurations/components/function-runner-config/pod-templates.md" %}})) so the `function` container env includes the exporters you want.
-New function pods pick up the change on the next create or template-version replacement; existing pods are not rewritten in place.
+New function pods pick up the change on the next create or template-version replacement. Existing pods are not rewritten in place.
 
 #### PodTemplate with OpenTelemetry Configuration
 
@@ -446,7 +446,7 @@ template:
         emptyDir: {}
 ```
 
-No extra function-runner flag is required; the runner always reads `base-pod-template` from `--pod-namespace`.
+No extra function-runner flag is required. The runner always reads `base-pod-template` from `--pod-namespace`.
 
 ## Context Propagation
 

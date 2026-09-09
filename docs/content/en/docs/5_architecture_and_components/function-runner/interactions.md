@@ -15,7 +15,7 @@ It operates independently from the Porch server, enabling isolated function exec
 
 An embedded FunctionConfig reconciler watches FunctionConfig objects in the function-pod namespace and fills an in-memory store.
 That store is how the executable evaluator resolves binaries and how the pod evaluator applies per-image TTL, parallelism, and template overrides.
-Go execution is not handled here; it runs in porch-server / porch-controllers.
+Go execution is not handled here, it runs in porch-server / porch-controllers.
 See [Function Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/function-runner-config/function-configuration.md" %}}).
 
 ### High-Level Architecture

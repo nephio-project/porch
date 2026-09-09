@@ -11,7 +11,7 @@ KPT functions and KRM functions are synonymous terms referring to the same conta
 
 The Function Runner executes KRM functions in a secure, isolated environment.
 Binary vs pod selection and most per-function settings come from [FunctionConfig]({{% relref "function-configuration" %}}) resources, not from a static config file.
-The flags below are process-wide defaults; a matching FunctionConfig overrides TTL, waitlist length, and parallelism for that image.
+The flags below are process-wide defaults. A matching FunctionConfig overrides TTL, waitlist length, and parallelism for that image.
 Go execution is declared on the same CRD but runs in porch-server and porch-controllers, not in this process.
 
 ## Configuration Options

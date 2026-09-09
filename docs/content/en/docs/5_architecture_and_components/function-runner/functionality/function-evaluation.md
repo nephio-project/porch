@@ -49,7 +49,7 @@ All evaluators implement a common interface that defines the contract for functi
 
 **Request structure:**
 - **Image**: Function container image identifier
-- **Tag**: Optional version constraint; when set, evaluators resolve it against cached tags
+- **Tag**: Optional version constraint. When set, evaluators resolve it against cached tags.
 - **ResourceList**: Serialized KRM resources as YAML bytes
 
 **Response structure:**
@@ -77,7 +77,7 @@ Three evaluator implementations provide different execution strategies:
 - Executes local function binaries inside the function-runner process
 - Image-to-binary mapping comes from FunctionConfig `binaryExecutor` (path + tags)
 - Fast execution without pod overhead
-- Returns NotFoundError for images not in the binary cache
+- Returns `NotFoundError` for images not in the binary cache
 
 **Multi-Evaluator:**
 - Chains multiple evaluators together
@@ -173,7 +173,7 @@ For each `spec.binaryExecutor`, the store records the binary path (absolute, or 
 When the evaluation request includes a version constraint (`Tag`), the store selects the highest cached tag that satisfies the constraint.
 When `Tag` is empty, lookup uses the exact tag on the image reference. A miss returns `NotFoundError` so the multi-evaluator can fall through to the pod evaluator.
 
-Spec changes are applied on reconcile; the function-runner does not need to restart.
+Spec changes are applied on reconcile. The function-runner does not need to restart.
 
 ### Local Execution
 

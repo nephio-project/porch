@@ -10,7 +10,7 @@ Each resource names a function (by image name and optional registry prefixes) an
 a Kubernetes pod, a local binary in the function-runner process, or an in-process Go call inside porch-server / porch-controllers.
 
 At least one of `podExecutor`, `binaryExecutor`, or `goExecutor` must be set.
-Porch ships a set of FunctionConfig objects in the `porch-fn-system` namespace as part of the default install; you can add your own or edit the shipped ones.
+Porch ships a set of FunctionConfig objects in the `porch-fn-system` namespace as part of the default install. You can add your own or edit the shipped ones.
 
 For how these resources are created during install, see [Installing Porch]({{% relref "/docs/3_getting_started/installing-porch.md" %}}) and [Catalog Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/catalog-deployment.md" %}}).
 
@@ -30,7 +30,7 @@ The function-runner only caches FunctionConfig objects in the namespace it uses 
 
 Status columns on `kubectl get functionconfigs` show which generation each component has applied.
 When those values match `.metadata.generation` and `.status.error` is empty, the spec is live in that component.
-Spec changes are picked up without restarting Porch; the reconcilers filter on generation so status-only updates do not retrigger work.
+Spec changes are picked up without restarting Porch. The reconcilers filter on generation so status-only updates do not retrigger work.
 
 ## Matching images to a FunctionConfig
 
@@ -52,7 +52,7 @@ An exact `image:tag` with an empty constraint is looked up as a literal tag.
 ### Pod executor
 
 `spec.podExecutor` configures function-runner pods for the matched tags.
-`timeToLive` (default `30m`) is how long an idle pod is kept before garbage collection; the TTL is refreshed on each reuse.
+`timeToLive` (default `30m`) is how long an idle pod is kept before garbage collection. The TTL is refreshed on each reuse.
 `maxParallelExecutions` caps how many pods may run for this function (function-runner flag `--max-parallel-pods-per-function` is the fallback).
 `preferredMaxQueueLength` is the waitlist length per pod (flag `--max-waitlist-length` is the fallback).
 
@@ -155,7 +155,7 @@ status:
 ```
 
 `apiServerObservedGeneration`, `functionRunnerObservedGeneration`, and `controllerObservedGeneration` are the `.metadata.generation` each component last applied.
-`error` is set when that component failed to apply the spec; it is cleared on the next successful reconcile.
+`error` is set when that component failed to apply the spec. It is cleared on the next successful reconcile.
 
 ## RBAC
 

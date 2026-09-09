@@ -373,4 +373,4 @@ For detailed explanations of how these differences affect operations, see the in
 **Trade-offs:**
 - Binaries still have to be present under `--functions` (or an absolute path)
 - Duplicate `spec.image` values on different FunctionConfig objects are ignored
-- Only images listed on `binaryExecutor` take the fast path; everything else falls back to pods
+- Only images listed on `binaryExecutor` take the fast path, everything else falls back to pods
