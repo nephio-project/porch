@@ -65,7 +65,7 @@ Deploys the continuous-profiling stack:
 
 Alloy has no UI of its own. It watches pods in the cluster, keeps those that have `profiles.grafana.com/*` annotations, scrapes the named `pprof` container port, and forwards CPU, memory (heap), goroutine, block, and mutex profiles to Pyroscope at `http://pyroscope.porch-monitoring.svc.cluster.local:4040`.
 
-`make deploy-monitoring-pyroscope` also enables pprof on `porch-server`, `function-runner`, and `porch-controllers` by setting `PORCH_PPROF_PORT` and adding the Alloy discovery annotations. The environment variable, annotations, and available profiles are documented in [Pprof Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry#pprof-configuration" %}}).
+`make deploy-monitoring-pyroscope` also enables pprof on `porch-server`, `function-runner`, and `porch-controllers` by setting `PORCH_PPROF_PORT` and adding the Alloy discovery annotations. The environment variable, annotations, and available profiles are documented in [Profiling Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry#profiling-configuration" %}}).
 
 ### Cleanup and Restart
 
