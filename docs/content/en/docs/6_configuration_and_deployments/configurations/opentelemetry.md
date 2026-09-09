@@ -2,7 +2,7 @@
 title: "OpenTelemetry Configuration"
 type: docs
 weight: 4
-description: Configure OpenTelemetry metrics, traces, and pprof profiling for Porch components
+description: Configure OpenTelemetry metrics, traces export, and profiling for Porch components
 ---
 
 ## Overview
@@ -11,15 +11,16 @@ Porch supports OpenTelemetry observability through the [autoexport package](http
 
 All Porch components (porch-server, porch-controllers, function-runner, and wrapper-server) support OpenTelemetry configuration through standardized environment variables as defined by the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/).
 
-Porch also exposes Go [pprof](https://pkg.go.dev/net/http/pprof) endpoints for continuous profiling. Grafana Alloy can scrape those endpoints into Pyroscope when the pod annotations and `PORCH_PPROF_PORT` environment variable described in [Pprof Configuration](#pprof-configuration) are set.
+Porch also exposes Go [pprof](https://pkg.go.dev/net/http/pprof) endpoints for continuous profiling. Grafana Alloy can scrape those endpoints into Pyroscope when the pod annotations and `PORCH_PPROF_PORT` environment variable described in [Profiling Configuration](#profiling-configuration) are set.
 
 Default Kind deployments already export Prometheus metrics on port 9464 (`OTEL_METRICS_EXPORTER=prometheus`) and declare a container port named `pprof`. Trace export and the pprof HTTP server stay disabled until you set the corresponding environment variables.
+
+For a local monitoring stack, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}). For load-test metrics emitted by the performance test process, see [Performance Tests]({{% relref "/docs/12_contributing/code-contribution/performance-tests" %}}).
 
 {{% alert title="Note" color="primary" %}}
 **Current Implementation Status**: Porch currently implements metrics and traces export. Logs export is not supported.
 {{% /alert %}}
 
-For a local Prometheus, Grafana, Jaeger, Pyroscope, and Grafana Alloy stack, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}). For load-test metrics emitted by the test process, see [Performance Tests]({{% relref "/docs/12_contributing/code-contribution/performance-tests" %}}).
 
 ## Traces Configuration
 
@@ -117,8 +118,6 @@ kubectl port-forward -n porch-system service/jaeger-http 16686
 
 Open http://localhost:16686 and you should see `porch-server`, `porch-function-runner`, and `porch-controllers` in the service dropdown.
 
-To deploy Jaeger as part of the local monitoring stack (namespace `porch-monitoring`) instead of applying the manifest above, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}).
-
 ### OTLP Trace Export
 
 Export traces to an OpenTelemetry Protocol (OTLP) collector using either HTTP or gRPC protocols.
@@ -169,15 +168,15 @@ All environment variables apply to all Porch components: porch-server, porch-con
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces-specific endpoint (overrides general endpoint) | - | `http://localhost:4318/v1/traces` |
 | `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | Traces-specific protocol (overrides general protocol) | - | `http/protobuf`, `grpc` |
 
-## Pprof Configuration
+## Profiling Configuration
 
-Porch components start a pprof HTTP server when `PORCH_PPROF_PORT` is set. Grafana Alloy uses `profiles.grafana.com/*` pod annotations to discover those endpoints and ship profiles to Pyroscope.
+Porch components start a Go pprof HTTP server when `PORCH_PPROF_PORT` is set. Grafana Alloy uses `profiles.grafana.com/*` pod annotations to discover those endpoints and ship profiles to Pyroscope.
 
 {{% alert title="Warning" color="warning" %}}
 Enabling pprof turns on mutex and block profiling (`runtime.SetMutexProfileFraction(1)` and `runtime.SetBlockProfileRate(1)`). That adds overhead. Use it in development and performance-test clusters, not as a default in production, unless you have measured the cost.
 {{% /alert %}}
 
-Pprof applies to porch-server, function-runner, and porch-controllers. wrapper-server does not expose a pprof server.
+Profiling applies to porch-server, function-runner, and porch-controllers.
 
 ### Environment Variable
 
@@ -253,7 +252,7 @@ metadata:
 | `/debug/pprof/symbol` | Symbol lookup | no (available via HTTP) |
 | `/debug/pprof/` | Index of all profiles | no (available via HTTP) |
 
-Alloy writes the five scraped profile types into Pyroscope. View flame graphs in the Pyroscope UI (http://localhost:4040 when using the local stack) or the **Pyroscope – Porch profiling** Grafana dashboard. See [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}) for URLs and dashboards.
+Alloy writes the five scraped profile types into Pyroscope where it can be viewed in the Pyroscope or Grafana UI.
 
 ### Complete Pprof Example
 
@@ -343,7 +342,7 @@ env:
 
 ### Prometheus Metrics Export
 
-Porch supports native Prometheus metrics export through an HTTP endpoint. This is the recommended approach for Kubernetes environments with Prometheus-based monitoring. Default Kind manifests already set these variables on porch-server, function-runner, and porch-controllers.
+Porch supports native Prometheus metrics export through an HTTP endpoint. This is the recommended approach for Kubernetes environments with Prometheus-based monitoring.
 
 #### Basic Prometheus Configuration
 

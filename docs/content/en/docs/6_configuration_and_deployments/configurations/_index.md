@@ -20,9 +20,9 @@ Configure individual Porch components:
 
 ### OTEL Metrics, Tracing, and Profiling
 
-[OpenTelemetry]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry" %}}) - Tracing, metrics, and pprof configuration
+[OpenTelemetry]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry" %}}) - Tracing, metrics, and profiling configuration
 
-For a local Prometheus, Grafana, Jaeger, Pyroscope, and Grafana Alloy stack, see [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}).
+[Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}}) - Local Prometheus, Grafana, Grafana Alloy, Jaeger and Pyroscope observability stack.
 
 ## Core Configuration Options
 
