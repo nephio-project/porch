@@ -785,7 +785,7 @@ These metrics are recorded as part of every flow that updates package revision r
 - Delete package revisions on unregistering a repository
 - Direct update of PackageRevisionResources (e.g. `rpkg push`)
 
-Histogram buckets start at 0, then 1024 bytes, doubling for 21 further boundaries.
+Histogram buckets start at 0, then 1024 bytes, doubling for 20 further boundaries.
 
 ### Prometheus Metric Names
 
