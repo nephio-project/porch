@@ -51,10 +51,11 @@ An exact `image:tag` with an empty constraint is looked up as a literal tag.
 
 ### Pod executor
 
-`spec.podExecutor` configures function-runner pods for the matched tags.
-`timeToLive` (default `30m`) is how long an idle pod is kept before garbage collection. The TTL is refreshed on each reuse.
-`maxParallelExecutions` caps how many pods may run for this function (function-runner flag `--max-parallel-pods-per-function` is the fallback).
-`preferredMaxQueueLength` is the waitlist length per pod (flag `--max-waitlist-length` is the fallback).
+`spec.podExecutor` configures function-runner pods for the matched tags:
+
+- `timeToLive` (default `30m`) is how long an idle pod is kept before garbage collection. The TTL is refreshed on each reuse.
+- `maxParallelExecutions` caps how many pods may run for this function (function-runner flag `--max-parallel-pods-per-function` is the fallback).
+- `preferredMaxQueueLength` is the waitlist length per pod (flag `--max-waitlist-length` is the fallback).
 
 `templateOverrides` are merged onto the base `PodTemplate` when a pod is created.
 They can set `serviceAccountName`, a pod `securityContext`, and resource / env / envFrom overrides on the init container and the function container.
@@ -64,19 +65,21 @@ If `--warm-up-pod-cache` is true (the default), the function-runner pre-creates 
 
 ### Binary executor
 
-`spec.binaryExecutor` tells the function-runner executable evaluator to run a local binary instead of a pod for the listed tags.
-`path` is either an absolute path or a path relative to the `--functions` directory (default `./functions`).
-The binary is invoked with the ResourceList on stdin; stdout is the transformed ResourceList.
+`spec.binaryExecutor` tells the function-runner executable evaluator to run a local binary instead of a pod for the listed tags:
+
+- `path` is either an absolute path or a path relative to the `--functions` directory (default `./functions`).
+- The binary is invoked with the ResourceList on stdin; stdout is the transformed ResourceList.
 
 If the image is not in the binary cache, the executable evaluator returns `NotFoundError` and the multi-evaluator falls through to the pod evaluator.
 
 ### Go executor
 
-`spec.goExecutor` tells porch-server and porch-controllers to run the function as an in-process Go `ResourceListProcessor` for the listed tags.
-`id` is the key used in the builtin cache; if omitted, the FunctionConfig name is used.
+`spec.goExecutor` tells porch-server and porch-controllers to run the function as an in-process Go `ResourceListProcessor` for the listed tags:
 
-Only three processors are compiled into Porch today: `apply-replacements`, `set-namespace`, and `starlark`.
-A `goExecutor` on any other FunctionConfig is stored but has no processor to bind to.
+- `id` is the key used in the builtin cache. If omitted, the FunctionConfig name is used.
+- Only three processors are compiled into Porch today: `apply-replacements`, `set-namespace`, and `starlark`.
+- A `goExecutor` on any other FunctionConfig is stored but has no processor to bind to.
+
 The Engine tries the builtin runtime first and falls back to the function-runner over gRPC when the image is not in the Go cache.
 
 ## Example

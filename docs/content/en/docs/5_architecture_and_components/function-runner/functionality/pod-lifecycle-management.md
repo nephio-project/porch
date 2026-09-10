@@ -117,7 +117,7 @@ The Pod Manager handles low-level Kubernetes operations for function pods and th
 ### Pod Template System
 
 The pod manager always starts from two cluster objects in the function-pod namespace: `base-pod-template` (`corev1.PodTemplate`) and `base-service-template` (`ServiceTemplate`).
-If a get returns NotFound, the manager creates the object from the inline default compiled into the function-runner (the same spec as `deployments/porch/22-function-templates.yaml`).
+If a get returns a Kubernetes `NotFound` error, the manager creates the object from the inline default compiled into the function-runner (the same spec as `deployments/porch/22-function-templates.yaml`).
 
 After the function image, wrapper-server command, entrypoint args, and metadata annotations are patched onto a copy of the PodTemplate, `spec.podExecutor.templateOverrides` from the matching FunctionConfig is merged.
 Overrides can set `serviceAccountName`, a pod `securityContext`, and resource / env / envFrom on the init container and the function container.

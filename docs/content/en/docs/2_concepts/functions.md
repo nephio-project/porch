@@ -66,7 +66,7 @@ Everything else is sent over gRPC to the **function-runner**, which tries a loca
 The **pod executor** is the default path for arbitrary function images: the function-runner creates (or reuses) a pod, injects a wrapper gRPC server, and runs the function image in isolation.
 Time to Live (TTL), parallelism, and pod-spec overrides come from the matching FunctionConfig.
 The **binary executor** runs a pre-built binary inside the function-runner process, which avoids pod startup cost.
-The **Go executor** calls a compiled-in `ResourceListProcessor` (today: apply-replacements, set-namespace, and starlark) with no extra process at all.
+The **Go executor** calls a compiled-in `ResourceListProcessor` (apply-replacements, set-namespace, or starlark) with no extra process at all.
 
 Regardless of executor, Porch passes the package's resources to [kpt](https://kpt.dev), which passes them on as a [ResourceList](https://github.com/kubernetes-sigs/kustomize/blob/master/cmd/config/docs/api-conventions/functions-spec.md#resourcelist) to each function in the pipeline in order.
 kpt runs the functions sequentially and returns the results to Porch, which stores them in the PackageRevisionResources `status.renderStatus` field.
