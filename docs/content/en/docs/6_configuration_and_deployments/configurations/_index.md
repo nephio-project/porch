@@ -13,11 +13,10 @@ This section covers configuring Porch's various features and integrations after 
 Configure individual Porch components:
 - [Porch Server]({{% relref "components/porch-server-config" %}}) - API server configuration
   - [Git Authentication]({{% relref "components/porch-server-config/git-authentication" %}}) - Git repository authentication
-  - [Cert Manager Webhooks]({{% relref "components/porch-server-config/cert-manager-webhooks" %}}) - Webhook certificate management
-  - [Private Registries]({{% relref "components/porch-server-config/private-registries-config" %}}) - Container registry authentication for function pods
-  - [Pod Templates]({{% relref "components/porch-server-config/pod-templates" %}}) - Function pod specifications
 - [Porch Controllers]({{% relref "components/porch-controllers-config" %}}) - Repository, PackageRevision, and variant controller settings
-- [Function Runner]({{% relref "components/function-runner-config" %}}) - Cached-binary (exec) function execution
+  - [Webhooks]({{% relref "components/porch-webhooks" %}}) - Validating webhooks for resources
+- [Function Runner]({{% relref "components/function-runner-config" %}}) - Function execution environment
+  - [Private Registries]({{% relref "components/function-runner-config/private-registries-config" %}}) - Container registry authentication
 
 ### OTEL Metrics & Tracing
 
