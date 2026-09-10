@@ -51,7 +51,6 @@ var _ = Describe("PodEvaluator", Ordered, Label("content"), func() {
 		pr := newPackageRevision(env.Namespace, env.RepoName, "podeval-pkg", "v1", withInit("pod evaluator test"))
 		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
 		waitForReady(env.Ctx, pr)
-		waitForPRRVisible(env.Ctx, env.Namespace, pr.Name)
 
 		By("pushing a pipeline that requires the pod evaluator")
 		updatePRRResources(env.Ctx, env.Namespace, pr.Name, map[string]string{
