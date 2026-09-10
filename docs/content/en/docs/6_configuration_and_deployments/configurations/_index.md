@@ -37,7 +37,7 @@ Configure Git repository synchronization with ConfigSync or other GitOps tools.
 ## Configuration Best Practices
 
 - Start with default CR cache for simplicity
-- Configure private registries only if using private KRM functions in Function Runner
+- Configure private registries only if using private KRM functions (porch-server pod evaluator)
 - Enable tracing in development environments for debugging
 - Use cert-manager for production TLS certificate management
 - Set appropriate resource limits for each component
