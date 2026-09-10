@@ -21,16 +21,16 @@ Go execution is declared on the same CRD but runs in porch-server and porch-cont
 #### Generic Arguments
 ```bash
 args:
-- --port=9445                     # Server port (default: 9445)
-- --disable-runtimes=exec,pod     # Disable specific runtimes (exec, pod)
-- --log-level=2                   # Log verbosity level 0-5 (default: 2)
+- --port=9445                                                  # Server port (default: 9445)
+- --disable-runtimes=exec,pod                                  # Disable specific runtimes (exec, pod)
+- --log-level=2                                                # Log verbosity level 0-5 (default: 2)
 - --default-image-prefix=ghcr.io/kptdev/krm-functions-catalog  # Prefix for unqualified function names
 ```
 
 #### Exec Runtime Arguments
 ```bash
 args:
-- --functions=./functions         # Directory of cached function binaries (default: ./functions)
+- --functions=./functions  # Directory of cached function binaries (default: ./functions)
 ```
 
 Binary-to-image mappings come from FunctionConfig `binaryExecutor` entries.
@@ -54,11 +54,11 @@ args:
 #### Private Registry Arguments
 ```bash
 args:
-- --enable-private-registries=false              # Enable private registry support
+- --enable-private-registries=false                                     # Enable private registry support
 - --registry-auth-secret-path=/var/tmp/config-secret/.dockerconfigjson  # Registry auth secret path
-- --registry-auth-secret-name=auth-secret        # Registry auth secret name
-- --enable-private-registries-tls=false          # Enable TLS for private registries
-- --tls-secret-path=/var/tmp/tls-secret/         # TLS secret path
+- --registry-auth-secret-name=auth-secret                               # Registry auth secret name
+- --enable-private-registries-tls=false                                 # Enable TLS for private registries
+- --tls-secret-path=/var/tmp/tls-secret/                                # TLS secret path
 ```
 
 ### Environment Variables
@@ -98,19 +98,19 @@ Cache warming walks FunctionConfig objects that have a `podExecutor` and pre-cre
 
 ```bash
 args:
-- --pod-namespace=porch-fn-system # Namespace for function pods
-- --pod-ttl=30m                   # How long pods live before cleanup
-- --scan-interval=1m              # How often to scan for expired pods
-- --warm-up-pod-cache=true        # Pre-deploy common function pods
+- --pod-namespace=porch-fn-system  # Namespace for function pods
+- --pod-ttl=30m                    # How long pods live before cleanup
+- --scan-interval=1m               # How often to scan for expired pods
+- --warm-up-pod-cache=true         # Pre-deploy common function pods
 ```
 
 ### Disabling Runtimes
 
 ```bash
 args:
-- --disable-runtimes=exec         # Disable exec runtime only
-- --disable-runtimes=pod          # Disable pod runtime only
-- --disable-runtimes=exec,pod     # Disable both runtimes
+- --disable-runtimes=exec      # Disable exec runtime only
+- --disable-runtimes=pod       # Disable pod runtime only
+- --disable-runtimes=exec,pod  # Disable both runtimes
 ```
 
 ## Resource Limits
