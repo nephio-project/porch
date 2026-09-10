@@ -5,11 +5,8 @@ weight: 2
 description: "Customize function evaluator pods with PodTemplate, ServiceTemplate, and FunctionConfig overrides"
 ---
 
-The Function Runner builds each function evaluator pod from a base **PodTemplate** and a **ServiceTemplate**, then merges per-function overrides from the matching [FunctionConfig]({{% relref "function-configuration" %}}).
-This is how you set resource limits, security context, service account, node scheduling, extra env, and service ports for function pods.
-
+Function evaluator pods are built from the **PodTemplate**/**ServiceTemplate** objects `base-pod-template` and `base-service-template` in the function-pod namespace (default `porch-fn-system`), plus per-function overrides from the matching [FunctionConfig]({{% relref "function-configuration" %}}).
 There is no `--function-pod-template` flag and no ConfigMap template.
-The objects live in the function-pod namespace (default `porch-fn-system`) and are named `base-pod-template` and `base-service-template`.
 
 For how those templates are used during pod creation, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).
 

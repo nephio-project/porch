@@ -59,14 +59,8 @@ The spec, status, and matching rules are documented in [Function Configuration](
 
 ## Function Execution in Porch
 
-Porch executes functions through the Engine's function runtime.
-The builtin runtime (in porch-server and porch-controllers) handles images listed on a FunctionConfig `goExecutor`.
-Everything else is sent over gRPC to the **function-runner**, which tries a local binary from `binaryExecutor` first and falls back to a Kubernetes pod from `podExecutor`.
-
-The **pod executor** is the default path for arbitrary function images: the function-runner creates (or reuses) a pod, injects a wrapper gRPC server, and runs the function image in isolation.
-Time to Live (TTL), parallelism, and pod-spec overrides come from the matching FunctionConfig.
-The **binary executor** runs a pre-built binary inside the function-runner process, which avoids pod startup cost.
-The **Go executor** calls a compiled-in `ResourceListProcessor` (apply-replacements, set-namespace, or starlark) with no extra process at all.
+Porch executes functions through the Engine's function runtime, which picks one of three executors for each function image based on the matching FunctionConfig: an in-process **Go executor**, a **binary executor** running inside the function-runner, or a **pod executor** running the function image in a dedicated Kubernetes pod (the default for arbitrary images).
+See [Function Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/function-runner-config/function-configuration.md" %}}) for how executors are selected and configured per image.
 
 Regardless of executor, Porch passes the package's resources to [kpt](https://kpt.dev), which passes them on as a [ResourceList](https://github.com/kubernetes-sigs/kustomize/blob/master/cmd/config/docs/api-conventions/functions-spec.md#resourcelist) to each function in the pipeline in order.
 kpt runs the functions sequentially and returns the results to Porch, which stores them in the PackageRevisionResources `status.renderStatus` field.

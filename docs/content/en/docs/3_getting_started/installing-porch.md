@@ -92,8 +92,7 @@ kubectl get functionconfigs -n porch-fn-system
 A healthy install shows one FunctionConfig per bundled catalog function (apply-replacements, set-namespace, starlark, kubeconform, and others).
 The `Server Applied`, `FnRunner Applied`, and `Controller Applied` columns are the generations each component has loaded. They should match the resource generation when the spec is in sync.
 
-These FunctionConfig objects replace the older static config-file / ConfigMap approach.
-They tell porch-server, function-runner, and porch-controllers which executor (pod, binary, or Go) to use for each function image.
+These FunctionConfig objects tell porch-server, function-runner, and porch-controllers which executor (pod, binary, or Go) to use for each function image.
 See [Function Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/function-runner-config/function-configuration.md" %}}) for the spec
 and [Pod Templates]({{% relref "/docs/6_configuration_and_deployments/configurations/components/function-runner-config/pod-templates.md" %}}) for the `PodTemplate` and `ServiceTemplate` used by the pod executor.
 

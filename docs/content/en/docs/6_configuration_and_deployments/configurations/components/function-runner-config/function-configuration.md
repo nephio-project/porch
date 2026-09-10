@@ -5,13 +5,7 @@ weight: 1
 description: "Configure KRM function execution with FunctionConfig resources"
 ---
 
-Porch uses **FunctionConfig** custom resources to decide *how* a given function image is executed.
-Each resource names a function (by image name and optional registry prefixes) and attaches one or more executors:
-a Kubernetes pod, a local binary in the function-runner process, or an in-process Go call inside porch-server / porch-controllers.
-
-At least one of `podExecutor`, `binaryExecutor`, or `goExecutor` must be set.
-Porch ships a set of FunctionConfig objects in the `porch-fn-system` namespace as part of the default install. You can add your own or edit the shipped ones.
-
+**FunctionConfig** is the custom resource that configures how a function image is executed: a pod, a binary, a Go call, or any combination of the three.
 For how these resources are created during install, see [Installing Porch]({{% relref "/docs/3_getting_started/installing-porch.md" %}}) and [Catalog Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/catalog-deployment.md" %}}).
 
 ## How components consume FunctionConfig
@@ -48,6 +42,8 @@ the binary and Go executors pick the highest cached tag that satisfies the const
 An exact `image:tag` with an empty constraint is looked up as a literal tag.
 
 ## Executors
+
+At least one of `podExecutor`, `binaryExecutor`, or `goExecutor` must be set; the API server rejects a FunctionConfig with none of the three.
 
 ### Pod executor
 
