@@ -32,6 +32,11 @@ import (
 )
 
 // TODO: 	"sigs.k8s.io/kustomize/kyaml/filesys" FileSystem?
+
+const (
+	ResourceValueNotReturned = "RESOURCE-VALUE-NOT-RETURNED"
+)
+
 type PackageResources struct {
 	Contents map[string]string
 }

@@ -191,6 +191,10 @@ func loadResourcesFromTar(tarReader *tar.Reader, selector selector.PRRGet) (*rep
 			// We probably don't want to support this; feels high-risk, low-reward
 			return nil, fmt.Errorf("package cannot contain symlink (%q)", path)
 		case 0:
+			if selector.PathOnly {
+				resources.Contents[path] = repository.ResourceValueNotReturned
+				continue
+			}
 			b, err := io.ReadAll(tarReader)
 			if err != nil {
 				return nil, fmt.Errorf("error reading %q from image: %w", path, err)

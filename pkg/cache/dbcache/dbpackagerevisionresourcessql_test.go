@@ -21,12 +21,197 @@ import (
 	"fmt"
 
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
+	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
 	mockcachetypes "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
 )
 
 func (t *DbTestSuite) TestPkgRevResourcesReadFromDBFallsBackToStdlibQuery() {
+	dbPR := t.createResourcesFixture("fallback-ns", "fallback-repo", "fallback-package", "fallback-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &forceStdlibResourceQuerySQL{dbSQLInterface: origDB}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.AllFiles)
+
+	t.Require().NoError(err)
+	t.Equal("Hello", resources["Hello.txt"])
+	t.Equal("Goodbye", resources["Goodbye.txt"])
+}
+
+func (t *DbTestSuite) TestPkgRevResourcesReadFromDBFallsBackToStdlibQueryWithFileFilter() {
+	dbPR := t.createResourcesFixture("filter-ns", "filter-repo", "filter-package", "filter-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &forceStdlibResourceQuerySQL{dbSQLInterface: origDB}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{FilePaths: []string{"Hello.txt"}})
+
+	t.Require().NoError(err)
+	t.Equal(map[string]string{"Hello.txt": "Hello"}, resources)
+}
+
+func (t *DbTestSuite) TestPkgRevResourcesReadFromDBReturnsQueryErrorOnFallback() {
+	dbPR := t.createResourcesFixture("queryerr-ns", "queryerr-repo", "queryerr-package", "queryerr-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &failingStdlibResourceQuerySQL{
+		dbSQLInterface: origDB,
+		queryErr:       fmt.Errorf("query failed"),
+	}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.AllFiles)
+
+	t.Require().Nil(resources)
+	t.Require().ErrorContains(err, "query failed")
+}
+
+func (t *DbTestSuite) TestPkgRevResourcesReadFromDBReturnsScanErrorOnFallback() {
+	dbPR := t.createResourcesFixture("scanerr-ns", "scanerr-repo", "scanerr-package", "scanerr-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &oneColumnResourceQuerySQL{dbSQLInterface: origDB}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.AllFiles)
+
+	t.Require().Nil(resources)
+	t.Require().Error(err)
+}
+
+func (t *DbTestSuite) TestPkgRevResourcesReadFromDBReturnsScanTwoTextColumnsError() {
+	dbPR := t.createResourcesFixture("scan2-ns", "scan2-repo", "scan2-package", "scan2-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &failingScanTwoTextColumnsSQL{
+		dbSQLInterface: origDB,
+		err:            errors.New("native scan failed"),
+	}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.AllFiles)
+
+	t.Require().Nil(resources)
+	t.Require().ErrorContains(err, "native scan failed")
+}
+
+// --- PathOnly unit tests ---
+
+func (t *DbTestSuite) TestPkgRevResourcesQuerySQLPathOnlyOmitsValueColumn() {
+	prk := repository.PackageRevisionKey{}
+	prk.PkgKey.RepoKey.Namespace = "ns"
+	prk.PkgKey.RepoKey.Name = "repo"
+	prk.WorkspaceName = "ws"
+
+	query, _ := pkgRevResourcesQuerySQL(prk, selector.PRRGet{PathOnly: true})
+	t.NotContains(query, "resource_value")
+	t.Contains(query, "resource_key")
+}
+
+func (t *DbTestSuite) TestPkgRevResourcesQuerySQLFullContentsIncludesValueColumn() {
+	prk := repository.PackageRevisionKey{}
+	prk.PkgKey.RepoKey.Namespace = "ns"
+	prk.PkgKey.RepoKey.Name = "repo"
+	prk.WorkspaceName = "ws"
+
+	query, _ := pkgRevResourcesQuerySQL(prk, selector.AllFiles)
+	t.Contains(query, "resource_value")
+	t.Contains(query, "resource_key")
+}
+
+func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBReturnsKeysWithEmptyValues() {
+	dbPR := t.createResourcesFixture("pathonly-ns", "pathonly-repo", "pathonly-package", "pathonly-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{PathOnly: true})
+
+	t.Require().NoError(err)
+	t.Require().NotNil(resources)
+	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(resources))
+	for _, v := range resources {
+		t.Equal(repository.ResourceValueNotReturned, v)
+	}
+}
+
+func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBWithFileFilterReturnsKeysWithEmptyValues() {
+	dbPR := t.createResourcesFixture("pathonly-filter-ns", "pathonly-filter-repo", "pathonly-filter-package", "pathonly-filter-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{
+		FilePaths: []string{helloResourceFile},
+		PathOnly:  true,
+	})
+
+	t.Require().NoError(err)
+	t.Equal(map[string]string{helloResourceFile: repository.ResourceValueNotReturned}, resources)
+}
+
+func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBFallsBackToStdlibQuery() {
+	dbPR := t.createResourcesFixture("pathonly-fallback-ns", "pathonly-fallback-repo", "pathonly-fallback-package", "pathonly-fallback-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &forceStdlibOneColumnQuerySQL{dbSQLInterface: origDB}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{PathOnly: true})
+
+	t.Require().NoError(err)
+	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(resources))
+	for _, v := range resources {
+		t.Equal(repository.ResourceValueNotReturned, v)
+	}
+}
+
+func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBReturnsQueryErrorOnFallback() {
+	dbPR := t.createResourcesFixture("pathonly-qerr-ns", "pathonly-qerr-repo", "pathonly-qerr-package", "pathonly-qerr-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &failingStdlibOneColumnQuerySQL{
+		dbSQLInterface: origDB,
+		queryErr:       fmt.Errorf("one-col query failed"),
+	}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{PathOnly: true})
+
+	t.Require().Nil(resources)
+	t.Require().ErrorContains(err, "one-col query failed")
+}
+
+func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBReturnsScanOneTextColumnError() {
+	dbPR := t.createResourcesFixture("pathonly-scanerr-ns", "pathonly-scanerr-repo", "pathonly-scanerr-package", "pathonly-scanerr-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+	origDB := GetDB().db
+	GetDB().db = &failingScanOneTextColumnSQL{
+		dbSQLInterface: origDB,
+		err:            errors.New("native one-col scan failed"),
+	}
+	defer func() { GetDB().db = origDB }()
+
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), dbPR.Key(), selector.PRRGet{PathOnly: true})
+
+	t.Require().Nil(resources)
+	t.Require().ErrorContains(err, "native one-col scan failed")
+}
+
+func (t *DbTestSuite) TestDBPackageRevisionGetFilteredResourcesPathOnlyReturnsNotReturnedValues() {
+	dbPR := t.createResourcesFixture("gfr-pathonly-ns", "gfr-pathonly-repo", "gfr-pathonly-package", "gfr-pathonly-pr")
+	defer t.deleteTestRepo(dbPR.Key().RKey())
+
+	got, err := dbPR.GetFilteredResources(t.Context(), selector.PRRGet{PathOnly: true})
+
+	t.Require().NoError(err)
+	t.Require().NotNil(got)
+	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(got.Spec.Resources))
+	for _, v := range got.Spec.Resources {
+		t.Equal(repository.ResourceValueNotReturned, v)
+	}
+	t.assertPackageRevisionResourcesIdentity(got, dbPR)
+}
 	dbPR := t.createResourcesFixture("fallback-ns", "fallback-repo", "fallback-package", "fallback-pr")
 	defer t.deleteTestRepo(dbPR.Key().RKey())
 	origDB := GetDB().db
@@ -186,4 +371,44 @@ type failingScanTwoTextColumnsSQL struct {
 
 func (f *failingScanTwoTextColumnsSQL) ScanTwoTextColumns(context.Context, string, []any, func(col1, col2 string) error) error {
 	return f.err
+}
+
+// --- PathOnly fakes ---
+
+type forceStdlibOneColumnQuerySQL struct {
+	dbSQLInterface
+}
+
+func (f *forceStdlibOneColumnQuerySQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+	return ErrPgxQueryUnsupported
+}
+
+type failingStdlibOneColumnQuerySQL struct {
+	dbSQLInterface
+	queryErr error
+}
+
+func (f *failingStdlibOneColumnQuerySQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+	return ErrPgxQueryUnsupported
+}
+
+func (f *failingStdlibOneColumnQuerySQL) Query(context.Context, string, ...any) (*sql.Rows, error) {
+	return nil, f.queryErr
+}
+
+type failingScanOneTextColumnSQL struct {
+	dbSQLInterface
+	err error
+}
+
+func (f *failingScanOneTextColumnSQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+	return f.err
+}
+
+func mapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

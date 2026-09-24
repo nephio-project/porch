@@ -284,6 +284,7 @@ _Appears in:_
 
 PackageRevisionResources contains the file contents of a PackageRevision (filename → YAML).
 GET may append `?file=<path>` to the resource name (repeatable) to return only those files.
+GET may append `?path-only` to return only the file paths with values set to `RESOURCE-VALUE-NOT-RETURNED` (combinable with `?file=`).
 UPDATE may append `?partial=true` to merge submitted files into the existing package instead of replacing it.
 
 

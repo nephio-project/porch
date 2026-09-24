@@ -233,6 +233,31 @@ To display only the root Kptfile with `porchctl`, use `--show-kptfile` (see [Vie
 
 ---
 
+### Listing File Paths Without Content
+
+To retrieve only the file paths present in a package — without fetching file contents — append `?path-only` to the resource name. This is useful when you need to enumerate files efficiently without transferring potentially large YAML content.
+
+```bash
+kubectl get packagerevisionresources 'porch-test.my-first-package.v1?path-only' \
+  --namespace default -o yaml
+```
+
+The response `spec.resources` map contains every file path as a key, with each value set to `RESOURCE-VALUE-NOT-RETURNED`.
+
+`path-only` can be combined with `file` to check which of a set of specific paths exist:
+
+```bash
+kubectl get packagerevisionresources \
+  'porch-test.my-first-package.v1?file=Kptfile&file=deploy.yaml&path-only' \
+  --namespace default -o yaml
+```
+
+{{% alert title="Note" color="primary" %}}
+`?path-only` takes no value — `?path-only=true` is rejected. The DB backend omits the `resource_value` column from the SQL query entirely, so no content is read from storage.
+{{% /alert %}}
+
+---
+
 ### Partial Package Content Updates
 
 By default, an update of `PackageRevisionResources` **replaces** the entire package with `spec.resources`. Files omitted from the request are deleted.
