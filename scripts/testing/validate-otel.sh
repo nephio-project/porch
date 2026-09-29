@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -o pipefail
 
 # Set environment variables
 export PORCH_NAMESPACE="porch-system"
@@ -79,14 +79,19 @@ TARGETS=$(curl -s "http://localhost:9090/api/v1/query?query=up" 2>/dev/null | jq
 
 if [ -n "$TARGETS" ]; then
   echo "Found targets: $TARGETS"
-  # Count unique component types
-  PORCH_SERVER_COUNT=$(echo "$TARGETS" | grep -c "porch-server" || echo "0")
-  CONTROLLERS_COUNT=$(echo "$TARGETS" | grep -c "porch-controllers" || echo "0")
-  FUNCTION_RUNNER_COUNT=$(echo "$TARGETS" | grep -c "function-runner" || echo "0")
-  
-  [ "$PORCH_SERVER_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from porch-server" && ((COMPONENTS_FOUND++))
-  [ "$CONTROLLERS_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from porch-controllers" && ((COMPONENTS_FOUND++))
-  [ "$FUNCTION_RUNNER_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from function-runner" && ((COMPONENTS_FOUND++))
+  # Count unique component types using pipeline (avoids multi-line count output)
+  if echo "$TARGETS" | grep -q "porch-server"; then
+    echo "✓ Prometheus has metrics from porch-server"
+    ((COMPONENTS_FOUND++))
+  fi
+  if echo "$TARGETS" | grep -q "porch-controllers"; then
+    echo "✓ Prometheus has metrics from porch-controllers"
+    ((COMPONENTS_FOUND++))
+  fi
+  if echo "$TARGETS" | grep -q "function-runner"; then
+    echo "✓ Prometheus has metrics from function-runner"
+    ((COMPONENTS_FOUND++))
+  fi
 else
   echo "WARNING: Could not query Prometheus targets (may still be healthy)"
 fi
@@ -129,18 +134,17 @@ for i in {1..3}; do
   echo "Attempt $i..."
   
   # Create temporary port-forward to Jaeger
-  PF_TEMP=$(mktemp)
-  kubectl port-forward -n ${MONITORING_NAMESPACE} ${JAEGER_POD} 16686:16686 > "$PF_TEMP" 2>&1 &
+  kubectl port-forward -n ${MONITORING_NAMESPACE} ${JAEGER_POD} 16686:16686 > /dev/null 2>&1 &
   PF_PID=$!
-  sleep 2
+  sleep 3
   
-  TRACE_COUNT=$(curl -s "http://localhost:16686/api/traces?service=porch-server&limit=1" 2>/dev/null | jq -r '.data | length' 2>/dev/null || echo "0")
+  # Query for traces - look for data array length
+  RESPONSE=$(curl -s "http://localhost:16686/api/traces?service=porch-server&limit=1" 2>/dev/null)
+  TRACE_COUNT=$(echo "$RESPONSE" | jq '.data | length' 2>/dev/null || echo "0")
   
-  kill $PF_PID 2>/dev/null || true
-  rm -f "$PF_TEMP"
-  wait $PF_PID 2>/dev/null || true
+  kill $PF_PID 2>/dev/null
   
-  if [ "$TRACE_COUNT" -gt 0 ]; then
+  if [ -n "$TRACE_COUNT" ] && [ "$TRACE_COUNT" -gt 0 ]; then
     TRACES_FOUND=1
     echo "✓ Found $TRACE_COUNT trace(s) in Jaeger"
     break
@@ -160,16 +164,13 @@ fi
 # List all services exporting traces
 echo ""
 echo "=== 6. Services reporting traces to Jaeger ==="
-PF_TEMP=$(mktemp)
-kubectl port-forward -n ${MONITORING_NAMESPACE} ${JAEGER_POD} 16686:16686 > "$PF_TEMP" 2>&1 &
+kubectl port-forward -n ${MONITORING_NAMESPACE} ${JAEGER_POD} 16686:16686 > /dev/null 2>&1 &
 PF_PID=$!
-sleep 2
+sleep 3
 
 SERVICES=$(curl -s "http://localhost:16686/api/services" 2>/dev/null | jq -r '.data[] | select(. != "jaeger-all-in-one")' 2>/dev/null || echo "")
 
-kill $PF_PID 2>/dev/null || true
-rm -f "$PF_TEMP"
-wait $PF_PID 2>/dev/null || true
+kill $PF_PID 2>/dev/null
 
 if [ -n "$SERVICES" ]; then
   echo "✓ Porch components exporting traces:"
