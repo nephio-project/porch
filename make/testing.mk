@@ -85,3 +85,29 @@ test-disaster-recovery: ## Run disaster-recovery test scenarios against environm
 # To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
 #	to the `go test` command line below
 	go test -count 1 -v -failfast -timeout 60m ./test/disaster/api
+
+
+##@ OTEL Testing
+
+# Note: OTEL testing requires DB cache (PostgreSQL for full stack observability)
+# Uses lightweight tests to generate metrics without timeouts
+
+.PHONY: test-e2e-otel-db-cache
+test-e2e-otel-db-cache: ## Run OTEL exporter E2E test with v1alpha1 + DB cache (deployment stays up)
+test-e2e-otel-db-cache: run-in-kind-db-cache
+	./scripts/monitoring/deploy-monitoring.sh deploy
+	./scripts/monitoring/deploy-monitoring.sh jaeger
+	kubectl wait --for=condition=ready pod -l app=jaeger -n porch-monitoring --timeout=300s || true
+	sleep 5
+	@echo "Running lightweight E2E test to generate metrics..."
+	E2E=1 go test -v -failfast ./test/e2e/api -run TestE2E/TestRegisterRepository
+
+.PHONY: test-e2e-otel-v1alpha2
+test-e2e-otel-v1alpha2: ## Run OTEL exporter E2E test with v1alpha2 + DB cache (deployment stays up)
+test-e2e-otel-v1alpha2: run-in-kind-v1alpha2
+	./scripts/monitoring/deploy-monitoring.sh deploy
+	./scripts/monitoring/deploy-monitoring.sh jaeger
+	kubectl wait --for=condition=ready pod -l app=jaeger -n porch-monitoring --timeout=300s || true
+	sleep 5
+	@echo "Running lightweight E2E test to generate metrics..."
+	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Metrics"
