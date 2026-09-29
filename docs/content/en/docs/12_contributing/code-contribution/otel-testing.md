@@ -15,6 +15,11 @@ The OTEL E2E testing validates:
 - ✅ OTEL SDK initializes without errors
 - ✅ Real Porch operations are properly instrumented
 
+**Scope**: Single unified v1alpha2 CRD test suite
+- Both v1alpha1 and v1alpha2 APIs use the same underlying server and controller components
+- No separate v1alpha1 test needed; a single v1alpha2 suite validates telemetry export from shared components
+- Uses lightweight "Init" specs that exercise core operations without heavy rendering overhead
+
 ## Prerequisites
 
 - Running Kind cluster with Porch deployed (see [Local Development Environment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-dev-env-deployment" %}}))
@@ -128,11 +133,13 @@ The OTEL E2E tests run automatically in GitHub Actions.
 - **Why**: Lightweight, exercises core package operations, no rendering overhead
 - **Duration**: ~20-30 seconds
 - **Traces generated**: API calls, package initialization, status updates
+- **Function-runner coverage**: While Init tests don't invoke KRM functions, function-runner still exports traces/metrics from its server (always running, responding to readiness/liveness probes)
 
 This single test suite is sufficient to verify that:
-- All components receive traffic
+- All components are healthy and receiving traffic
 - All components export traces and metrics
 - OTEL pipeline works end-to-end
+- Server-level instrumentation is working (even if KRM functions aren't invoked)
 
 ## Make Targets
 
