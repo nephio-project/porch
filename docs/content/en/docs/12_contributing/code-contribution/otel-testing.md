@@ -5,15 +5,15 @@ weight: 5
 description: Run OTEL E2E tests to validate trace and metrics export from all Porch components
 ---
 
-This guide explains how to run the automated OTEL E2E test suite locally and in CI to validate that Porch components correctly export traces and metrics to observability backends.
+This guide explains how to run the automated OTEL E2E test locally and in CI to validate that Porch components (porch-server, porch-controllers, porch-function-runner) correctly export traces and metrics to observability backends.
 
 ## Overview
 
-The OTEL E2E testing suite validates:
-- ✅ All Porch components (porch-server, porch-controllers, function-runner) export traces to Jaeger
-- ✅ All components export metrics on port 9464
-- ✅ Real Porch operations generate properly instrumented traces
-- ✅ No critical OTEL initialization or export errors
+The OTEL E2E testing validates:
+- ✅ All Porch components export traces to Jaeger
+- ✅ All components export metrics to Prometheus
+- ✅ OTEL SDK initializes without errors
+- ✅ Real Porch operations are properly instrumented
 
 ## Prerequisites
 
@@ -23,52 +23,40 @@ The OTEL E2E testing suite validates:
 
 ## Local Testing
 
-### Run OTEL E2E Tests
+### Run OTEL E2E Test
 
-The test suite includes deployment, test execution, and validation in a single command:
-
-```bash
-# v1alpha1 with DB cache
-make test-e2e-otel-db-cache
-
-# v1alpha2 with DB cache and CRD
-make test-e2e-otel-v1alpha2
-```
-
-Each command:
-1. Deploys Porch with DB cache
-2. Deploys monitoring stack (Prometheus, Grafana, Jaeger)
-3. Runs a lightweight E2E test to generate activity
-4. **Leaves deployment running** for debugging (see [Access Observability UIs](#access-observability-uis))
-
-### Validate OTEL After Test
-
-After the test completes, validate OTEL infrastructure:
+Single command deploys Porch, monitoring stack, runs E2E test, and validates OTEL:
 
 ```bash
-# v1alpha1 validation
-./scripts/testing/validate-otel.sh v1alpha1
-
-# v1alpha2 validation
-./scripts/testing/validate-otel.sh v1alpha2
+make test-e2e-otel
 ```
 
-The validation script checks:
-1. ✅ Jaeger is running
-2. ✅ Porch-server metrics endpoint responds
-3. ✅ OTEL initialized without errors
-4. ✅ Traces are captured in Jaeger
-5. ✅ Lists all Porch components exporting traces
+This:
+1. Deploys v1alpha2 stack with DB cache
+2. Deploys monitoring (Prometheus, Grafana, Jaeger)
+3. Runs lightweight E2E test (~20-30 sec) to exercise components
+4. Validates traces/metrics from all 3 components
+5. **Leaves deployment running** for manual debugging (see [Access Observability UIs](#access-observability-uis))
+
+**Total time**: ~25-30 minutes
+
+### Validation Steps
+
+The `validate-otel.sh` script checks:
+1. ✅ Jaeger pod is running
+2. ✅ porch-server metrics endpoint responds (port 9464)
+3. ✅ OTEL initialized in logs (no critical errors)
+4. ✅ Traces exist in Jaeger (with retries)
+5. ✅ Prometheus has scraped all 3 components
+6. ✅ Lists all components exporting traces
 
 Example output:
 ```
-=== OTEL Validation Checks for v1alpha2 ===
+=== OTEL Validation Checks ===
 === 1. Checking Jaeger availability ===
 ✓ Jaeger pod found: jaeger-66f5c97cb8-skllc
 === 2. Checking porch-server metrics endpoint ===
 ✓ Metrics endpoint responding
-# HELP aggregator_discovery_aggregation_count_total [ALPHA] Counter
-...
 === 6. Services reporting traces to Jaeger ===
 ✓ Porch components exporting traces:
   - porch-server
@@ -88,38 +76,34 @@ kubectl port-forward -n porch-monitoring deployment/jaeger 16686:16686
 
 # Terminal 2 - visit http://localhost:16686
 # Query service: "porch-server", "porch-controllers", or "porch-function-runner"
-# View operation spans like:
-# - [START]::packageRevisions::Watch
-# - cadEngine::ListPackageRevisions
-# - dbpackagesql::pkgScanRowsFromDB
 ```
 
 ### Prometheus (Metrics)
 
 ```bash
 # Terminal 1
-kubectl port-forward -n porch-monitoring deployment/prometheus 9090:9090
+kubectl port-forward -n porch-monitoring deployment/prometheus 9092:9090
 
-# Terminal 2 - visit http://localhost:9090
-# Query: http_server_requests_total, grpc_server_requests_total, etc.
+# Terminal 2 - visit http://localhost:9092
+# Query: http_server_requests_total, grpc_server_requests_total
 ```
 
 ### Grafana (Dashboards)
 
 ```bash
 # Terminal 1
-kubectl port-forward -n porch-monitoring deployment/grafana 3000:3000
+kubectl port-forward -n porch-monitoring deployment/grafana 3001:3000
 
-# Terminal 2 - visit http://localhost:3000
-# Default user: porch
-# Password: (check logs or extract from grafana-admin-creds secret)
+# Terminal 2 - visit http://localhost:3001
+# User: porch
+# Password: check logs or extract from secret
 ```
 
 ## CI Integration
 
 ### GitHub Actions Workflow
 
-The OTEL E2E tests run automatically in GitHub Actions:
+The OTEL E2E tests run automatically in GitHub Actions.
 
 **File**: `.github/workflows/porch-e2e-otel-weekly.yaml`
 
@@ -129,40 +113,32 @@ The OTEL E2E tests run automatically in GitHub Actions:
 
 **What it does**:
 1. Builds Porch images (parallel)
-2. Runs **v1alpha1 E2E tests** (parallel job)
-3. Runs **v1alpha2 E2E tests** (parallel job)
-4. Each job:
-   - Deploys Porch + monitoring stack
-   - Runs lightweight E2E test (~20-30 seconds)
-   - Validates OTEL infrastructure
-   - Reports which components export traces
+2. Deploys v1alpha2 stack
+3. Deploys monitoring
+4. Runs lightweight E2E test
+5. Validates OTEL infrastructure
+6. Reports which components export traces/metrics
 
-**Matrix Strategy**: Both API versions run in parallel for fast feedback (~45 min total).
+**Duration**: ~45 minutes total
 
 ## Test Selection
 
-### v1alpha1: TestRegisterRepository
-- **Operation**: Registers a git repository
-- **Why**: Lightweight, no function rendering
+**Init tests** (v1alpha2 CRD):
+- **Operations**: Create and initialize packages
+- **Why**: Lightweight, exercises core package operations, no rendering overhead
 - **Duration**: ~20-30 seconds
-- **Traces**: API calls and repository operations
+- **Traces generated**: API calls, package initialization, status updates
 
-### v1alpha2: Metrics Tests
-- **Operation**: Validates metrics collection via Ginkgo
-- **Why**: Lightweight, infrastructure-focused
-- **Duration**: ~20-30 seconds
-- **Traces**: Package operations and metrics collection
-
-Both tests generate real Porch operations that are instrumented and traced.
+This single test suite is sufficient to verify that:
+- All components receive traffic
+- All components export traces and metrics
+- OTEL pipeline works end-to-end
 
 ## Make Targets
 
 ```bash
-# Deploy + test + leave running (v1alpha1 DB cache)
-make test-e2e-otel-db-cache
-
-# Deploy + test + leave running (v1alpha2 DB cache + CRD)
-make test-e2e-otel-v1alpha2
+# Deploy + test + validate + leave running for debugging
+make test-e2e-otel
 ```
 
 ## Troubleshooting
@@ -177,43 +153,43 @@ make test-e2e-otel-v1alpha2
 2. **Check OTEL env vars are set**:
    ```bash
    kubectl get deployment porch-server -n porch-system \
-     -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="OTEL_TRACES_EXPORTER")].value}'
+     -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")].value}'
    ```
+   Should output: `http://jaeger-otlp.porch-monitoring.svc.cluster.local:4317`
 
-3. **Check Jaeger OTLP endpoint reachable**:
+3. **Check Jaeger OTLP endpoint is reachable**:
    ```bash
-   kubectl logs -n porch-system deployment/porch-server | grep "jaeger-otlp\|traces export"
+   kubectl logs -n porch-system deployment/porch-server | grep -i "jaeger\|otlp\|export"
    ```
 
 ### Metrics endpoint not responding
 
-1. **Check port-forward is active**:
-   ```bash
-   curl http://localhost:9464/metrics | head
-   ```
-
-2. **Check porch-server pod is healthy**:
+1. **Check porch-server pod is healthy**:
    ```bash
    kubectl get pod -n porch-system -l app=porch-server
    kubectl logs -n porch-system -l app=porch-server | grep "ERROR\|error"
    ```
 
-### Export errors in logs
+2. **Verify port-forward is working**:
+   ```bash
+   kubectl port-forward -n porch-system deployment/porch-server 9464:9464 &
+   curl http://localhost:9464/metrics | head -10
+   ```
 
-- "context deadline exceeded" - transient connection issue during startup, not critical
-- "export failed" - actual export failure, check logs and Jaeger connectivity
+### Validation script fails
+
+- **Prometheus metrics query fails**: Metrics may still be collecting. Check manually at `http://localhost:9092` (Prometheus UI)
+- **No services in Jaeger**: E2E test may not have exercised components. Check test logs for errors
+- **Export errors in logs**: Usually transient (connection timeout during startup). Check if components eventually recover
 
 ## Cleanup
 
 ```bash
-# Stop port forwarding (optional, happens automatically)
-find /tmp/tmp*_porch-monitoring-pf.pid.d/ -name '*.pid' -exec pkill -F '{}' \;
+# Remove monitoring stack
+./scripts/monitoring/deploy-monitoring.sh remove
 
 # Destroy Porch deployment
 make destroy
-
-# Remove monitoring stack
-./scripts/monitoring/deploy-monitoring.sh remove
 ```
 
 ## Next Steps
@@ -221,4 +197,3 @@ make destroy
 - Configure OTEL exporters: [OpenTelemetry Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/opentelemetry" %}})
 - Deploy monitoring stack: [Local Performance Monitoring Deployment]({{% relref "/docs/6_configuration_and_deployments/deployments/local-performance-monitoring-deployment" %}})
 - Run performance tests: [Performance Tests]({{% relref "/docs/12_contributing/code-contribution/performance-tests" %}})
-

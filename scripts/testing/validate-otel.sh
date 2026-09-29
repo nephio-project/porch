@@ -18,9 +18,8 @@ set -e
 # Set environment variables
 export PORCH_NAMESPACE="porch-system"
 export MONITORING_NAMESPACE="porch-monitoring"
-API_VERSION="${1:-v1alpha1}"
 
-echo "=== OTEL Validation Checks for $API_VERSION ==="
+echo "=== OTEL Validation Checks ==="
 echo ""
 
 # Check if Jaeger is accessible
@@ -58,6 +57,49 @@ if [ -z "$METRICS" ]; then
 fi
 echo "✓ Metrics endpoint responding"
 echo "$METRICS"
+
+# Check Prometheus has metrics from all three components
+echo ""
+echo "=== 2b. Checking Prometheus for all components metrics ==="
+PROMETHEUS_POD=$(kubectl get pods -n ${MONITORING_NAMESPACE} -l app=prometheus -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -z "$PROMETHEUS_POD" ]; then
+  echo "ERROR: Prometheus pod not found in ${MONITORING_NAMESPACE}"
+  exit 1
+fi
+
+# Query Prometheus for metrics from each component (by instance/target)
+PF_TEMP=$(mktemp)
+kubectl port-forward -n ${MONITORING_NAMESPACE} ${PROMETHEUS_POD} 9090:9090 > "$PF_TEMP" 2>&1 &
+PF_PID=$!
+sleep 2
+
+COMPONENTS_FOUND=0
+# Query for prometheus scrape targets that are currently up
+TARGETS=$(curl -s "http://localhost:9090/api/v1/query?query=up" 2>/dev/null | jq -r '.data.result[].metric.instance' 2>/dev/null | grep -E "porch-server|porch-controllers|function-runner" || echo "")
+
+if [ -n "$TARGETS" ]; then
+  echo "Found targets: $TARGETS"
+  # Count unique component types
+  PORCH_SERVER_COUNT=$(echo "$TARGETS" | grep -c "porch-server" || echo "0")
+  CONTROLLERS_COUNT=$(echo "$TARGETS" | grep -c "porch-controllers" || echo "0")
+  FUNCTION_RUNNER_COUNT=$(echo "$TARGETS" | grep -c "function-runner" || echo "0")
+  
+  [ "$PORCH_SERVER_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from porch-server" && ((COMPONENTS_FOUND++))
+  [ "$CONTROLLERS_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from porch-controllers" && ((COMPONENTS_FOUND++))
+  [ "$FUNCTION_RUNNER_COUNT" -gt 0 ] && echo "✓ Prometheus has metrics from function-runner" && ((COMPONENTS_FOUND++))
+else
+  echo "WARNING: Could not query Prometheus targets (may still be healthy)"
+fi
+
+kill $PF_PID 2>/dev/null || true
+rm -f "$PF_TEMP"
+wait $PF_PID 2>/dev/null || true
+
+if [ $COMPONENTS_FOUND -gt 0 ]; then
+  echo "✓ Found $COMPONENTS_FOUND/3 Porch components exporting metrics to Prometheus"
+else
+  echo "WARNING: Could not verify component metrics via Prometheus (check manually at http://localhost:9092)"
+fi
 
 # Check for OTEL in porch-server logs
 echo ""
@@ -111,7 +153,8 @@ for i in {1..3}; do
 done
 
 if [ $TRACES_FOUND -eq 0 ]; then
-  echo "WARNING: No traces found in Jaeger (services may not have been exercised)"
+  echo "ERROR: No traces found in Jaeger after multiple attempts"
+  exit 1
 fi
 
 # List all services exporting traces

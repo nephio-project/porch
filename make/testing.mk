@@ -90,24 +90,18 @@ test-disaster-recovery: ## Run disaster-recovery test scenarios against environm
 ##@ OTEL Testing
 
 # Note: OTEL testing requires DB cache (PostgreSQL for full stack observability)
-# Uses lightweight tests to generate metrics without timeouts
+# Uses lightweight v1alpha2 CRD tests to exercise components without timeouts
 
-.PHONY: test-e2e-otel-db-cache
-test-e2e-otel-db-cache: ## Run OTEL exporter E2E test with v1alpha1 + DB cache (deployment stays up)
-test-e2e-otel-db-cache: run-in-kind-db-cache
+.PHONY: test-e2e-otel
+test-e2e-otel: ## Run OTEL exporter E2E test (validates all Porch components export traces/metrics)
+test-e2e-otel: run-in-kind-v1alpha2
 	./scripts/monitoring/deploy-monitoring.sh deploy
 	./scripts/monitoring/deploy-monitoring.sh jaeger
 	kubectl wait --for=condition=ready pod -l app=jaeger -n porch-monitoring --timeout=300s || true
-	sleep 5
-	@echo "Running lightweight E2E test to generate metrics..."
-	E2E=1 go test -v -failfast ./test/e2e/api -run TestE2E/TestRegisterRepository
-
-.PHONY: test-e2e-otel-v1alpha2
-test-e2e-otel-v1alpha2: ## Run OTEL exporter E2E test with v1alpha2 + DB cache (deployment stays up)
-test-e2e-otel-v1alpha2: run-in-kind-v1alpha2
-	./scripts/monitoring/deploy-monitoring.sh deploy
-	./scripts/monitoring/deploy-monitoring.sh jaeger
-	kubectl wait --for=condition=ready pod -l app=jaeger -n porch-monitoring --timeout=300s || true
-	sleep 5
-	@echo "Running lightweight E2E test to generate metrics..."
-	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Metrics"
+	kubectl rollout status deployment/porch-server -n porch-system --timeout=300s || true
+	kubectl rollout status deployment/porch-controllers -n porch-system --timeout=300s || true
+	kubectl rollout status deployment/function-runner -n porch-system --timeout=300s || true
+	@echo "Running lightweight v1alpha2 E2E tests to exercise Porch components..."
+	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Init" -ginkgo.label-filter='!migration'
+	@echo "E2E tests complete, validating OTEL traces and metrics..."
+	./scripts/testing/validate-otel.sh
