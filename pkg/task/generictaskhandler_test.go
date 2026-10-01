@@ -24,7 +24,8 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
-	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
+	"github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/kptdev/porch/pkg/externalrepo/fake"
@@ -42,8 +43,8 @@ func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, resource
 	return nil
 }
 
-func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{
+func (m *mockPackageRevisionDraft) Key() key.PackageRevisionKey {
+	return key.PackageRevisionKey{
 		WorkspaceName: "test-revision",
 		Revision:      1,
 	}
@@ -298,9 +299,9 @@ metadata:
 	})
 
 	t.Run("Success with valid SubpackageDir and proper tasks", func(t *testing.T) {
-		upstreamPrKey := repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		upstreamPrKey := key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "upstream-repo",
 				},
@@ -356,9 +357,9 @@ metadata:
 		}
 
 		draftForSubpkg := &fakeextrepo.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: "default",
 						Name:      "test-repo",
 					},
@@ -435,9 +436,9 @@ metadata:
 		}
 
 		draftForErr := &fakeextrepo.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: "default",
 						Name:      "test-repo",
 					},
@@ -464,9 +465,9 @@ metadata:
 	})
 
 	t.Run("Error when SubpackageDir conflicts with existing parent content", func(t *testing.T) {
-		upstreamPrKey := repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		upstreamPrKey := key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "upstream-repo",
 				},
@@ -514,9 +515,9 @@ metadata:
 		}
 
 		draftForConflict := &fakeextrepo.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: "default",
 						Name:      "test-repo",
 					},
@@ -932,9 +933,9 @@ func TestApplySubpackageTask(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			draft := &fakeextrepo.FakePackageRevision{
-				PrKey: repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
+				PrKey: key.PackageRevisionKey{
+					PkgKey: key.PackageKey{
+						RepoKey: key.RepositoryKey{
 							Namespace: "default",
 							Name:      "test-repo",
 						},
@@ -968,9 +969,9 @@ func TestApplySubpackageTask(t *testing.T) {
 func TestApplySubpackageTask_SuccessfulClone(t *testing.T) {
 	// The upstream package revision key: repo="upstream-repo", package="subpkg", workspace="ws"
 	// This produces the k8s name: "upstream-repo.subpkg.ws"
-	upstreamPrKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	upstreamPrKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "default",
 				Name:      "upstream-repo",
 			},
@@ -1044,9 +1045,9 @@ func TestApplySubpackageTask_SuccessfulClone(t *testing.T) {
 	}
 
 	draft := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "test-repo",
 				},
@@ -1086,9 +1087,9 @@ func TestApplySubpackageTask_SuccessfulUpgrade(t *testing.T) {
 
 	// Old upstream package revision (the original version of the subpackage)
 	oldUpstreamPR := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "upstream-repo",
 				},
@@ -1109,9 +1110,9 @@ func TestApplySubpackageTask_SuccessfulUpgrade(t *testing.T) {
 
 	// New upstream package revision (the upgraded version)
 	newUpstreamPR := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "upstream-repo",
 				},
@@ -1151,9 +1152,9 @@ func TestApplySubpackageTask_SuccessfulUpgrade(t *testing.T) {
 
 	// Local package revision (contains the subpackage at "my-subpkg/")
 	localPR := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "upstream-repo",
 				},
@@ -1187,9 +1188,9 @@ func TestApplySubpackageTask_SuccessfulUpgrade(t *testing.T) {
 	}
 
 	draft := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "test-repo",
 				},
@@ -1249,9 +1250,9 @@ func TestApplySubpackageTask_SuccessfulUpgrade(t *testing.T) {
 }
 
 func TestApplySubpackageTask_ClearsTasksAfterExecution(t *testing.T) {
-	upstreamPrKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	upstreamPrKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "default",
 				Name:      "upstream-repo",
 			},
@@ -1315,9 +1316,9 @@ func TestApplySubpackageTask_ClearsTasksAfterExecution(t *testing.T) {
 	}
 
 	draft := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "test-repo",
 				},
@@ -1349,9 +1350,9 @@ func TestApplySubpackageTask_ClearsTasksAfterExecution(t *testing.T) {
 
 func TestApplySubpackageTask_InvalidSubpackageName(t *testing.T) {
 	// SubpackageDir that produces an invalid k8s name (uppercase letters)
-	upstreamPrKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	upstreamPrKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "default",
 				Name:      "upstream-repo",
 			},
@@ -1406,9 +1407,9 @@ func TestApplySubpackageTask_InvalidSubpackageName(t *testing.T) {
 	}
 
 	draft := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "test-repo",
 				},
@@ -1435,9 +1436,9 @@ func TestApplySubpackageTask_InvalidSubpackageName(t *testing.T) {
 
 func TestApplySubpackageTask_CheckKptfileStatusCleared(t *testing.T) {
 	// SubpackageDir that produces an invalid k8s name (uppercase letters)
-	upstreamPrKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	upstreamPrKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "default",
 				Name:      "upstream-repo",
 			},
@@ -1492,9 +1493,9 @@ func TestApplySubpackageTask_CheckKptfileStatusCleared(t *testing.T) {
 	}
 
 	draft := &fakeextrepo.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "default",
 					Name:      "test-repo",
 				},

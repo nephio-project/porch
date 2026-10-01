@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 
 	kptoci "github.com/kptdev/kpt/pkg/oci"
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/kptdev/porch/pkg/externalrepo/types"
 	"github.com/kptdev/porch/pkg/repository"
@@ -43,7 +44,7 @@ func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 	}
 
 	return &ociRepository{
-		key: repository.RepositoryKey{
+		key: key.RepositoryKey{
 			Namespace:         repositorySpec.Namespace,
 			Name:              repositorySpec.Name,
 			Path:              "oci://" + ociSpec.Registry,

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/crcache/meta"
@@ -93,8 +94,8 @@ func TestPublishedLatest(t *testing.T) {
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Path:    "catalog/gcp",
 				Package: "bucket",
 			},
@@ -144,8 +145,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Path:    "catalog/gcp",
 				Package: "bucket",
 			},
@@ -184,8 +185,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	}
 
 	publishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Path:    "catalog/gcp",
 				Package: "bucket",
 			},
@@ -219,8 +220,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	}
 
 	postDeletePublishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Path:    "catalog/gcp",
 				Package: "bucket",
 			},
@@ -328,28 +329,28 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 func TestFindUpstreamReference(t *testing.T) {
 	ctx := context.Background()
 	cache := &Cache{repositories: repomap.SafeRepoMap{}}
-	repoKey := repository.RepositoryKey{Namespace: "test-ns", Name: "test-repo"}
+	repoKey := key.RepositoryKey{Namespace: "test-ns", Name: "test-repo"}
 	mockRepo := &cachedRepository{
 		key:                    repoKey,
-		cachedPackageRevisions: make(map[repository.PackageRevisionKey]*cachedPackageRevision),
+		cachedPackageRevisions: make(map[key.PackageRevisionKey]*cachedPackageRevision),
 	}
 	_, _ = cache.repositories.LoadOrCreate(repoKey, func() (repository.Repository, error) {
 		return mockRepo, nil
 	})
 
 	// Create second repository for cross-repo testing
-	repo2Key := repository.RepositoryKey{Namespace: "test-ns", Name: "test-repo2"}
+	repo2Key := key.RepositoryKey{Namespace: "test-ns", Name: "test-repo2"}
 	mockRepo2 := &cachedRepository{
 		key:                    repo2Key,
-		cachedPackageRevisions: make(map[repository.PackageRevisionKey]*cachedPackageRevision),
+		cachedPackageRevisions: make(map[key.PackageRevisionKey]*cachedPackageRevision),
 	}
 	_, _ = cache.repositories.LoadOrCreate(repo2Key, func() (repository.Repository, error) {
 		return mockRepo2, nil
 	})
 
 	addDownstream := func(repo *cachedRepository, downstreamPkgName, taskType, upstreamRefName string) {
-		key := repository.PackageRevisionKey{
-			PkgKey:        repository.PackageKey{RepoKey: repo.key, Package: downstreamPkgName},
+		key := key.PackageRevisionKey{
+			PkgKey:        key.PackageKey{RepoKey: repo.key, Package: downstreamPkgName},
 			WorkspaceName: "v1",
 		}
 		var task porchapi.Task
@@ -432,8 +433,8 @@ func TestFindUpstreamReference(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockRepo.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
-			mockRepo2.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+			mockRepo.cachedPackageRevisions = make(map[key.PackageRevisionKey]*cachedPackageRevision)
+			mockRepo2.cachedPackageRevisions = make(map[key.PackageRevisionKey]*cachedPackageRevision)
 			if tt.taskType != "" {
 				addDownstream(tt.repo, tt.downstreamPkgName, tt.taskType, tt.upstreamRefName)
 			}
@@ -449,7 +450,7 @@ func TestEvictCachedRepository(t *testing.T) {
 	cache := &Cache{repositories: repomap.SafeRepoMap{}}
 
 	fakeRepo := &fakeCloseableRepo{}
-	repoKey := repository.RepositoryKey{Namespace: "test-ns", Name: "evict-repo"}
+	repoKey := key.RepositoryKey{Namespace: "test-ns", Name: "evict-repo"}
 	mockRepo := &cachedRepository{
 		key:      repoKey,
 		repoSpec: &v1alpha1.Repository{ObjectMeta: metav1.ObjectMeta{Name: "evict-repo", Namespace: "test-ns"}},

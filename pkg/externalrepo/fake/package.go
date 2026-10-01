@@ -17,13 +17,14 @@ package fake
 import (
 	"context"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 )
 
 // Implementation of the repository.PackageRevision interface for testing.
 type FakePackage struct {
-	PkgKey           repository.PackageKey
+	PkgKey           key.PackageKey
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
 }
@@ -38,7 +39,7 @@ func (p *FakePackage) KubeObjectName() string {
 	return p.PkgKey.K8SName()
 }
 
-func (p *FakePackage) Key() repository.PackageKey {
+func (p *FakePackage) Key() key.PackageKey {
 	return p.PkgKey
 }
 

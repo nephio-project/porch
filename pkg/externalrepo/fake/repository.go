@@ -19,13 +19,14 @@ import (
 	"errors"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	key2 "github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 )
 
 // Repository fake implementation of the repository.Repository interface.
 type Repository struct {
-	key              repository.RepositoryKey
+	key              key2.RepositoryKey
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
 	CurrentVersion   string
@@ -42,7 +43,7 @@ func (r *Repository) KubeObjectName() string {
 	return r.Key().Name
 }
 
-func (r *Repository) Key() repository.RepositoryKey {
+func (r *Repository) Key() key2.RepositoryKey {
 	return r.key
 }
 

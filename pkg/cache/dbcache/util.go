@@ -20,8 +20,8 @@ import (
 	"sync"
 
 	kptfile "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
 
@@ -89,19 +89,19 @@ func (lm *lockManager) unlockKey(key string) {
 	lm.mu.Unlock()
 }
 
-func lockRepoKey(repoKey repository.RepositoryKey) {
+func lockRepoKey(repoKey key.RepositoryKey) {
 	globalLockManager.lockKey(repoKey.String())
 }
 
-func unlockRepoKey(repoKey repository.RepositoryKey) {
+func unlockRepoKey(repoKey key.RepositoryKey) {
 	globalLockManager.unlockKey(repoKey.String())
 }
 
-func lockPkgKey(pkgKey repository.PackageKey) {
+func lockPkgKey(pkgKey key.PackageKey) {
 	globalLockManager.lockKey(pkgKey.String())
 }
 
-func unlockPkgKey(pkgKey repository.PackageKey) {
+func unlockPkgKey(pkgKey key.PackageKey) {
 	globalLockManager.unlockKey(pkgKey.String())
 }
 

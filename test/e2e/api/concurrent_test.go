@@ -18,9 +18,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
-	suiteutils "github.com/kptdev/porch/test/e2e/suiteutils"
+	"github.com/kptdev/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,9 +49,9 @@ func (t *PorchSuite) TestConcurrentClones() {
 	t.ListE(&list, client.InNamespace(t.Namespace))
 	upstreamPr := t.MustFindPackageRevision(
 		&list,
-		repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: upstreamRepository,
 				},
 				Package: upstreamPackage,
@@ -308,8 +308,8 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
+	basensV1 := t.MustFindPackageRevision(&list, key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
+	basensV2 := t.MustFindPackageRevision(&list, key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
 	// Register the repository as 'downstream'
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)

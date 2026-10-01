@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/repository"
@@ -78,9 +79,9 @@ func TestUpgradeToPlaceholderAsNewUpstream(t *testing.T) {
 	workspace := "main"
 	placeholderPackageName := "repo.1234567890.main"
 	placeholderPackageRevision := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: repositoryNamespace,
 					Name:      repositoryName,
 				},
@@ -176,9 +177,9 @@ info:
 
 	// Old upstream package revision
 	oldUpstreamPR := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: repositoryNamespace,
 					Name:      repositoryName,
 				},
@@ -198,9 +199,9 @@ info:
 
 	// New upstream package revision
 	newUpstreamPR := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: repositoryNamespace,
 					Name:      repositoryName,
 				},
@@ -232,9 +233,9 @@ info:
 	t.Run("Error when SubpackageDir does not exist in local resources", func(t *testing.T) {
 		// Local package revision has no content at the specified SubpackageDir
 		localPR := &fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: repositoryNamespace,
 						Name:      repositoryName,
 					},
@@ -291,9 +292,9 @@ info:
 	t.Run("Success when SubpackageDir exists in local resources", func(t *testing.T) {
 		// Local package revision has content at the specified SubpackageDir
 		localPR := &fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: repositoryNamespace,
 						Name:      repositoryName,
 					},
@@ -360,9 +361,9 @@ info:
 		// Local has a file that starts with the subpackage dir name but without the "/" separator
 		// e.g. "my-subpkg-extra/file.yaml" should NOT match SubpackageDir "my-subpkg"
 		localPR := &fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Namespace: repositoryNamespace,
 						Name:      repositoryName,
 					},
@@ -425,9 +426,9 @@ func TestUpgradePlaceholderAsLocal(t *testing.T) {
 	workspace := "main"
 	placeholderPackageName := "repo.1234567890.main"
 	placeholderPackageRevision := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: repositoryNamespace,
 					Name:      repositoryName,
 				},

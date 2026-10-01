@@ -7,8 +7,9 @@ package repository
 import (
 	"context"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/mock"
 )
 
 // NewMockContentCache creates a new instance of MockContentCache. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -39,7 +40,7 @@ func (_m *MockContentCache) EXPECT() *MockContentCache_Expecter {
 }
 
 // CloseDraft provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) CloseDraft(ctx context.Context, repoKey repository.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error {
+func (_mock *MockContentCache) CloseDraft(ctx context.Context, repoKey key.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error {
 	ret := _mock.Called(ctx, repoKey, draft, version)
 
 	if len(ret) == 0 {
@@ -47,7 +48,7 @@ func (_mock *MockContentCache) CloseDraft(ctx context.Context, repoKey repositor
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, repository.PackageRevisionDraftSlim, int) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, repository.PackageRevisionDraftSlim, int) error); ok {
 		r0 = returnFunc(ctx, repoKey, draft, version)
 	} else {
 		r0 = ret.Error(0)
@@ -69,15 +70,15 @@ func (_e *MockContentCache_Expecter) CloseDraft(ctx interface{}, repoKey interfa
 	return &MockContentCache_CloseDraft_Call{Call: _e.mock.On("CloseDraft", ctx, repoKey, draft, version)}
 }
 
-func (_c *MockContentCache_CloseDraft_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int)) *MockContentCache_CloseDraft_Call {
+func (_c *MockContentCache_CloseDraft_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int)) *MockContentCache_CloseDraft_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 repository.PackageRevisionDraftSlim
 		if args[2] != nil {
@@ -102,13 +103,13 @@ func (_c *MockContentCache_CloseDraft_Call) Return(err error) *MockContentCache_
 	return _c
 }
 
-func (_c *MockContentCache_CloseDraft_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error) *MockContentCache_CloseDraft_Call {
+func (_c *MockContentCache_CloseDraft_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error) *MockContentCache_CloseDraft_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CreateDraftFromExisting provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) CreateDraftFromExisting(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string) (repository.PackageRevisionDraftSlim, error) {
+func (_mock *MockContentCache) CreateDraftFromExisting(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string) (repository.PackageRevisionDraftSlim, error) {
 	ret := _mock.Called(ctx, repoKey, pkgName, workspace)
 
 	if len(ret) == 0 {
@@ -117,17 +118,17 @@ func (_mock *MockContentCache) CreateDraftFromExisting(ctx context.Context, repo
 
 	var r0 repository.PackageRevisionDraftSlim
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string) (repository.PackageRevisionDraftSlim, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) (repository.PackageRevisionDraftSlim, error)); ok {
 		return returnFunc(ctx, repoKey, pkgName, workspace)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string) repository.PackageRevisionDraftSlim); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) repository.PackageRevisionDraftSlim); ok {
 		r0 = returnFunc(ctx, repoKey, pkgName, workspace)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevisionDraftSlim)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, repository.RepositoryKey, string, string) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, key.RepositoryKey, string, string) error); ok {
 		r1 = returnFunc(ctx, repoKey, pkgName, workspace)
 	} else {
 		r1 = ret.Error(1)
@@ -149,15 +150,15 @@ func (_e *MockContentCache_Expecter) CreateDraftFromExisting(ctx interface{}, re
 	return &MockContentCache_CreateDraftFromExisting_Call{Call: _e.mock.On("CreateDraftFromExisting", ctx, repoKey, pkgName, workspace)}
 }
 
-func (_c *MockContentCache_CreateDraftFromExisting_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string)) *MockContentCache_CreateDraftFromExisting_Call {
+func (_c *MockContentCache_CreateDraftFromExisting_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string)) *MockContentCache_CreateDraftFromExisting_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -182,13 +183,13 @@ func (_c *MockContentCache_CreateDraftFromExisting_Call) Return(packageRevisionD
 	return _c
 }
 
-func (_c *MockContentCache_CreateDraftFromExisting_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string) (repository.PackageRevisionDraftSlim, error)) *MockContentCache_CreateDraftFromExisting_Call {
+func (_c *MockContentCache_CreateDraftFromExisting_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string) (repository.PackageRevisionDraftSlim, error)) *MockContentCache_CreateDraftFromExisting_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CreateNewDraft provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) CreateNewDraft(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string, lifecycle string) (repository.PackageRevisionDraftSlim, error) {
+func (_mock *MockContentCache) CreateNewDraft(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string, lifecycle string) (repository.PackageRevisionDraftSlim, error) {
 	ret := _mock.Called(ctx, repoKey, pkgName, workspace, lifecycle)
 
 	if len(ret) == 0 {
@@ -197,17 +198,17 @@ func (_mock *MockContentCache) CreateNewDraft(ctx context.Context, repoKey repos
 
 	var r0 repository.PackageRevisionDraftSlim
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string, string) (repository.PackageRevisionDraftSlim, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string, string) (repository.PackageRevisionDraftSlim, error)); ok {
 		return returnFunc(ctx, repoKey, pkgName, workspace, lifecycle)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string, string) repository.PackageRevisionDraftSlim); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string, string) repository.PackageRevisionDraftSlim); ok {
 		r0 = returnFunc(ctx, repoKey, pkgName, workspace, lifecycle)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevisionDraftSlim)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, repository.RepositoryKey, string, string, string) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, key.RepositoryKey, string, string, string) error); ok {
 		r1 = returnFunc(ctx, repoKey, pkgName, workspace, lifecycle)
 	} else {
 		r1 = ret.Error(1)
@@ -230,15 +231,15 @@ func (_e *MockContentCache_Expecter) CreateNewDraft(ctx interface{}, repoKey int
 	return &MockContentCache_CreateNewDraft_Call{Call: _e.mock.On("CreateNewDraft", ctx, repoKey, pkgName, workspace, lifecycle)}
 }
 
-func (_c *MockContentCache_CreateNewDraft_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string, lifecycle string)) *MockContentCache_CreateNewDraft_Call {
+func (_c *MockContentCache_CreateNewDraft_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string, lifecycle string)) *MockContentCache_CreateNewDraft_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -268,13 +269,13 @@ func (_c *MockContentCache_CreateNewDraft_Call) Return(packageRevisionDraftSlim 
 	return _c
 }
 
-func (_c *MockContentCache_CreateNewDraft_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, pkgName string, workspace string, lifecycle string) (repository.PackageRevisionDraftSlim, error)) *MockContentCache_CreateNewDraft_Call {
+func (_c *MockContentCache_CreateNewDraft_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkgName string, workspace string, lifecycle string) (repository.PackageRevisionDraftSlim, error)) *MockContentCache_CreateNewDraft_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // DeletePackage provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) DeletePackage(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string) error {
+func (_mock *MockContentCache) DeletePackage(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) error {
 	ret := _mock.Called(ctx, repoKey, pkg, workspace)
 
 	if len(ret) == 0 {
@@ -282,7 +283,7 @@ func (_mock *MockContentCache) DeletePackage(ctx context.Context, repoKey reposi
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) error); ok {
 		r0 = returnFunc(ctx, repoKey, pkg, workspace)
 	} else {
 		r0 = ret.Error(0)
@@ -304,15 +305,15 @@ func (_e *MockContentCache_Expecter) DeletePackage(ctx interface{}, repoKey inte
 	return &MockContentCache_DeletePackage_Call{Call: _e.mock.On("DeletePackage", ctx, repoKey, pkg, workspace)}
 }
 
-func (_c *MockContentCache_DeletePackage_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string)) *MockContentCache_DeletePackage_Call {
+func (_c *MockContentCache_DeletePackage_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string)) *MockContentCache_DeletePackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -337,13 +338,13 @@ func (_c *MockContentCache_DeletePackage_Call) Return(err error) *MockContentCac
 	return _c
 }
 
-func (_c *MockContentCache_DeletePackage_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string) error) *MockContentCache_DeletePackage_Call {
+func (_c *MockContentCache_DeletePackage_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) error) *MockContentCache_DeletePackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetPackageContent provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) GetPackageContent(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error) {
+func (_mock *MockContentCache) GetPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error) {
 	ret := _mock.Called(ctx, repoKey, pkg, workspace)
 
 	if len(ret) == 0 {
@@ -352,17 +353,17 @@ func (_mock *MockContentCache) GetPackageContent(ctx context.Context, repoKey re
 
 	var r0 repository.PackageContent
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string) (repository.PackageContent, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) (repository.PackageContent, error)); ok {
 		return returnFunc(ctx, repoKey, pkg, workspace)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string) repository.PackageContent); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) repository.PackageContent); ok {
 		r0 = returnFunc(ctx, repoKey, pkg, workspace)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageContent)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, repository.RepositoryKey, string, string) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, key.RepositoryKey, string, string) error); ok {
 		r1 = returnFunc(ctx, repoKey, pkg, workspace)
 	} else {
 		r1 = ret.Error(1)
@@ -384,15 +385,15 @@ func (_e *MockContentCache_Expecter) GetPackageContent(ctx interface{}, repoKey 
 	return &MockContentCache_GetPackageContent_Call{Call: _e.mock.On("GetPackageContent", ctx, repoKey, pkg, workspace)}
 }
 
-func (_c *MockContentCache_GetPackageContent_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string)) *MockContentCache_GetPackageContent_Call {
+func (_c *MockContentCache_GetPackageContent_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string)) *MockContentCache_GetPackageContent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -417,13 +418,13 @@ func (_c *MockContentCache_GetPackageContent_Call) Return(packageContent reposit
 	return _c
 }
 
-func (_c *MockContentCache_GetPackageContent_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error)) *MockContentCache_GetPackageContent_Call {
+func (_c *MockContentCache_GetPackageContent_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error)) *MockContentCache_GetPackageContent_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateLifecycle provides a mock function for the type MockContentCache
-func (_mock *MockContentCache) UpdateLifecycle(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string, desired string) (repository.PackageContent, error) {
+func (_mock *MockContentCache) UpdateLifecycle(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string, desired string) (repository.PackageContent, error) {
 	ret := _mock.Called(ctx, repoKey, pkg, workspace, desired)
 
 	if len(ret) == 0 {
@@ -432,17 +433,17 @@ func (_mock *MockContentCache) UpdateLifecycle(ctx context.Context, repoKey repo
 
 	var r0 repository.PackageContent
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string, string) (repository.PackageContent, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string, string) (repository.PackageContent, error)); ok {
 		return returnFunc(ctx, repoKey, pkg, workspace, desired)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.RepositoryKey, string, string, string) repository.PackageContent); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string, string) repository.PackageContent); ok {
 		r0 = returnFunc(ctx, repoKey, pkg, workspace, desired)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageContent)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, repository.RepositoryKey, string, string, string) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, key.RepositoryKey, string, string, string) error); ok {
 		r1 = returnFunc(ctx, repoKey, pkg, workspace, desired)
 	} else {
 		r1 = ret.Error(1)
@@ -465,15 +466,15 @@ func (_e *MockContentCache_Expecter) UpdateLifecycle(ctx interface{}, repoKey in
 	return &MockContentCache_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", ctx, repoKey, pkg, workspace, desired)}
 }
 
-func (_c *MockContentCache_UpdateLifecycle_Call) Run(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string, desired string)) *MockContentCache_UpdateLifecycle_Call {
+func (_c *MockContentCache_UpdateLifecycle_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string, desired string)) *MockContentCache_UpdateLifecycle_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 repository.RepositoryKey
+		var arg1 key.RepositoryKey
 		if args[1] != nil {
-			arg1 = args[1].(repository.RepositoryKey)
+			arg1 = args[1].(key.RepositoryKey)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -503,7 +504,7 @@ func (_c *MockContentCache_UpdateLifecycle_Call) Return(packageContent repositor
 	return _c
 }
 
-func (_c *MockContentCache_UpdateLifecycle_Call) RunAndReturn(run func(ctx context.Context, repoKey repository.RepositoryKey, pkg string, workspace string, desired string) (repository.PackageContent, error)) *MockContentCache_UpdateLifecycle_Call {
+func (_c *MockContentCache_UpdateLifecycle_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string, desired string) (repository.PackageContent, error)) *MockContentCache_UpdateLifecycle_Call {
 	_c.Call.Return(run)
 	return _c
 }

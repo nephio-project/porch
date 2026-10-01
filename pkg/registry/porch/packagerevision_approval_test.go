@@ -19,6 +19,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/repository"
@@ -105,9 +106,9 @@ func TestApprovalUpdate(t *testing.T) {
 
 	// Create a proposed package revision for testing approval
 	proposedPackageRevision := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: repositoryName,
 				},
 				Package: pkg,

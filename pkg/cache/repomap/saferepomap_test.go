@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	key2 "github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ import (
 
 func TestLoadOrCreate_Success(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	repo, err := m.LoadOrCreate(key, func() (repository.Repository, error) {
 		mock := &mockrepository.MockRepository{}
@@ -41,7 +42,7 @@ func TestLoadOrCreate_Success(t *testing.T) {
 
 func TestLoadOrCreate_Reuse(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -60,7 +61,7 @@ func TestLoadOrCreate_Reuse(t *testing.T) {
 
 func TestLoadOrCreate_ErrorRetry(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -85,7 +86,7 @@ func TestLoadOrCreate_ErrorRetry(t *testing.T) {
 
 func TestLoadOrCreate_Concurrent(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -120,7 +121,7 @@ func TestLoadOrCreate_Concurrent(t *testing.T) {
 
 func TestLoadOrCreate_ConcurrentError(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -149,7 +150,7 @@ func TestLoadOrCreate_ConcurrentError(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	// Load non-existent key
 	repo, ok := m.Load(key)
@@ -169,7 +170,7 @@ func TestLoad(t *testing.T) {
 
 func TestLoadAndDelete(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := repository.RepositoryKey{Name: "test-repo"}
+	key := key2.RepositoryKey{Name: "test-repo"}
 
 	// LoadAndDelete non-existent key
 	repo, ok := m.LoadAndDelete(key)
@@ -195,7 +196,7 @@ func TestRange(t *testing.T) {
 	m := &SafeRepoMap{}
 
 	// Create multiple repos
-	keys := []repository.RepositoryKey{
+	keys := []key2.RepositoryKey{
 		{Name: "repo1"},
 		{Name: "repo2"},
 		{Name: "repo3"},

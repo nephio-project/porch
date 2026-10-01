@@ -7,6 +7,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,6 @@ import (
 
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 )
@@ -27,7 +27,7 @@ import (
 // setupMockContentDefaults adds common Maybe() expectations for PackageContent methods
 // that updateStatus may call.
 func setupMockContentDefaults(m *mockrepository.MockPackageContent) {
-	m.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+	m.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 	m.EXPECT().GetCommitInfo().Return(time.Time{}, "").Maybe()
 	m.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil).Maybe()
 	m.EXPECT().GetUpstreamLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil).Maybe()
@@ -572,7 +572,7 @@ func TestReconcileDeletionPassesCorrectRepoKey(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().DeletePackage(mock.Anything,
-		repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo"},
+		key.RepositoryKey{Namespace: "my-ns", Name: "my-repo"},
 		"my-pkg", "ws-v1",
 	).Return(nil)
 
@@ -1174,8 +1174,8 @@ type fakeDraftSlim struct {
 	updateErr error
 }
 
-func (f *fakeDraftSlim) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{}
+func (f *fakeDraftSlim) Key() key.PackageRevisionKey {
+	return key.PackageRevisionKey{}
 }
 
 func (f *fakeDraftSlim) UpdateResources(_ context.Context, resources map[string]string, commitMsg string) error {
@@ -1222,14 +1222,14 @@ func TestReconcileInitSource(t *testing.T) {
 	mockDraft := &fakeDraftSlim{}
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().CreateNewDraft(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "ws-1", "Draft").Return(mockDraft, nil)
-	mockCache.EXPECT().CloseDraft(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, mockDraft, 0).Return(nil)
+	mockCache.EXPECT().CreateNewDraft(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "ws-1", "Draft").Return(mockDraft, nil)
+	mockCache.EXPECT().CloseDraft(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, mockDraft, 0).Return(nil)
 
 	// After CloseDraft, reconcileSource reads back the content for lock info
 	mockContentAfterInit := mockrepository.NewMockPackageContent(t)
 	mockContentAfterInit.EXPECT().Lifecycle(mock.Anything).Return("Draft").Maybe()
 	setupMockContentDefaults(mockContentAfterInit)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "ws-1").Return(mockContentAfterInit, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "ws-1").Return(mockContentAfterInit, nil)
 
 	// Expect SSA status patches: updateStatus (Ready) then updateRenderStatus (Rendered)
 	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
@@ -1577,7 +1577,7 @@ func renderTestPR(annotation, observed, rendering, creationSource string, render
 	return pr
 }
 
-var testRepoKey = repository.RepositoryKey{Namespace: "default", Name: "my-repo"}
+var testRepoKey = key.RepositoryKey{Namespace: "default", Name: "my-repo"}
 
 // noStaleReader returns a mock apiReader for the stale check that returns
 // a PR with no render-request annotation (i.e. no push happened during render).
@@ -2353,7 +2353,7 @@ func TestReconcileSubpackageOperationSuccessfulClone(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	// Get upstream package content
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 	// Get parent resources
 	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(parentContent, nil).Once()
 	// CreateDraftFromExisting
@@ -2447,7 +2447,7 @@ func TestReconcileSubpackageOperationCreateDraftFails(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(parentContent, nil)
 	mockCache.EXPECT().CreateDraftFromExisting(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("draft creation failed"))
 
@@ -2508,7 +2508,7 @@ func TestReconcileSubpackageOperationReadParentResourcesFails(t *testing.T) {
 	upstreamContent.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 	// Reading parent fails
 	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("cache unavailable"))
 
@@ -2571,7 +2571,7 @@ func TestReconcileSubpackageOperationKptfileParseError(t *testing.T) {
 	upstreamContent.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.Locator{}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 
 	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
 	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -2643,7 +2643,7 @@ func TestReconcileSubpackageOperationSuccessWritesHash(t *testing.T) {
 	mockDraft := &fakeDraftSlim{}
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(parentContent, nil).Once()
 	mockCache.EXPECT().CreateDraftFromExisting(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(mockDraft, nil)
 	mockCache.EXPECT().CloseDraft(mock.Anything, testRepoKey, mockDraft, 0).Return(nil)
@@ -2731,7 +2731,7 @@ func TestReconcileSubpackageOperationConflictWithExistingContent(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "upstream-pkg", "v1").Return(upstreamContent, nil)
 	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(parentContent, nil)
 
 	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)

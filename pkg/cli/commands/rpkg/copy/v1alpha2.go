@@ -20,9 +20,9 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
+	apiutil "github.com/kptdev/porch/api/util"
 	cliutils "github.com/kptdev/porch/internal/cliutils"
 	rpkgutil "github.com/kptdev/porch/pkg/cli/commands/rpkg/util"
-	pkgutil "github.com/kptdev/porch/pkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -87,7 +87,7 @@ func (r *v1alpha2Runner) runE(cmd *cobra.Command, _ []string) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: rpkgutil.EnsureNamespace(r.cfg),
-			Name:      pkgutil.ComposePkgRevObjName(source.Spec.RepositoryName, "", source.Spec.PackageName, workspace),
+			Name:      apiutil.ComposePkgRevObjName(source.Spec.RepositoryName, "", source.Spec.PackageName, workspace),
 		},
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    source.Spec.PackageName,

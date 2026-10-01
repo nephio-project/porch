@@ -19,13 +19,14 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/kptdev/porch/api/porch/key"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
-func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, error) {
+func pkgReadFromDB(ctx context.Context, pk key.PackageKey) (*dbPackage, error) {
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -115,7 +116,7 @@ func pkgListPkgsFromDB(ctx context.Context, filter repository.ListPackageFilter)
 	return pkgScanRowsFromDB(ctx, rows)
 }
 
-func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbPackage, error) {
+func pkgReadPkgsFromDB(ctx context.Context, rk key.RepositoryKey) ([]*dbPackage, error) {
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadPkgsFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -198,7 +199,7 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 			continue
 		}
 		dbPkg.repo = repo.(*dbRepository)
-		dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
+		dbPkg.pkgKey.Package = key.K8SName2PkgName(pkgK8SName)
 		setValueFromJSON(metaAsJSON, &dbPkg.meta)
 		setValueFromJSON(specAsJSON, &dbPkg.spec)
 
@@ -263,7 +264,7 @@ func pkgUpdateDB(ctx context.Context, p *dbPackage) error {
 	return err
 }
 
-func pkgDeleteFromDB(ctx context.Context, pk repository.PackageKey) error {
+func pkgDeleteFromDB(ctx context.Context, pk key.PackageKey) error {
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
@@ -146,8 +147,8 @@ func TestUpdateLifecycle_InvalidCurrentLifecycle(t *testing.T) {
 	mockGetRepo(mockCache, mockRepo)
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).
 		Return([]repository.PackageRevision{mockPkgRev}, nil)
-	mockPkgRev.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	mockPkgRev.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	})
 	mockPkgRev.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycle("Bogus"))
@@ -183,8 +184,8 @@ func TestUpdateLifecycle_DraftCycle_RepoNotFoundForDraft(t *testing.T) {
 	mockCache.EXPECT().GetRepository(testFullRepoKey).Return(nil).Once()
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).
 		Return([]repository.PackageRevision{mockPkgRev}, nil)
-	mockPkgRev.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	mockPkgRev.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	})
 	mockPkgRev.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft)
@@ -240,8 +241,8 @@ func TestCreateDraftFromExisting(t *testing.T) {
 
 	mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
 	mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockPkgRev).Return(mockDraft, nil)
-	mockDraft.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	mockDraft.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	})
 
@@ -294,8 +295,8 @@ func TestCreateNewDraft(t *testing.T) {
 			obj.Spec.RepositoryName == testRepoKey.Name &&
 			obj.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft
 	})).Return(mockDraft, nil)
-	mockDraft.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	mockDraft.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	})
 
@@ -362,7 +363,7 @@ func TestCloseDraft_WrongDraftType(t *testing.T) {
 
 type fakeDraftSlim struct{}
 
-func (f *fakeDraftSlim) Key() repository.PackageRevisionKey { return repository.PackageRevisionKey{} }
+func (f *fakeDraftSlim) Key() key.PackageRevisionKey { return key.PackageRevisionKey{} }
 func (f *fakeDraftSlim) UpdateResources(_ context.Context, _ map[string]string, _ string) error {
 	return nil
 }

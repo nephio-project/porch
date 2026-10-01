@@ -18,13 +18,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +141,7 @@ func TestApplySourceCopy(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "repo"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "repo"}, "pkg", "v1",
 	).Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -299,7 +299,7 @@ func TestApplySourceCloneUpstreamRef(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "upstream-pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "upstream-pkg", "v1",
 	).Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -456,7 +456,7 @@ func TestApplySourceCloneUpstreamRefGetContentError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
 	).Return(nil, assert.AnError)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -499,7 +499,7 @@ func TestApplySourceCloneUpstreamRefGetLockError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
 	).Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -574,7 +574,7 @@ func TestApplySourceCloneUpstreamRefGetResourcesError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream-repo"}, "pkg", "v1",
 	).Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -684,13 +684,13 @@ func TestApplySourceUpgrade(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
 	).Return(oldContent, nil)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v2",
+		key.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v2",
 	).Return(newContent, nil)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "downstream"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "downstream"}, "pkg", "v1",
 	).Return(currentContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -840,7 +840,7 @@ func TestApplySourceUpgradeReadResourcesError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
 	).Return(nil, assert.AnError)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}
@@ -914,13 +914,13 @@ func TestApplySourceUpgradeGetLockError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v1",
 	).Return(oldContent, nil)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v2",
+		key.RepositoryKey{Namespace: "default", Name: "upstream"}, "pkg", "v2",
 	).Return(newContent, nil)
 	mockCache.EXPECT().GetPackageContent(ctx,
-		repository.RepositoryKey{Namespace: "default", Name: "downstream"}, "pkg", "v1",
+		key.RepositoryKey{Namespace: "default", Name: "downstream"}, "pkg", "v1",
 	).Return(currentContent, nil)
 
 	r := &PackageRevisionReconciler{Client: mc, ContentCache: mockCache}

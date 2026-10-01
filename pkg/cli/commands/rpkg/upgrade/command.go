@@ -28,9 +28,9 @@ import (
 	porchapi "github.com/kptdev/porch/api/porch"
 	porchapiv1alpha1 "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	apiutil "github.com/kptdev/porch/api/util"
 	cliutils "github.com/kptdev/porch/internal/cliutils"
 	"github.com/kptdev/porch/pkg/cli/commands/rpkg/docs"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -564,7 +564,7 @@ func (r *runner) findPackageRevisionFromUpstream(upstream *kptfilev1.Upstream) (
 		return nil, pkgerrors.Errorf("could not find repository %q directory %q", upstreamRepo.Git.Repo, upstreamRepo.Git.Directory)
 	}
 
-	revision := repository.Revision2Int(upstreamRef)
+	revision := apiutil.Revision2Int(upstreamRef)
 	if revision < 1 {
 		return nil, pkgerrors.Errorf("invalid git ref %q (expected vN) for repository %q directory %q", upstream.Git.Ref, upstream.Git.Repo, upstream.Git.Directory)
 	}

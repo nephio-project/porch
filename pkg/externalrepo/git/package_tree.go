@@ -26,7 +26,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
+	"github.com/kptdev/porch/api/util"
 	"k8s.io/klog/v2"
 )
 
@@ -48,7 +49,7 @@ type packageListEntry struct {
 	parent *packageList
 
 	// path is the relative path to the root of the package (directory containing the Kptfile)
-	pkgKey repository.PackageKey
+	pkgKey key.PackageKey
 
 	// treeHash is the git-hash of the git tree corresponding to Path
 	treeHash plumbing.Hash
@@ -94,16 +95,16 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	// workspaceNames, we populate the workspaceName as the branch if it is empty
 	// All this is necessary to support old packages and nested packages
 	// TODO: Do we need nested packages, we can use directories on repos instead
-	revision := repository.Revision2Int(revisionStr)
+	revision := util.Revision2Int(revisionStr)
 	if revision != -1 {
 		if workspace == "" {
-			workspace = "v" + repository.Revision2Str(revision)
+			workspace = "v" + util.Revision2Str(revision)
 		}
 	} else {
 		workspace = revisionStr
 	}
 
-	gitPrKey := repository.PackageRevisionKey{
+	gitPrKey := key.PackageRevisionKey{
 		PkgKey:        p.pkgKey,
 		Revision:      revision,
 		WorkspaceName: workspace,
@@ -145,7 +146,7 @@ type discoverPackagesOptions struct {
 
 // discoverPackages is the recursive function we use to traverse the tree and find packages.
 // tree is the git-tree we are search, treePath is the repo-relative-path to tree.
-func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *object.Tree, treePath string, recurse bool, repo *git.Repository) error {
+func (t *packageList) discoverPackages(repoKey key.RepositoryKey, tree *object.Tree, treePath string, recurse bool, repo *git.Repository) error {
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
@@ -157,7 +158,7 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 			// Found a package
 			t.packages[treePath] = &packageListEntry{
 				// When discovering packages the absolute path of the package is needed in relation to the root of the repo
-				pkgKey:   repository.FromFullPathname(repoKey, strings.TrimPrefix(treePath, repoKey.Path)),
+				pkgKey:   key.FromFullPathname(repoKey, strings.TrimPrefix(treePath, repoKey.Path)),
 				treeHash: tree.Hash,
 				parent:   t,
 			}
