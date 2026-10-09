@@ -18,7 +18,6 @@ jobs:
         with:
           filters: |
             code:
-              - '.github/workflows/sonar-ci-artifacts.yaml'
               - '**/*.go'
               - 'Makefile'
               - 'api/**'

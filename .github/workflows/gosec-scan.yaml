@@ -30,7 +30,6 @@ jobs:
         with:
           filters: |
             code:
-              - '.github/workflows/gosec-scan.yaml'
               - '**.Dockerfile'
               - 'Makefile'
               - 'api/**'

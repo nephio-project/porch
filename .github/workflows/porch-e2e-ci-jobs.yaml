@@ -41,7 +41,6 @@ jobs:
         with:
           filters: |
             code:
-              - '.github/workflows/porch-e2e-ci-jobs.yaml'
               - '.dockerignore'
               - '**.Dockerfile'
               - '**/*.go'

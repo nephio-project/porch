@@ -34,7 +34,6 @@ jobs:
         with:
           filters: |
             code:
-              - '.github/workflows/golangci-lint.yaml'
               - '**.Dockerfile'
               - '**/*.go'
               - '.golangci.json'
