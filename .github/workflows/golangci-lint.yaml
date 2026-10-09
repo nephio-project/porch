@@ -35,7 +35,7 @@ jobs:
           filters: |
             code:
               - '**.Dockerfile'
-              - '**/*_test.go'
+              - '**/*.go'
               - '.golangci.json'
               - 'Makefile'
               - 'api/**'
@@ -48,7 +48,6 @@ jobs:
               - 'internal/**'
               - 'make/**.mk'
               - 'pkg/**'
-              - 'test/**.go'
 
   golangci:
     name: lint

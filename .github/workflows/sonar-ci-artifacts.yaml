@@ -18,7 +18,7 @@ jobs:
         with:
           filters: |
             code:
-              - '**/*_test.go'
+              - '**/*.go'
               - 'Makefile'
               - 'api/**'
               - 'cmd/**'
@@ -29,7 +29,6 @@ jobs:
               - 'internal/**'
               - 'make/**.mk'
               - 'pkg/**'
-              - 'test/**.go'
 
   build:
     runs-on: ubuntu-latest

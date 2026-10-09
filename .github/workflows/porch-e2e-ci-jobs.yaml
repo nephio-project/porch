@@ -41,8 +41,9 @@ jobs:
         with:
           filters: |
             code:
+              - '.dockerignore'
               - '**.Dockerfile'
-              - '**/*_test.go'
+              - '**/*.go'
               - 'Makefile'
               - 'api/**'
               - 'build/**'
@@ -58,7 +59,7 @@ jobs:
               - 'scripts/deploy/**'
               - 'scripts/lib/**'
               - 'scripts/testing/**'
-              - 'test/**.go'
+              - 'test/**'
 
   build:
     name: Build Dev Images
