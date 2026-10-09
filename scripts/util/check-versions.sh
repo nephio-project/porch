@@ -43,7 +43,7 @@ echo "Go version (go.mod): $go_version"
 kpt_version=$(awk '/github.com\/kptdev\/kpt / {print $2; exit}' go.mod)
 echo "kpt version (go.mod): $kpt_version"
 
-porch_api_version=$(awk '/github.com\/kptdev\/porch\/api / {print $2; exit}' go.mod)
+porch_api_version=$(awk '/^[^#]*github.com\/kptdev\/porch\/api / {print $2; exit}' go.mod)
 echo "Porch API version (go.mod): $porch_api_version"
 
 kind_version=$(awk '/helm\/kind-action@v1/,/version:/ {if (/version:/) print $2}' .github/workflows/porch-e2e-ci-jobs.yaml | head -1)
@@ -106,7 +106,12 @@ errors=0
 warnings=0
 declare -a fixes_needed
 
-# Helper function to compare semantic versions
+# Helper function to extract major.minor version
+get_minor_version() {
+  echo "$1" | cut -d. -f1,2
+}
+
+# Helper function to compare versions (returns 0 if equal, 1 if v1 < v2, 2 if v1 > v2)
 compare_versions() {
   # Returns 0 if $1 == $2, 1 if $1 < $2, 2 if $1 > $2
   local v1=$1 v2=$2
@@ -139,12 +144,19 @@ fi
 
 # Porch API version check (WARNING - uses replace directive during development)
 # During development, the replace directive takes precedence, so we can't reliably extract the version
-# This check is less critical since the replace directive is temporary
-if [ -n "$porch_api_version" ] && [ "$porch_api_version" != "replace" ] && [ "$porch_api_version" != "v$config_porch_api" ]; then
-  echo "WARN: Porch API version mismatch - go.mod: $porch_api_version, config: v$config_porch_api"
+# On main branch, compare against dev version; otherwise compare against stable
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+if [ "$BRANCH" = "main" ]; then
+  target_api_version="v$config_porch_api_dev"
+else
+  target_api_version="v$config_porch_api"
+fi
+
+if [ -n "$porch_api_version" ] && [ "$porch_api_version" != "replace" ] && [ "$porch_api_version" != "$target_api_version" ]; then
+  echo "WARN: Porch API version mismatch - go.mod: $porch_api_version, config: $target_api_version"
   warnings=$((warnings + 1))
 elif [ "$porch_api_version" != "replace" ]; then
-  echo "✓ Porch API version matches: v$config_porch_api (using replace directive in development)"
+  echo "✓ Porch API version matches: $target_api_version (using replace directive in development)"
 fi
 
 # kind version check (WARNING - test environment, controls k8s version)
@@ -233,11 +245,11 @@ else
 fi
 
 # Kubernetes version validation
-if [ "$config_kube_min" != "$config_kube_latest" ]; then
-  echo "WARN: Kubernetes min ($config_kube_min) != latest ($config_kube_latest) - ensure this is intentional"
-  warnings=$((warnings + 1))
+if compare_versions "$config_kube_min" "$config_kube_latest"; result=$?; [ "$result" = 2 ]; then
+  echo "FAIL: Kubernetes min ($config_kube_min) is greater than latest ($config_kube_latest)"
+  errors=$((errors + 1))
 else
-  echo "✓ Kubernetes min and latest are aligned: $config_kube_min"
+  echo "✓ Kubernetes version range is valid: $config_kube_min <= $config_kube_latest"
 fi
 
 # Current Go version should be within tested range
@@ -250,6 +262,18 @@ elif compare_versions "$config_go" "$config_go_min_stable"; result=$?; [ "$resul
 else
   echo "✓ Current Go version ($config_go) is within tested range"
 fi
+
+# kubectl version should be within one minor version of Kubernetes API server
+# Extract minor versions (major.minor)
+kube_minor=$(get_minor_version "$config_kube_latest")
+# For min version guidance (kubectl can be one minor older)
+kube_min_minor=$(get_minor_version "$config_kube_min")
+
+echo ""
+echo "=== Kubectl Compatibility Check ==="
+echo "Kubernetes cluster versions: $config_kube_min (min) to $config_kube_latest (latest)"
+echo "kubectl should be within one minor version of the cluster API server"
+echo "  Recommended range: $kube_min_minor to $kube_minor"
 
 # Only check runner versions if in CI
 if [ -n "$GITHUB_ACTIONS" ]; then

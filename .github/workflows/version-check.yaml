@@ -23,6 +23,8 @@ permissions:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       versions: ${{ steps.filter.outputs.versions }}
     steps:
@@ -52,6 +54,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Fetch full git history
+        run: git fetch --unshallow --all-tags
 
       - name: Check version consistency
         run: bash scripts/util/check-versions.sh
