@@ -55,6 +55,8 @@ jobs:
               - 'internal/**'
               - 'make/**.mk'
               - 'pkg/**'
+              - 'scripts/deploy/**'
+              - 'scripts/lib/**'
               - 'scripts/testing/**'
               - 'test/**.go'
 
