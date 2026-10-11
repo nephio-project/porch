@@ -64,7 +64,7 @@ func Parse(s string) (int64, error) {
 	unitName := strings.TrimSpace(trimmed[digits:])
 	unit, ok := units[strings.ToUpper(unitName)]
 	if !ok {
-		return 0, fmt.Errorf("invalid data size %q: unknown unit %q, must be one of B, KB, MB, GB", s, unitName)
+		return 0, fmt.Errorf("invalid data size %q: unknown unit %q, must be one of B, KB, MB, GB, KiB, MiB, GiB", s, unitName)
 	}
 	if number > math.MaxInt64/unit {
 		return 0, fmt.Errorf("invalid data size %q: value is too large", s)
