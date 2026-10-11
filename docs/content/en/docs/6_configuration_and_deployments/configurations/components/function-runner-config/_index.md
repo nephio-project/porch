@@ -48,7 +48,7 @@ args:
 - --pod-namespace=porch-fn-system     # Namespace for KRM function pods (default: porch-fn-system)
 - --pod-ttl=30m                       # Default pod TTL before GC (default: 30m)
 - --scan-interval=1m                  # GC scan interval (default: 1m)
-- --max-request-body-size=6291456     # Max gRPC message size in bytes (default: 6MB)
+- --max-request-body-size=6MB         # Max gRPC message size, with a unit or in bytes (default: 6MB)
 - --max-waitlist-length=2             # Default waitlist length per pod (default: 2)
 - --max-parallel-pods-per-function=1  # Default max pods per function (default: 1)
 - --max-grpc-retries=2                # Retries on gRPC Unavailable (default: 2)
