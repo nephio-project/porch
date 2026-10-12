@@ -43,7 +43,7 @@ echo "Go version (go.mod): $go_version"
 kpt_version=$(awk '/github.com\/kptdev\/kpt / {print $2; exit}' go.mod)
 echo "kpt version (go.mod): $kpt_version"
 
-porch_api_version=$(awk '/^[^#]*github.com\/kptdev\/porch\/api / {print $2; exit}' go.mod)
+porch_api_version=$(awk '/^github.com\/kptdev\/porch\/api / {print $2; exit}' go.mod)
 echo "Porch API version (go.mod): $porch_api_version"
 
 kind_version=$(awk '/helm\/kind-action@v1/,/version:/ {if (/version:/) print $2}' .github/workflows/porch-e2e-ci-jobs.yaml | head -1)

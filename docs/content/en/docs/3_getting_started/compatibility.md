@@ -17,16 +17,16 @@ The Porch API module (`github.com/kptdev/porch/api`) is versioned independently 
 
 | Porch Server | Recommended API Module | Release Date | Status |
 |---|---|---|---|
-| [v1.6.0](https://github.com/nephio-project/porch/releases/tag/v1.6.0) | v1.0.0 | 2026-06-19 | Stable |
-| [v1.6.1](https://github.com/nephio-project/porch/releases/tag/v1.6.1) | v1.0.0 | 2026-07-10 | Stable |
-| [v1.6.2](https://github.com/nephio-project/porch/releases/tag/v1.6.2) | v1.0.1 | 2026-07-25 | Stable |
-| [v{{< params "version_porch_server" >}}](https://github.com/nephio-project/porch/releases/tag/v{{< params "version_porch_server" >}}) | **{{< params "version_porch_api" >}}** (recommended) | 2026-07-30 | **Latest Stable** |
+| [v1.6.0](https://github.com/kptdev/porch/releases/tag/v1.6.0) | v1.0.0 | 2026-06-29 | Stable |
+| [v1.6.1](https://github.com/kptdev/porch/releases/tag/v1.6.1) | v1.0.0 | 2026-07-10 | Stable |
+| [v1.6.2](https://github.com/kptdev/porch/releases/tag/v1.6.2) | v1.0.1 | 2026-07-25 | Stable |
+| [v{{< params "version_porch_server" >}}](https://github.com/kptdev/porch/releases/tag/v{{< params "version_porch_server" >}}) | **{{< params "version_porch_api" >}}** (recommended) | 2026-07-30 | **Latest Stable** |
 
 ### In Development (Main Branch)
 
 | Porch Server | Recommended API Module | Expected Release | Status |
 |---|---|---|---|
-| [v{{< params "version_porch_server_dev" >}}](https://github.com/nephio-project/porch/releases/tag/v{{< params "version_porch_server_dev" >}}) | {{< params "version_porch_api_dev" >}} | TBD | Pre-release |
+| [v{{< params "version_porch_server_dev" >}}](https://github.com/kptdev/porch/releases/tag/v{{< params "version_porch_server_dev" >}}) | {{< params "version_porch_api_dev" >}} | TBD | Pre-release |
 
 *These versions are from the main development branch and are documented here. For production use, stick with the stable versions above.*
 
@@ -34,10 +34,10 @@ The Porch API module (`github.com/kptdev/porch/api`) is versioned independently 
 
 | API Version | Release Date | Status | Key Changes |
 |---|---|---|---|
-| [v1.0.0](https://github.com/nephio-project/porch/releases/tag/api/v1.0.0) | 2026-06-23 | Stable | Initial API module separation |
-| [v1.0.1](https://github.com/nephio-project/porch/releases/tag/api/v1.0.1) | 2026-07-13 | **Latest Stable** | Modernize Go idioms and remove outdated patterns |
-| [v1.0.2](https://github.com/nephio-project/porch/releases/tag/api/v1.0.2) | 2026-09-25 | Pre-release | Bump kpt api version in porch api |
-| [v1.0.3](https://github.com/nephio-project/porch/releases/tag/api/v1.0.3) | 2026-09-29 | Pre-release | Workaround fix for package name in kpt render |
+| [v1.0.0](https://github.com/kptdev/porch/releases/tag/api/v1.0.0) | 2026-06-23 | Stable | Initial API module separation |
+| [v1.0.1](https://github.com/kptdev/porch/releases/tag/api/v1.0.1) | 2026-07-13 | **Latest Stable** | Modernize Go idioms and remove outdated patterns |
+| [v1.0.2](https://github.com/kptdev/porch/releases/tag/api/v1.0.2) | 2026-09-25 | Pre-release | Bump kpt api version in porch api |
+| [v1.0.3](https://github.com/kptdev/porch/releases/tag/api/v1.0.3) | 2026-09-29 | Pre-release | Workaround fix for package name in kpt render |
 
 **Breaking Changes:** None. All API module versions v1.0.x are compatible patch releases with no breaking changes.
 
@@ -49,7 +49,7 @@ The Porch API module (`github.com/kptdev/porch/api`) is versioned independently 
 | Go (for building from source) | {{< params "version_go_min_stable" >}} | {{< params "version_go" >}} | Required only for development |
 | Docker | — | {{< params "version_docker" >}} | Required for kind/minikube with Docker driver |
 | kpt CLI | {{< params "version_kpt_min" >}} | {{< params "version_kpt" >}} | Required for deploying Porch packages |
-| kubectl | {{< params "version_kube_min" >}} | {{< params "version_kube_latest" >}} | Must match or be newer than cluster version |
+| kubectl | {{< params "version_kube_min" >}} | {{< params "version_kube_latest" >}} | Within one minor version of cluster API server |
 | git | {{< params "version_git_min" >}} | {{< params "version_git" >}} | Required for Git repository operations |
 
 {{% alert color="primary" title="Note" %}}
