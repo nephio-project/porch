@@ -26,6 +26,15 @@ The OTEL E2E testing validates:
 - kubectl configured to access the cluster
 - `jq` command-line JSON processor (for validation output)
 
+## Resource Requirements
+
+**Note on resource bumps**: Porch components have increased resource allocations to accommodate OTEL telemetry collection:
+- **porch-server**: 500m CPU request, 512Mi memory request (was lower; increased to prevent timeout issues during telemetry export)
+- **porch-function-runner**: Similar increases to ensure stable operation while exporting traces/metrics
+
+These resource changes apply system-wide (not just OTEL tests) to provide stable baseline capacity for observability operations.
+If tighter resource constraints are needed for your environment, adjust `deployments/porch/*.yaml` before deploying.
+
 ## Local Testing
 
 ### Run OTEL E2E Test
@@ -100,8 +109,11 @@ kubectl port-forward -n porch-monitoring deployment/prometheus 9092:9090
 kubectl port-forward -n porch-monitoring deployment/grafana 3001:3000
 
 # Terminal 2 - visit http://localhost:3001
+# Default credentials:
 # User: porch
-# Password: check logs or extract from secret
+# Password: retrieve from secret using:
+#   kubectl get secret -n porch-monitoring grafana-admin-creds \
+#     -o jsonpath='{.data.password}' | base64 -d
 ```
 
 ## CI Integration

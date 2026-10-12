@@ -74,21 +74,21 @@ PF_PID=$!
 sleep 2
 
 COMPONENTS_FOUND=0
-# Query for prometheus scrape targets that are currently up
-TARGETS=$(curl -s "http://localhost:9090/api/v1/query?query=up" 2>/dev/null | jq -r '.data.result[].metric.instance' 2>/dev/null | grep -E "porch-server|porch-controllers|function-runner" || echo "")
+# Query for prometheus scrape targets that are currently up using job label
+TARGETS=$(curl -s "http://localhost:9090/api/v1/query?query=up%7Bjob=%22porch-server%22%7D" 2>/dev/null | jq -r '.data.result[].metric.job' 2>/dev/null || echo "")
 
 if [ -n "$TARGETS" ]; then
   echo "Found targets: $TARGETS"
-  # Count unique component types using pipeline (avoids multi-line count output)
-  if echo "$TARGETS" | grep -q "porch-server"; then
+  # Check each component with job label
+  if curl -s "http://localhost:9090/api/v1/query?query=up%7Bjob=%22porch-server%22%7D" 2>/dev/null | jq -r '.data.result[] | select(.value[1] == "1") | .metric.job' | grep -q "porch-server"; then
     echo "✓ Prometheus has metrics from porch-server"
     ((COMPONENTS_FOUND++))
   fi
-  if echo "$TARGETS" | grep -q "porch-controllers"; then
+  if curl -s "http://localhost:9090/api/v1/query?query=up%7Bjob=%22porch-controllers%22%7D" 2>/dev/null | jq -r '.data.result[] | select(.value[1] == "1") | .metric.job' | grep -q "porch-controllers"; then
     echo "✓ Prometheus has metrics from porch-controllers"
     ((COMPONENTS_FOUND++))
   fi
-  if echo "$TARGETS" | grep -q "function-runner"; then
+  if curl -s "http://localhost:9090/api/v1/query?query=up%7Bjob=%22function-runner%22%7D" 2>/dev/null | jq -r '.data.result[] | select(.value[1] == "1") | .metric.job' | grep -q "function-runner"; then
     echo "✓ Prometheus has metrics from function-runner"
     ((COMPONENTS_FOUND++))
   fi

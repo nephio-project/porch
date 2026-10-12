@@ -46,7 +46,7 @@ jobs:
       image-tag: ${{ steps.vars.outputs.image-tag }}
     steps:
       - name: Checkout Porch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Set up Go
         uses: kptdev/kpt/.github/actions/setup-go-kpt@main
@@ -96,7 +96,7 @@ jobs:
             | gzip > /tmp/porch-images.tar.gz
       
       - name: Upload images
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: porch-images
           path: /tmp/porch-images.tar.gz
@@ -112,7 +112,7 @@ jobs:
       GOTOOLCHAIN: auto
     steps:
       - name: Checkout Porch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Set up Go and kpt
         uses: kptdev/kpt/.github/actions/setup-go-kpt@main
@@ -134,7 +134,7 @@ jobs:
         run: ${GITHUB_WORKSPACE}/scripts/dev/setup-dev-env.sh
       
       - name: Download image artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: porch-images
       
