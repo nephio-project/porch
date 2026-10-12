@@ -22,6 +22,7 @@ import (
 	"github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/pkg/repository"
 	porchcontext "github.com/kptdev/porch/pkg/util/context"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -43,7 +44,7 @@ const (
 	apiCallDurationStartingBucket = 0.001
 	apiCallDurationBucketCount    = 16
 
-	packageSizeStartingBucket = 1024
+	packageSizeStartingBucket = datasize.KB
 	packageSizeBucketCount    = 21 // doubling boundaries after the initial zero bucket
 )
 

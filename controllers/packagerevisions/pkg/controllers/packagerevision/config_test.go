@@ -2,9 +2,11 @@ package packagerevision
 
 import (
 	"flag"
+	"io"
 	"testing"
 
 	"github.com/kptdev/porch/controllers/functionconfigs"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -38,6 +40,34 @@ func TestBindFlags(t *testing.T) {
 	assert.Equal(t, 5, r.MaxConcurrentRenders)
 	assert.Equal(t, 7, r.RepoOperationRetryAttempts)
 	assert.Equal(t, 10485760, r.MaxGRPCMessageSize)
+}
+
+func TestBindFlagsMaxGRPCMessageSize(t *testing.T) {
+	testCases := map[string]struct {
+		value       string
+		expected    int
+		expectedErr string
+	}{
+		"size with unit":  {value: "10MB", expected: 10 * datasize.MB},
+		"number of bytes": {value: "10485760", expected: 10 * datasize.MB},
+		"invalid size":    {value: "large", expectedErr: `invalid data size "large"`},
+	}
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			r := &PackageRevisionReconciler{}
+			flags := flag.NewFlagSet("test", flag.ContinueOnError)
+			flags.SetOutput(io.Discard)
+			r.BindFlags("pr-", flags)
+
+			err := flags.Parse([]string{"--pr-max-grpc-message-size=" + tc.value})
+			if tc.expectedErr != "" {
+				assert.ErrorContains(t, err, tc.expectedErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, r.MaxGRPCMessageSize)
+		})
+	}
 }
 
 func TestBindFlagsDefaults(t *testing.T) {

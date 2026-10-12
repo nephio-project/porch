@@ -17,7 +17,7 @@ args:
 - --cache-directory=/cache/porch              # Directory for repository and package caches
 - --cache-type=CR                             # Cache type: CR (Custom Resource) or DB (Database)
 - --function-runner=function-runner:9445      # Function runner gRPC service address
-- --max-request-body-size=6291456             # Max request body size in bytes (6MB)
+- --max-request-body-size=6MB                 # Max request body size, with a unit or in bytes (6MB)
 - --standalone-debug-mode=false               # Local debugging mode (dev only)
 ```
 
