@@ -30,7 +30,7 @@ jobs:
   request-copilot-review:
     if: |
       github.event.pull_request.draft == false &&
-      github.event.pull_request.author_association != 'DEPENDABOT'
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

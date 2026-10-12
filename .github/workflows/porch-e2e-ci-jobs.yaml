@@ -42,7 +42,7 @@ jobs:
           filters: |
             code:
               - '.dockerignore'
-              - '**.Dockerfile'
+              - '**/Dockerfile*'
               - '**/*.go'
               - 'Makefile'
               - 'api/**'
@@ -57,6 +57,7 @@ jobs:
               - 'make/**.mk'
               - 'pkg/**'
               - 'scripts/deploy/**'
+              - 'scripts/dev/**'
               - 'scripts/lib/**'
               - 'scripts/testing/**'
               - 'test/**'

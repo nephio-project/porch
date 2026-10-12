@@ -30,7 +30,7 @@ jobs:
         with:
           filters: |
             code:
-              - '**.Dockerfile'
+              - '**/Dockerfile*'
               - 'Makefile'
               - 'api/**'
               - 'build/**'
