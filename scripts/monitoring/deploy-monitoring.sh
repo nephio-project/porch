@@ -256,8 +256,9 @@ apply_base_configmaps() {
 }
 
 apply_pyroscope_configmaps() {
+    local metrics_resources_dir="${SCRIPT_DIR}/../../deployments/metrics-resources"
     kubectl create configmap alloy-config \
-        --from-file=config.alloy="${SCRIPT_DIR}/../deployments/metrics-resources/alloy-config.alloy" \
+        --from-file=config.alloy="${metrics_resources_dir}/alloy-config.alloy" \
         -n "$NAMESPACE" \
         --dry-run=client -o yaml | kubectl apply -f -
 }

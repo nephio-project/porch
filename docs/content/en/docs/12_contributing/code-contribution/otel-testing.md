@@ -15,10 +15,11 @@ The OTEL E2E testing validates:
 - ✅ OTEL SDK initializes without errors
 - ✅ Real Porch operations are properly instrumented
 
-**Scope**: Single unified v1alpha2 CRD test suite
-- Both v1alpha1 and v1alpha2 APIs use the same underlying server and controller components
-- No separate v1alpha1 test needed; a single v1alpha2 suite validates telemetry export from shared components
-- Uses lightweight "Init" specs that exercise core operations without heavy rendering overhead
+**Scope**: v1alpha2 CRD test suite
+- Both v1alpha1 and v1alpha2 APIs use the same underlying server and controller components (porch-server, porch-controllers, function-runner)
+- OTEL instrumentation is at the component level, not the API layer
+- A single v1alpha2 test suite is sufficient to validate telemetry export from all shared components
+- Uses lightweight "Init" specs and one render test to exercise core operations efficiently
 
 ## Prerequisites
 
@@ -140,18 +141,18 @@ The OTEL E2E tests run automatically in GitHub Actions.
 
 ## Test Selection
 
-**Init tests** (v1alpha2 CRD):
-- **Operations**: Create and initialize packages
-- **Why**: Lightweight, exercises core package operations, no rendering overhead
-- **Duration**: ~20-30 seconds
-- **Traces generated**: API calls, package initialization, status updates
-- **Function-runner coverage**: While Init tests don't invoke KRM functions, function-runner still exports traces/metrics from its server (always running, responding to readiness/liveness probes)
+**Init and Render tests** (v1alpha2 CRD):
+- **Operations**: Create/initialize packages + simple render pipeline
+- **Why**: Lightweight, exercises core package operations and function-runner traces, no heavy rendering overhead
+- **Duration**: ~30-45 seconds
+- **Traces generated**: API calls, package initialization, status updates, function-runner invocations
+- **Function-runner coverage**: Render pipeline test invokes the set-namespace KRM function, generating function-runner traces
 
-This single test suite is sufficient to verify that:
+This test suite is sufficient to verify that:
 - All components are healthy and receiving traffic
 - All components export traces and metrics
 - OTEL pipeline works end-to-end
-- Server-level instrumentation is working (even if KRM functions aren't invoked)
+- Server-level and function-runner instrumentation is working
 
 ## Make Targets
 

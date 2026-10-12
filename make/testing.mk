@@ -102,6 +102,6 @@ test-e2e-otel: run-in-kind-v1alpha2
 	kubectl rollout status deployment/porch-controllers -n porch-system --timeout=300s || true
 	kubectl rollout status deployment/function-runner -n porch-system --timeout=300s || true
 	@echo "Running lightweight v1alpha2 E2E tests to exercise Porch components..."
-	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Init" -ginkgo.label-filter='!migration'
+	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Init|should update resources with a render pipeline" -ginkgo.label-filter='!migration'
 	@echo "E2E tests complete, validating OTEL traces and metrics..."
 	./scripts/testing/validate-otel.sh

@@ -32,7 +32,6 @@ env:
   PORCH_CONTROLLERS_IMAGE: porch-controllers
   PORCH_NAMESPACE: porch-system
   MONITORING_NAMESPACE: porch-monitoring
-  JAEGER_OTLP_ENDPOINT: http://jaeger-otlp.porch-monitoring.svc.cluster.local:4317
 
 jobs:
   build:
@@ -117,6 +116,7 @@ jobs:
       - name: Set up Go and kpt
         uses: kptdev/kpt/.github/actions/setup-go-kpt@main
         with:
+          install-kpt: "true"
           go-cache: "false"
       
       - name: Install Kind
@@ -175,6 +175,6 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          ./scripts/monitoring/deploy-monitoring.sh remove || true
+          ./scripts/monitoring/deploy-monitoring.sh cleanup || true
           make destroy || true
           kind delete cluster --name porch-test || true

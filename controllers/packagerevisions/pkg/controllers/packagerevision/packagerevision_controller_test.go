@@ -1480,7 +1480,6 @@ func TestSourceSuccessDoesNotWriteSubpackageHash(t *testing.T) {
 	assert.Empty(t, capturedStatus.LastSubpackageOperationHash)
 }
 
-
 func TestReconcileNoSource(t *testing.T) {
 	// PR with no Source and no CreationSource — discovered from git by repo controller.
 	// Should skip source execution and go straight to lifecycle.
