@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: Download PR number artifact
         if: github.event.workflow_run.event == 'pull_request'
-        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151 # v21
+        uses: dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477 # v27
         with:
           workflow: CI test report
           run_id: ${{ github.event.workflow_run.id }}
@@ -99,7 +99,7 @@ jobs:
           git clean -ffdx && git reset --hard HEAD
 
       - name: Download coverage artifact
-        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151 # v21
+        uses: dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477 # v27
         with:
           workflow: CI test report
           run_id: ${{ github.event.workflow_run.id }}
@@ -111,12 +111,14 @@ jobs:
           sed -i 's|github.com/kptdev/porch|.|g' coverage.out
 
       - name: Debug - Check condition variables before SonarQube scan
+        if: ${{ runner.debug == '1' }}
         run: |
           echo "=== DEBUG: Before SonarQube Scan Step ==="
           echo "Event type: ${{ github.event.workflow_run.event }}"
           echo "PR_NUMBER.txt exists: $(test -f PR_NUMBER.txt && echo 'YES' || echo 'NO')"
-          echo "PR_NUMBER.txt contents:"
-          cat PR_NUMBER.txt 2>/dev/null || echo "FILE NOT FOUND"
+          echo "PR_NUMBER.txt contents (base64-encoded for safety):"
+          cat PR_NUMBER.txt 2>/dev/null | base64 -w 0 || echo "FILE NOT FOUND"
+          echo ""
           echo "hashFiles result: $(ls -la PR_NUMBER.txt 2>&1 || echo 'ls failed')"
           echo "Current directory: $(pwd)"
           echo "Files in workspace:"
