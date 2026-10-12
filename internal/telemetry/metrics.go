@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 )
 
@@ -132,7 +133,7 @@ func RecordAPIOperationDuration(ctx context.Context, resource, verb, porchOperat
 		attribute.String("operation_outcome", string(perfStatusLabel(err))),
 		attribute.String("lifecycle_after", string(lifecycleAfter)),
 	}
-	attrSlice = append(attrSlice, attributesFromPrKey(prKey).ToSlice()...)
+	attrSlice = append(attrSlice, attributesFromPrKey(ctx, prKey).ToSlice()...)
 	attributes := attribute.NewSet(attrSlice...)
 
 	if klog.V(3).Enabled() {
@@ -159,7 +160,7 @@ func TrackInFlightOperation(ctx context.Context, resource, verb, porchOperation,
 		attribute.String("api_version", apiVersion),
 		attribute.String("desired_lifecycle", string(desiredLifecycle)),
 	}
-	attrSlice = append(attrSlice, (attributesFromPrKey(prKey).ToSlice())...)
+	attrSlice = append(attrSlice, (attributesFromPrKey(ctx, prKey).ToSlice())...)
 	attributes := attribute.NewSet(attrSlice...)
 
 	if klog.V(3).Enabled() {
@@ -177,7 +178,7 @@ func TrackInFlightOperation(ctx context.Context, resource, verb, porchOperation,
 				"Tracking END of in-flight Porch API operation with attributes %v",
 				attributes.MarshalLog())
 		}
-		porchInFlightApiOps.Add(context.Background(), -1,
+		porchInFlightApiOps.Add(ctx, -1,
 			metric.WithAttributeSet(attributes),
 		)
 	}
@@ -192,25 +193,25 @@ func RecordRequestCount(ctx context.Context, resource, op, apiVersion string) {
 		klog.Warning("requestsTotal is nil - was InitMetrics() called?")
 		return
 	}
-	recordRequestCount(resource, op, apiVersion, porchcontext.GetK8sUserName(ctx))
+	recordRequestCount(ctx, resource, op, apiVersion, porchcontext.GetK8sUserName(ctx))
 }
 
-func RecordControllerRequestCount(resource, op, apiVersion string) {
+func RecordControllerRequestCount(ctx context.Context, resource, op, apiVersion string) {
 	if requestsTotal == nil {
 		klog.Warning("requestsTotal is nil - was InitMetrics() called?")
 		return
 	}
-	recordRequestCount(resource, op, apiVersion, ControllerUser)
+	recordRequestCount(ctx, resource, op, apiVersion, ControllerUser)
 }
 
 // RecordControllerOperation records duration and request count for a v1alpha2 controller operation.
 func RecordControllerOperation(ctx context.Context, resource, verb, porchOperation string, duration time.Duration, err error, lifecycleAfter v1alpha2.PackageRevisionLifecycle, prKey *repository.PackageRevisionKey) {
 	RecordAPIOperationDuration(ctx, resource, verb, porchOperation, APIVersionV1Alpha2, duration, err, v1alpha1.PackageRevisionLifecycle(lifecycleAfter), prKey)
-	RecordControllerRequestCount(resource, verb, APIVersionV1Alpha2)
+	RecordControllerRequestCount(ctx, resource, verb, APIVersionV1Alpha2)
 }
 
-func recordRequestCount(resource, op, apiVersion, user string) {
-	requestsTotal.Add(context.Background(), 1,
+func recordRequestCount(ctx context.Context, resource, op, apiVersion, user string) {
+	requestsTotal.Add(ctx, 1,
 		metric.WithAttributes(
 			attribute.String("resource", resource),
 			attribute.String("op", op),
@@ -222,16 +223,16 @@ func recordRequestCount(resource, op, apiVersion, user string) {
 
 // External git operations are shared infrastructure and are not tagged with api_version.
 func RecordExternalRepoOperation(ctx context.Context, op string, start time.Time) {
-	recordExternalRepoDuration(op, time.Since(start).Seconds())
+	recordExternalRepoDuration(ctx, op, time.Since(start).Seconds())
 	RecordExternalRepoRequestCount(ctx, op)
 }
 
-func recordExternalRepoDuration(op string, durationSeconds float64) {
+func recordExternalRepoDuration(ctx context.Context, op string, durationSeconds float64) {
 	if porchApiOpDurationSeconds == nil {
 		klog.Warning("porchApiOpDurationSeconds is nil - was InitMetrics() called?")
 		return
 	}
-	porchApiOpDurationSeconds.Record(context.Background(), durationSeconds,
+	porchApiOpDurationSeconds.Record(ctx, durationSeconds,
 		metric.WithAttributes(
 			attribute.String("resource", ResourceExternalRepo),
 			attribute.String("verb", op),
@@ -244,7 +245,7 @@ func RecordExternalRepoRequestCount(ctx context.Context, op string) {
 		klog.Warning("requestsTotal is nil - was InitMetrics() called?")
 		return
 	}
-	requestsTotal.Add(context.Background(), 1,
+	requestsTotal.Add(ctx, 1,
 		metric.WithAttributes(
 			attribute.String("resource", ResourceExternalRepo),
 			attribute.String("op", op),
@@ -260,7 +261,7 @@ func RecordPackageRevisionResourcesSize(ctx context.Context, prKey repository.Pa
 		return
 	}
 
-	attributes := *attributesFromPrKey(&prKey)
+	attributes := *attributesFromPrKey(ctx, &prKey)
 
 	if klog.V(3).Enabled() {
 		klog.Infof(
@@ -302,9 +303,12 @@ func perfStatusLabel(err error) OperationOutcomeValue {
 	return OperationOutcomes.Success
 }
 
-func attributesFromPrKey(prKey *repository.PackageRevisionKey) *attribute.Set {
+func attributesFromPrKey(ctx context.Context, prKey *repository.PackageRevisionKey) *attribute.Set {
 	if prKey == nil {
-		return attribute.EmptySet()
+		namespace, _ := genericapirequest.NamespaceFrom(ctx)
+		namespaceOnly := attribute.NewSet(
+			attribute.String("namespace", namespace))
+		return &namespaceOnly
 	}
 	prPath := func() string {
 		if prKey.PKey().Path != "" {

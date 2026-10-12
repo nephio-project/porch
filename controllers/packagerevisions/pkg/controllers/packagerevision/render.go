@@ -190,7 +190,7 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 	resources, err := r.readPackageResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
 		r.setRenderFailed(ctx, pr, err)
-		return nil, err
+		return nil, saveErr(err)
 	}
 	log.V(1).Info("read package resources", "count", len(resources))
 
@@ -201,7 +201,7 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 	}
 	if err != nil {
 		r.setRenderFailed(ctx, pr, err)
-		return nil, fmt.Errorf("render failed: %w", err)
+		return nil, saveErr(fmt.Errorf("render failed: %w", err))
 	}
 
 	requested := pr.Annotations[porchv1alpha2.AnnotationRenderRequest]
@@ -218,7 +218,7 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 			r.persistAndSyncKptfile(ctx, pr, repoKey, result.resources)
 		}
 		r.setRenderFailed(ctx, pr, result.err)
-		return nil, fmt.Errorf("render pipeline failed: %w", saveErr(result.err))
+		return nil, saveErr(fmt.Errorf("render pipeline failed: %w", saveErr(result.err)))
 	}
 
 	if err := r.writeRenderedResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, result.resources); err != nil {
@@ -228,7 +228,7 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 	log.V(1).Info("rendered resources written")
 	r.syncKptfileFields(ctx, pr, result.resources, repoKey)
 	log.Info("render complete")
-	return nil, nil
+	return nil, saveErr(nil)
 }
 
 func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Context, resources map[string]string) (*renderResult, *ctrl.Result, error) {
