@@ -128,10 +128,10 @@ spec:
 
 ## Authentication Behavior
 
-### Credential Caching
+### Credential Resolution
 
 {{% alert title="Note" color="primary" %}}
-Porch Server caches authentication credentials. If you update a secret, the server will continue using cached credentials until they become invalid, then fetch the updated credentials.
+Porch Server re-reads the referenced Secret on every Git operation rather than caching credentials indefinitely. Reads are served from an in-memory, watch-driven cache for low latency, so updating a Secret takes effect promptly without requiring the old credentials to fail first. If a Git operation hits a stale read during the brief window right after a Secret update, Porch retries with freshly resolved credentials using a linear backoff.
 {{% /alert %}}
 
 ### HTTP Request Examples
