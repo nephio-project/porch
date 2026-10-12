@@ -24,6 +24,7 @@ import (
 	fnconf "github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/func/evaluator"
 	"github.com/kptdev/porch/func/healthchecker"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const defaultMaxGRPCMessageSize = 6 * 1024 * 1024
+const defaultMaxGRPCMessageSize = 6 * datasize.MB
 
 // functionEvaluator is the EvaluateFunction implementation ServeGRPC registers.
 type functionEvaluator interface {

@@ -115,7 +115,7 @@ args:
 - --packagerevisions.max-concurrent-renders=20
 - --packagerevisions.render-requeue-delay=2s
 - --packagerevisions.repo-operation-retry-attempts=3
-- --packagerevisions.max-grpc-message-size=6291456
+- --packagerevisions.max-grpc-message-size=6MB
 ```
 
 **Configuration Parameters:**
@@ -126,7 +126,7 @@ args:
 | `max-concurrent-renders` | 20 | Maximum parallel render operations |
 | `render-requeue-delay` | 2s | Delay before requeue when render concurrency limit is reached |
 | `repo-operation-retry-attempts` | 3 | Retry count for git operations on transient failures |
-| `max-grpc-message-size` | 6MB | Maximum gRPC message size for function runner communication |
+| `max-grpc-message-size` | 6MB | Maximum gRPC message size for function runner communication. Accepts a size with a unit (`KB`, `MB`, `GB`, in powers of 1024) or a number of bytes |
 
 **Environment Variables:**
 
