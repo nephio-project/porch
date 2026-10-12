@@ -297,8 +297,13 @@ func TestEnsureLatestRevisionLabelPatchError(t *testing.T) {
 		},
 	}
 
-	// Should not panic, just log the error.
-	r.ensureLatestRevisionLabel(t.Context(), pr)
+	// The error is returned so the caller can requeue and retry the backfill.
+	err := r.ensureLatestRevisionLabel(t.Context(), pr)
+	assert.Error(t, err)
+	// The in-memory mutation is reverted so callers observe the real persisted state
+	// (no label), rather than a label that was never written.
+	_, present := pr.Labels[porchv1alpha2.LatestPackageRevisionKey]
+	assert.False(t, present, "label must be reverted in-memory when the patch fails")
 }
 
 func TestUpdateLatestRevisionLabelsPatchError(t *testing.T) {

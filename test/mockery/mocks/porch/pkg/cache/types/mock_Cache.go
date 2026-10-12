@@ -10,7 +10,7 @@ import (
 	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
-	"github.com/stretchr/testify/mock"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockCache creates a new instance of MockCache. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

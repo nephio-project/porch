@@ -91,7 +91,7 @@ type RepositoryReconciler struct {
 // Reconcile handles Repository reconciliation
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.V(2).Info("Repository reconcile triggered")
+	log.V(3).Info("Repository reconcile triggered")
 
 	ctx = pctx.WithNewRequestID(ctx)
 
@@ -121,7 +121,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Determine what operation is needed
 	decision := r.determineSyncDecision(ctx, repo)
-	log.V(2).Info("Sync decision made", "type", decision.Type, "needed", decision.SyncNecessary, "interval", decision.DelayBeforeNextSync)
+	log.V(3).Info("Sync decision made", "type", decision.Type, "needed", decision.SyncNecessary, "interval", decision.DelayBeforeNextSync)
 
 	// If status was modified (e.g., ObservedRunOnceAt), persist it using SSA
 	if !decision.SyncNecessary {
@@ -133,7 +133,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		// Use exponential backoff if requested (e.g., waiting for sync to complete)
 		if decision.UseExponentialBackoff {
-			log.V(2).Info("Using exponential backoff for requeue")
+			log.V(3).Info("Using exponential backoff for requeue")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
@@ -142,7 +142,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			decision.DelayBeforeNextSync = 1 * time.Second
 			log.Info("Requeue interval was zero or negative, using 1s minimum")
 		}
-		log.V(2).Info("No operation needed, requeuing", "after", decision.DelayBeforeNextSync)
+		log.V(3).Info("No operation needed, requeuing", "after", decision.DelayBeforeNextSync)
 		return ctrl.Result{RequeueAfter: decision.DelayBeforeNextSync}, nil
 	}
 
@@ -156,7 +156,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // performHealthCheckSync executes synchronous health check
 func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.V(2).Info("Starting repository health check")
+	log.V(3).Info("Starting repository health check")
 
 	// Check if repo was previously in error state
 	wasInError := false
@@ -197,7 +197,7 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 	}
 
 	// Normal health check passed
-	log.V(2).Info("Repository health check completed successfully")
+	log.V(3).Info("Repository health check completed successfully")
 	nextFullSync := r.calculateNextFullSyncTime(repo)
 	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
 		log.Error(statusErr, "Failed to update repository status after successful health check")

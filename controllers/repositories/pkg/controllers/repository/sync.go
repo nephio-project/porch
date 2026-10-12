@@ -290,13 +290,13 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		}
 		next := schedule.Next(lastFullSync)
 		isDue := time.Now().After(next)
-		log.FromContext(context.Background()).V(2).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
+		log.FromContext(context.Background()).V(3).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
 		return isDue
 	}
 
 	timeSinceLastSync := time.Since(lastFullSync)
 	isDue := timeSinceLastSync >= r.FullSyncFrequency
-	log.FromContext(context.Background()).V(2).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
+	log.FromContext(context.Background()).V(3).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
 	return isDue
 }
 

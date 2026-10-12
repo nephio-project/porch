@@ -438,27 +438,40 @@ func (v *PackageRevisionValidator) validateUpstreamReferences(ctx context.Contex
 }
 
 // isReferencedBy checks if the given PackageRevision references the target by name.
+//
+// The reference scope here is intentionally kept in sync with the v1alpha1
+// upstream-reference guard so that delete-blocking behaves identically across
+// API versions. In v1alpha1, FindAllUpstreamReferencesInRepositories only
+// tracks two task-derived references (see pkg/cache/crcache/cache.go and
+// pkg/cache/dbcache/dbpackagerevisionsql.go extractUpstreamRefName):
+//   - clone:   Clone.Upstream.UpstreamRef.Name
+//   - upgrade: Upgrade.NewUpstream.Name
+//
+// Therefore this check matches ONLY the equivalent v1alpha2 source fields:
+//   - CloneFrom.UpstreamRef.Name
+//   - Upgrade.NewUpstream.Name
+//
+// Deliberately NOT treated as blocking references (to match v1alpha1):
+//   - CopyFrom.Name: a copy produces a new revision of the same package; it is
+//     not a downstream dependency and v1alpha1 does not track it.
+//   - Upgrade.OldUpstream / Upgrade.CurrentPackage: these are the pre-upgrade
+//     ancestry, not the live upstream a downstream resolves against.
+//
+// As in v1alpha1, references are resolved by PackageRevision name; a clone from
+// a raw git URL (CloneFrom.Git with no UpstreamRef) is not tracked.
 func (v *PackageRevisionValidator) isReferencedBy(p *v1alpha2.PackageRevision, targetName string) bool {
 	if p.Spec.Source == nil {
 		return false
 	}
 
-	// Check CopyFrom reference
-	if p.Spec.Source.CopyFrom != nil && p.Spec.Source.CopyFrom.Name == targetName {
-		return true
-	}
-
-	// Check CloneFrom reference
+	// Check CloneFrom reference (by upstream PackageRevision name).
 	if p.Spec.Source.CloneFrom != nil && p.Spec.Source.CloneFrom.UpstreamRef != nil && p.Spec.Source.CloneFrom.UpstreamRef.Name == targetName {
 		return true
 	}
 
-	// Check Upgrade references (any of the three fields can reference this package)
-	if p.Spec.Source.Upgrade != nil {
-		up := p.Spec.Source.Upgrade
-		if up.OldUpstream.Name == targetName || up.NewUpstream.Name == targetName || up.CurrentPackage.Name == targetName {
-			return true
-		}
+	// Check Upgrade reference (the new upstream the downstream now tracks).
+	if p.Spec.Source.Upgrade != nil && p.Spec.Source.Upgrade.NewUpstream.Name == targetName {
+		return true
 	}
 
 	return false

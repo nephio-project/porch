@@ -20,6 +20,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
@@ -136,7 +137,10 @@ func (r *PackageRevisionReconciler) updateStatus(
 
 // updateRenderStatus patches render tracking fields and Rendered condition via SSA.
 // Uses a separate field manager to avoid stomping fields owned by updateStatus.
-func (r *PackageRevisionReconciler) updateRenderStatus(ctx context.Context, pr *porchv1alpha2.PackageRevision, renderingVersion, observedVersion string, conditions ...metav1.Condition) {
+// Returns the patch error so callers that depend on the Rendered condition being
+// durably persisted (e.g. the post-draft "awaiting render" marker) can requeue and
+// retry instead of silently leaving the PackageRevision stuck.
+func (r *PackageRevisionReconciler) updateRenderStatus(ctx context.Context, pr *porchv1alpha2.PackageRevision, renderingVersion, observedVersion string, conditions ...metav1.Condition) error {
 	status := porchv1alpha2.PackageRevisionStatus{
 		RenderingPrrResourceVersion: renderingVersion,
 		ObservedPrrResourceVersion:  observedVersion,
@@ -161,7 +165,9 @@ func (r *PackageRevisionReconciler) updateRenderStatus(ctx context.Context, pr *
 
 	if err := r.Status().Patch(ctx, applyObj, client.Apply, client.FieldOwner(fieldManagerPRControllerRender), client.ForceOwnership); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update render status")
+		return err
 	}
+	return nil
 }
 
 // refreshRenderedGeneration bumps the Rendered condition's observedGeneration
@@ -173,7 +179,10 @@ func (r *PackageRevisionReconciler) refreshRenderedGeneration(ctx context.Contex
 		if c.Type == porchv1alpha2.ConditionRendered && c.Status == metav1.ConditionTrue && c.ObservedGeneration < pr.Generation {
 			// Only bump observedGeneration — preserve existing reason, message, and transition time.
 			c.ObservedGeneration = pr.Generation
-			r.updateRenderStatus(ctx, pr, pr.Status.RenderingPrrResourceVersion, "",
+			// Best-effort: this only refreshes a stale observedGeneration on an
+			// already-True condition. A failure is harmless (the next reconcile retries)
+			// and must not block the no-render-needed path.
+			_ = r.updateRenderStatus(ctx, pr, pr.Status.RenderingPrrResourceVersion, "",
 				c,
 			)
 			return
@@ -198,7 +207,10 @@ func (r *PackageRevisionReconciler) setRenderFailed(ctx context.Context, pr *por
 	// records that this request was processed (even though it failed).
 	// Without this, the render trigger keeps re-firing indefinitely.
 	observed := pr.Annotations[porchv1alpha2.AnnotationRenderRequest]
-	r.updateRenderStatus(ctx, pr, "", observed,
+	// Best-effort: executeRender already returns the render error to the caller,
+	// which requeues with backoff, so a failure to persist the Rendered=False marker
+	// here is retried on the next reconcile.
+	_ = r.updateRenderStatus(ctx, pr, "", observed,
 		renderedCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonRenderFailed, err.Error()),
 	)
 	// Also set Ready=False — a failed render means the package is not ready.
@@ -227,6 +239,34 @@ func renderedCondition(generation int64, status metav1.ConditionStatus, reason, 
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: generation,
 	}
+}
+
+// pendingSince returns the time the Ready condition first entered the
+// False/Pending state, based on its LastTransitionTime. It returns the zero
+// time if the current Ready condition is not False/Pending (i.e. the pending
+// streak, if any, has not started or was reset by a different status).
+func pendingSince(pr *porchv1alpha2.PackageRevision) time.Time {
+	for i := range pr.Status.Conditions {
+		c := &pr.Status.Conditions[i]
+		if c.Type == porchv1alpha2.ConditionReady {
+			if c.Status == metav1.ConditionFalse && c.Reason == porchv1alpha2.ReasonPending {
+				return c.LastTransitionTime.Time
+			}
+			return time.Time{}
+		}
+	}
+	return time.Time{}
+}
+
+// pendingExpired reports whether the Ready condition has been continuously
+// False/Pending for at least the given deadline. Used to escalate a transient
+// retry state to a terminal failure instead of requeuing forever.
+func pendingExpired(pr *porchv1alpha2.PackageRevision, deadline time.Duration) bool {
+	since := pendingSince(pr)
+	if since.IsZero() {
+		return false
+	}
+	return time.Since(since) >= deadline
 }
 
 // updateKptfileFields updates the CRD with Kptfile-derived fields after render.

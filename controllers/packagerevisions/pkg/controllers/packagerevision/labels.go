@@ -44,20 +44,36 @@ func (r *PackageRevisionReconciler) ensureRepositoryLabel(ctx context.Context, p
 	return nil
 }
 
-// ensureLatestRevisionLabel sets the latest-revision label to "false" if not already set.
-// Called once during source execution for newly created packages.
-func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
+// ensureLatestRevisionLabel backfills the latest-revision label with the default
+// "false" when it is absent. Called on every reconcile — self-healing if the label
+// was never written (e.g. the one-shot patch during source execution failed because
+// the reconcile context was cancelled under load, which previously left the draft
+// permanently without the label).
+//
+// It only ADDS the label when missing; it never overwrites an existing value. This
+// is deliberate: for published revisions the "latest" winner is set to "true" by
+// updateLatestRevisionLabels, so forcing "false" here on every reconcile would stomp
+// the winner. Backfilling only-when-absent keeps the default without fighting that
+// promotion logic.
+//
+// Returns an error so the caller can requeue and retry the backfill, rather than
+// silently leaving the label missing.
+func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
 	if _, ok := pr.Labels[porchv1alpha2.LatestPackageRevisionKey]; ok {
-		return
+		return nil
 	}
-	patch := client.MergeFrom(pr.DeepCopy())
+	original := pr.DeepCopy()
 	if pr.Labels == nil {
 		pr.Labels = map[string]string{}
 	}
 	pr.Labels[porchv1alpha2.LatestPackageRevisionKey] = "false"
-	if err := r.Patch(ctx, pr, patch); err != nil {
+	if err := r.Patch(ctx, pr, client.MergeFrom(original)); err != nil {
+		// Revert in-memory mutation so callers see the real persisted state.
+		pr.Labels = original.Labels
 		log.FromContext(ctx).Error(err, "failed to set latest-revision label")
+		return fmt.Errorf("failed to set latest-revision label %q on PackageRevision %s/%s: %w", porchv1alpha2.LatestPackageRevisionKey, pr.Namespace, pr.Name, err)
 	}
+	return nil
 }
 
 // updateLatestRevisionLabels sets latest-revision=true on the published package
