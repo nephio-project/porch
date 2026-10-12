@@ -796,16 +796,7 @@ func Convert_porch_PackageRevisionResourcesList_To_v1alpha1_PackageRevisionResou
 }
 
 func autoConvert_v1alpha1_PackageRevisionResourcesSpec_To_porch_PackageRevisionResourcesSpec(in *PackageRevisionResourcesSpec, out *porch.PackageRevisionResourcesSpec, s conversion.Scope) error {
-<<<<<<< HEAD
 	*out = *(*porch.PackageRevisionResourcesSpec)(unsafe.Pointer(in))
-=======
-	out.PackageName = in.PackageName
-	out.WorkspaceName = in.WorkspaceName
-	out.Revision = in.Revision
-	out.RepositoryName = in.RepositoryName
-	out.Resources = *(*map[string]string)(unsafe.Pointer(&in.Resources))
-	out.ResourcePaths = *(*[]string)(unsafe.Pointer(&in.ResourcePaths))
->>>>>>> 3483d5c0 (Update generated code)
 	return nil
 }
 
@@ -815,16 +806,7 @@ func Convert_v1alpha1_PackageRevisionResourcesSpec_To_porch_PackageRevisionResou
 }
 
 func autoConvert_porch_PackageRevisionResourcesSpec_To_v1alpha1_PackageRevisionResourcesSpec(in *porch.PackageRevisionResourcesSpec, out *PackageRevisionResourcesSpec, s conversion.Scope) error {
-<<<<<<< HEAD
 	*out = *(*PackageRevisionResourcesSpec)(unsafe.Pointer(in))
-=======
-	out.PackageName = in.PackageName
-	out.WorkspaceName = in.WorkspaceName
-	out.Revision = in.Revision
-	out.RepositoryName = in.RepositoryName
-	out.Resources = *(*map[string]string)(unsafe.Pointer(&in.Resources))
-	out.ResourcePaths = *(*[]string)(unsafe.Pointer(&in.ResourcePaths))
->>>>>>> 3483d5c0 (Update generated code)
 	return nil
 }
 
