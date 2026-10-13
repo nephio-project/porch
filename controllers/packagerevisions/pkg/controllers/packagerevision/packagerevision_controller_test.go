@@ -1501,12 +1501,12 @@ func TestReconcileGetPackageContentFailure(t *testing.T) {
 	// Must requeue so the package self-heals once the content cache is ready,
 	// instead of being left permanently stuck Ready=False.
 	assert.NoError(t, err)
-	assert.Equal(t, contentCacheRetryDelay, result.RequeueAfter)
+	assert.Equal(t, reconciledRetryInterval, result.RequeueAfter)
 }
 
 // TestReconcileGetPackageContentFailureEscalates verifies that when the content
 // lookup has already been failing (Ready=False/Pending) for longer than
-// contentCacheFailureDeadline, the controller escalates to a terminal Failed
+// transientErrorDeadline, the controller escalates to a terminal Failed
 // condition and stops requeuing, rather than retrying forever.
 func TestReconcileGetPackageContentFailureEscalates(t *testing.T) {
 	ctx := t.Context()
@@ -1527,7 +1527,7 @@ func TestReconcileGetPackageContentFailureEscalates(t *testing.T) {
 				Reason:  porchv1alpha2.ReasonPending,
 				Message: "repository not found",
 				// First became Pending well before the deadline.
-				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * contentCacheFailureDeadline)),
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * transientErrorDeadline)),
 			}},
 		},
 	}
@@ -1608,10 +1608,20 @@ func TestReconcileInitSource(t *testing.T) {
 		// No CreationSource — triggers source execution
 	}
 
+	// Track the CreationSource that updateStatus has persisted so the
+	// updateStatusWithRetry readback reflects it. updateStatusWithRetry loops
+	// until the readback shows the landed CreationSource, so the Get must return
+	// the value captured by the status Patch — otherwise the retry spins until
+	// the transient-error deadline (the stuck-draft retry we added).
+	var persistedCreationSource string
+
 	mockClient := mockclient.NewMockClient(t)
 	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
 		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
 			*obj.(*porchv1alpha2.PackageRevision) = *pr
+			// Reflect any status already persisted via updateStatus so the
+			// readback inside updateStatusWithRetry sees the landed value.
+			obj.(*porchv1alpha2.PackageRevision).Status.CreationSource = persistedCreationSource
 		}).Return(nil)
 	expectRepoGet(mockClient, "default", "my-repo", true)
 
@@ -1627,20 +1637,19 @@ func TestReconcileInitSource(t *testing.T) {
 	setupMockContentDefaults(mockContentAfterInit)
 	mockCache.EXPECT().GetPackageContent(mock.Anything, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "ws-1").Return(mockContentAfterInit, nil)
 
-	// Expect SSA status patches: updateStatus (Ready) then updateRenderStatus (Rendered)
+	// Expect SSA status patches: updateStatus (Ready) then updateRenderStatus (Rendered).
+	// Capture the CreationSource from the patch so the readback Get above can mirror it.
 	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
 	var statusPatches []porchv1alpha2.PackageRevisionStatus
 	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
 		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
-			statusPatches = append(statusPatches, obj.(*porchv1alpha2.PackageRevision).Status)
+			st := obj.(*porchv1alpha2.PackageRevision).Status
+			statusPatches = append(statusPatches, st)
+			if st.CreationSource != "" {
+				persistedCreationSource = st.CreationSource
+			}
 		}).Return(nil).Maybe()
 	mockClient.EXPECT().Status().Return(mockStatusWriter).Maybe()
-
-	// updateStatusWithRetry reads back the PR to verify CreationSource landed.
-	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Name: "test-pr", Namespace: "default"}, mock.AnythingOfType("*v1alpha2.PackageRevision")).
-		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
-			obj.(*porchv1alpha2.PackageRevision).Status.CreationSource = "init"
-		}).Return(nil)
 
 	// The latest-revision label is already present (readyObjectMeta), so the
 	// top-of-Reconcile backfill is a no-op and performs no label Patch.
@@ -1652,7 +1661,7 @@ func TestReconcileInitSource(t *testing.T) {
 	// After the draft is closed the controller requeues with a delay so the render
 	// step is reliably retried (a bare Requeue can be dropped from the workqueue
 	// under load, leaving the package stuck "awaiting render").
-	assert.Equal(t, ctrl.Result{RequeueAfter: renderRetryRequeueDelay}, result)
+	assert.Equal(t, ctrl.Result{RequeueAfter: reconciledRetryInterval}, result)
 
 	// Verify init created a Kptfile
 	assert.Contains(t, mockDraft.resources, "Kptfile")
@@ -2156,8 +2165,39 @@ func TestReconcileRenderFailure(t *testing.T) {
 func TestReconcileRenderReadContentFails(t *testing.T) {
 	ctx := t.Context()
 
+	// A "not found" read error is TRANSIENT (the content cache is likely still
+	// warming after a restart), so reconcileRender must requeue to retry rather
+	// than mark the package terminally render-failed.
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("repo not found"))
+	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("repository porch-demo:my-repo:: not found"))
+
+	mockClient := mockclient.NewMockClient(t)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	// Status patches: (1) "rendering" marker at the top of reconcileRender, then
+	// requeueOrFailRender writes (2) the Ready=Pending and (3) Rendered=Unknown conditions.
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+		Renderer:     &mockRenderer{},
+	}
+
+	pr := renderTestPR("", "", "", "init", metav1.ConditionUnknown)
+	result, err := r.reconcileRender(ctx, pr, testRepoKey)
+	assert.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, reconciledRetryInterval, result.RequeueAfter)
+}
+
+// TestReconcileRenderReadContentFailsNonTransient verifies that a NON-transient
+// read error is still treated as a terminal render failure (no requeue).
+func TestReconcileRenderReadContentFailsNonTransient(t *testing.T) {
+	ctx := t.Context()
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("malformed package key"))
 
 	mockClient := mockclient.NewMockClient(t)
 	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
@@ -2171,6 +2211,40 @@ func TestReconcileRenderReadContentFails(t *testing.T) {
 	}
 
 	pr := renderTestPR("", "", "", "init", metav1.ConditionUnknown)
+	result, err := r.reconcileRender(ctx, pr, testRepoKey)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get content for render")
+}
+
+// TestReconcileRenderReadContentTransientExpired verifies that once a transient
+// read failure has persisted past transientErrorDeadline, it escalates to a
+// terminal render failure instead of requeuing forever.
+func TestReconcileRenderReadContentTransientExpired(t *testing.T) {
+	ctx := t.Context()
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(nil, errors.New("repository porch-demo:my-repo:: not found"))
+
+	mockClient := mockclient.NewMockClient(t)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+		Renderer:     &mockRenderer{},
+	}
+
+	pr := renderTestPR("", "", "", "init", metav1.ConditionUnknown)
+	// Seed a Ready=False/Pending streak that started well before the deadline.
+	pr.Status.Conditions = append(pr.Status.Conditions, metav1.Condition{
+		Type:               porchv1alpha2.ConditionReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             porchv1alpha2.ReasonPending,
+		LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * transientErrorDeadline)),
+	})
 	result, err := r.reconcileRender(ctx, pr, testRepoKey)
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -2810,7 +2884,7 @@ func TestReconcileSubpackageOperationSuccessfulClone(t *testing.T) {
 	assert.NoError(t, err)
 	require.NotNil(t, result)
 	// Requeue with a delay so the render step is reliably retried after the draft closes.
-	assert.Equal(t, renderRetryRequeueDelay, result.RequeueAfter)
+	assert.Equal(t, reconciledRetryInterval, result.RequeueAfter)
 
 	// Verify subpackage resources inserted under "my-subpkg/"
 	assert.Contains(t, mockDraft.resources, "my-subpkg/Kptfile")
@@ -3171,4 +3245,339 @@ func TestReconcileSubpackageOperationConflictWithExistingContent(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "cannot clone subpackage into parent")
+}
+
+// TestCreateMainPackageRevision_CreateNew tests creating a new main PackageRevision.
+func TestCreateMainPackageRevision_CreateNew(t *testing.T) {
+	ctx := context.Background()
+	repoKey := key.RepositoryKey{Namespace: "default", Name: "my-repo"}
+
+	publishedPR := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "pub-pr", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageName:    "my-pkg",
+			RepositoryName: "my-repo",
+			WorkspaceName:  "main",
+		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo",
+			Namespace: "default",
+			UID:       "repo-uid-456",
+		},
+		Spec: configapi.RepositorySpec{
+			Deployment: true,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockCache := mockrepository.NewMockContentCache(t)
+
+	// Mock GetMainPackageContent
+	mainContent := mockMainContent(t)
+	mockCache.EXPECT().GetMainPackageContent(mock.Anything, repoKey, "my-pkg", "main").
+		Return(mainContent, nil)
+
+	// Mock Repository Get
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"},
+		mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
+		}).Return(nil)
+
+	// Mock Create (main PR doesn't exist yet)
+	mockClient.EXPECT().Get(mock.Anything, mock.MatchedBy(func(nn types.NamespacedName) bool {
+		return nn.Namespace == "default" && nn.Name == "my-repo.my-pkg.main"
+	}), mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Return(apierrors.NewNotFound(schema.GroupResource{}, "not-found"))
+
+	// Mock Create call
+	mockClient.EXPECT().Create(mock.Anything, mock.MatchedBy(func(obj client.Object) bool {
+		pr, ok := obj.(*porchv1alpha2.PackageRevision)
+		if !ok {
+			return false
+		}
+		return pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished &&
+			pr.Spec.WorkspaceName == "main" &&
+			pr.Spec.PackageName == "my-pkg"
+	})).Return(nil)
+
+	// Mock Status patch
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"),
+		client.Apply, client.FieldOwner(fieldManagerPRControllerMain), client.ForceOwnership).
+		Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+	}
+
+	err := r.createMainPackageRevision(ctx, publishedPR, repoKey)
+	assert.NoError(t, err)
+}
+
+// TestCreateMainPackageRevision_AlreadyExists tests skipping when main PR already exists.
+func TestCreateMainPackageRevision_AlreadyExists(t *testing.T) {
+	ctx := context.Background()
+	repoKey := key.RepositoryKey{Namespace: "default", Name: "my-repo"}
+
+	publishedPR := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "pub-pr", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageName:    "my-pkg",
+			RepositoryName: "my-repo",
+			WorkspaceName:  "main",
+		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo",
+			Namespace: "default",
+			UID:       "repo-uid-789",
+		},
+	}
+
+	existingMain := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo.my-pkg.main",
+			Namespace: "default",
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockCache := mockrepository.NewMockContentCache(t)
+
+	// Mock GetMainPackageContent
+	mainContent := mockMainContent(t)
+	mockCache.EXPECT().GetMainPackageContent(mock.Anything, repoKey, "my-pkg", "main").
+		Return(mainContent, nil)
+
+	// Mock Repository Get
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"},
+		mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
+		}).Return(nil)
+
+	// Mock Get (main PR exists and is Published)
+	mockClient.EXPECT().Get(mock.Anything, mock.MatchedBy(func(nn types.NamespacedName) bool {
+		return nn.Namespace == "default" && nn.Name == "my-repo.my-pkg.main"
+	}), mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *existingMain
+		}).Return(nil)
+
+	// Mock Status patch (refresh)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"),
+		client.Apply, client.FieldOwner(fieldManagerPRControllerMain), client.ForceOwnership).
+		Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+	}
+
+	err := r.createMainPackageRevision(ctx, publishedPR, repoKey)
+	assert.NoError(t, err)
+}
+
+// TestCreateMainPackageRevision_ExistingButDeleting tests leaving untouched when main PR is being deleted.
+func TestCreateMainPackageRevision_ExistingButDeleting(t *testing.T) {
+	ctx := context.Background()
+	repoKey := key.RepositoryKey{Namespace: "default", Name: "my-repo"}
+
+	publishedPR := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "pub-pr", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageName:    "my-pkg",
+			RepositoryName: "my-repo",
+			WorkspaceName:  "main",
+		},
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo",
+			Namespace: "default",
+			UID:       "repo-uid-999",
+		},
+	}
+
+	now := metav1.Now()
+	existingMain := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-repo.my-pkg.main",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+		},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockCache := mockrepository.NewMockContentCache(t)
+
+	// Mock GetMainPackageContent
+	mainContent := mockMainContent(t)
+	mockCache.EXPECT().GetMainPackageContent(mock.Anything, repoKey, "my-pkg", "main").
+		Return(mainContent, nil)
+
+	// Mock Repository Get
+	mockClient.EXPECT().Get(mock.Anything, types.NamespacedName{Namespace: "default", Name: "my-repo"},
+		mock.AnythingOfType("*v1alpha1.Repository")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*configapi.Repository) = *repo
+		}).Return(nil)
+
+	// Mock Get (main PR exists but is being deleted)
+	mockClient.EXPECT().Get(mock.Anything, mock.MatchedBy(func(nn types.NamespacedName) bool {
+		return nn.Namespace == "default" && nn.Name == "my-repo.my-pkg.main"
+	}), mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *existingMain
+		}).Return(nil)
+
+	// No status patch expected when being deleted
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+	}
+
+	err := r.createMainPackageRevision(ctx, publishedPR, repoKey)
+	assert.NoError(t, err)
+}
+
+// TestCreateMainPackageRevision_GetMainContentError tests error from GetMainPackageContent.
+func TestCreateMainPackageRevision_GetMainContentError(t *testing.T) {
+	ctx := context.Background()
+	repoKey := key.RepositoryKey{Namespace: "default", Name: "my-repo"}
+
+	publishedPR := &porchv1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "pub-pr", Namespace: "default"},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageName:    "my-pkg",
+			RepositoryName: "my-repo",
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockCache := mockrepository.NewMockContentCache(t)
+
+	// Mock GetMainPackageContent to return error
+	mockCache.EXPECT().GetMainPackageContent(mock.Anything, repoKey, "my-pkg", mock.Anything).
+		Return(nil, errors.New("content cache error"))
+
+	r := &PackageRevisionReconciler{
+		Client:       mockClient,
+		ContentCache: mockCache,
+	}
+
+	err := r.createMainPackageRevision(ctx, publishedPR, repoKey)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "content cache error")
+}
+
+// TestPatchMainStatus tests updating main PR status fields.
+func TestPatchMainStatus(t *testing.T) {
+	ctx := context.Background()
+	namespace := "default"
+	name := "main-pr"
+	commitTime := time.Now()
+	commitAuthor := "author@example.com"
+
+	upstreamLock := kptfilev1.Locator{
+		Type: kptfilev1.GitOrigin,
+		Git:  &kptfilev1.GitLock{Repo: "https://github.com/example/repo", Ref: "v1.0"},
+	}
+	selfLock := kptfilev1.Locator{
+		Type: kptfilev1.GitOrigin,
+		Git:  &kptfilev1.GitLock{Repo: ".", Ref: "abc123"},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything,
+		mock.MatchedBy(func(obj client.Object) bool {
+			pr, ok := obj.(*porchv1alpha2.PackageRevision)
+			if !ok {
+				return false
+			}
+			return pr.Name == name && pr.Namespace == namespace &&
+				pr.Status.Revision == -1 &&
+				pr.Status.PublishedBy == commitAuthor &&
+				pr.Status.Deployment == true &&
+				pr.Status.ResourcesSizeBytes == 1024
+		}),
+		client.Apply,
+		client.FieldOwner(fieldManagerPRControllerMain),
+		client.ForceOwnership,
+	).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+
+	err := r.patchMainStatus(ctx, namespace, name, -1, commitAuthor, commitTime,
+		upstreamLock, selfLock, true, 1024)
+	assert.NoError(t, err)
+}
+
+// TestPatchMainStatus_NoCommitTime tests status patch with zero commit time.
+func TestPatchMainStatus_NoCommitTime(t *testing.T) {
+	ctx := context.Background()
+	namespace := "default"
+	name := "main-pr"
+
+	mockClient := mockclient.NewMockClient(t)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything,
+		mock.MatchedBy(func(obj client.Object) bool {
+			pr, ok := obj.(*porchv1alpha2.PackageRevision)
+			if !ok {
+				return false
+			}
+			// PublishedAt should be nil when commitTime is zero
+			return pr.Status.PublishedAt == nil
+		}),
+		client.Apply,
+		client.FieldOwner(fieldManagerPRControllerMain),
+		client.ForceOwnership,
+	).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+
+	// Pass zero time
+	err := r.patchMainStatus(ctx, namespace, name, -1, "author@example.com", time.Time{},
+		kptfilev1.Locator{}, kptfilev1.Locator{}, false, 0)
+	assert.NoError(t, err)
+}
+
+// TestPatchMainStatus_PatchError tests error from status patch.
+func TestPatchMainStatus_PatchError(t *testing.T) {
+	ctx := context.Background()
+
+	mockClient := mockclient.NewMockClient(t)
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(errors.New("patch failed"))
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := &PackageRevisionReconciler{Client: mockClient}
+
+	err := r.patchMainStatus(ctx, "default", "main-pr", -1, "author", time.Now(),
+		kptfilev1.Locator{}, kptfilev1.Locator{}, false, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "patch failed")
 }

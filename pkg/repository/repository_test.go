@@ -17,6 +17,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -346,6 +347,34 @@ func TestIsNotFoundError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := IsNotFoundError(tc.err)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestIsTransientError(t *testing.T) {
+	testCases := map[string]struct {
+		err      error
+		expected bool
+	}{
+		"nil error":                    {err: nil, expected: false},
+		"repository not found":         {err: errors.New("repository porch-demo:deployments110:: not found"), expected: true},
+		"package revision not found":   {err: errors.New("package revision pkg/ws not found in repository r"), expected: true},
+		"does not exist":               {err: errors.New("resource does not exist"), expected: true},
+		"connection refused":           {err: errors.New("dial tcp 10.0.0.1:3000: connect: connection refused"), expected: true},
+		"connection reset":             {err: errors.New("read: connection reset by peer"), expected: true},
+		"tls handshake timeout":        {err: errors.New("net/http: TLS handshake timeout"), expected: true},
+		"eof":                          {err: errors.New("unexpected EOF"), expected: true},
+		"i/o timeout":                  {err: errors.New("dial tcp: i/o timeout"), expected: true},
+		"broken pipe":                  {err: errors.New("write: broken pipe"), expected: true},
+		"wrapped not found":            {err: fmt.Errorf("get content for render: %w", errors.New("repository r:: not found")), expected: true},
+		"terminal validation error":    {err: errors.New("invalid Kptfile: missing name"), expected: false},
+		"terminal malformed key":       {err: errors.New("malformed package key"), expected: false},
+		"terminal render pipeline err": {err: errors.New("function image failed with exit code 1"), expected: false},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, IsTransientError(tc.err))
 		})
 	}
 }

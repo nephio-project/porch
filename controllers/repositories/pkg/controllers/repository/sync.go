@@ -35,6 +35,7 @@ type OperationType int
 const (
 	OperationHealthCheck OperationType = iota // Lightweight connectivity check
 	OperationFullSync                         // Complete data synchronization
+	OperationOpenOnly                         // Load the repo into the cache without a git sync (cold start)
 )
 
 // SyncDecision represents what type of operation is needed
@@ -169,15 +170,13 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, UseExponentialBackoff: true}
 	}
 
-	// After a controller restart the git cache is cold but LastFullSyncTime
-	// may still be recent (persisted in etcd by the previous pod). Force a
-	// full sync for each repo on the first reconcile to re-warm the cache.
-	// Note: with many repos (1000+), the syncLimiter bounds concurrency
-	// (MaxConcurrentSyncs) so repos sync in batches, not all at once.
+	// First reconcile after a controller (re)start: open the repo into cache
+	// (no git sync) to avoid a thundering-herd full re-sync of every repo. The
+	// full sync is deferred to the normal schedule (isFullSyncDue staggers it).
 	repoKey := repo.Namespace + "/" + repo.Name
-	if _, synced := r.coldStartRepos.Load(repoKey); !synced {
-		log.FromContext(ctx).Info("Cold start: forcing full sync to re-warm cache")
-		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
+	if _, seen := r.coldStartRepos.Load(repoKey); !seen {
+		log.FromContext(ctx).V(2).Info("Cold start: opening repository into cache without a git sync")
+		return SyncDecision{Type: OperationOpenOnly, SyncNecessary: true, DelayBeforeNextSync: 0}
 	}
 
 	switch {

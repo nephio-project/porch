@@ -844,6 +844,48 @@ func TestDetermineSyncDecision(t *testing.T) {
 	}
 }
 
+// TestDetermineSyncDecisionColdStart verifies that on the first reconcile after a
+// restart (repo not yet in coldStartRepos), the decision is OperationOpenOnly —
+// load the repo into the cache without forcing a full git sync. This is the fix
+// for the thundering-herd full re-sync of every repo on restart; a full sync
+// would instead flip every repo Ready=False and saturate the sync limiter.
+func TestDetermineSyncDecisionColdStart(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+
+	// A repo that was synced recently by the previous pod and is currently Ready.
+	// A forced cold-start full sync is unnecessary here; open-only is correct.
+	repo := &api.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "repo-cold", Namespace: "ns"},
+		Status: api.RepositoryStatus{
+			LastFullSyncTime: &metav1.Time{Time: now.Add(-5 * time.Minute)},
+			Conditions: []metav1.Condition{{
+				Type:               api.RepositoryReady,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(now.Add(-5 * time.Minute)),
+			}},
+		},
+	}
+
+	r := &RepositoryReconciler{
+		HealthCheckFrequency: 5 * time.Minute,
+		FullSyncFrequency:    1 * time.Hour,
+	}
+
+	// First reconcile (cold start): coldStartRepos is empty → open-only, not full sync.
+	decision := r.determineSyncDecision(ctx, repo)
+	assert.Equal(t, OperationOpenOnly, decision.Type, "cold start must open-only, not force a full sync")
+	assert.True(t, decision.SyncNecessary)
+
+	// Simulate performOpenOnly marking the repo handled, then reconcile again:
+	// it must fall through to the normal schedule. This repo was synced 5m ago
+	// (< FullSyncFrequency), so no full sync is due — a health check at most.
+	r.coldStartRepos.Store(repo.Namespace+"/"+repo.Name, true)
+	decision = r.determineSyncDecision(ctx, repo)
+	assert.NotEqual(t, OperationOpenOnly, decision.Type, "after cold start, use the normal schedule")
+	assert.NotEqual(t, OperationFullSync, decision.Type, "recently-synced repo must not full sync after cold start")
+}
+
 func TestIsErrorRetryDue(t *testing.T) {
 	now := time.Now()
 	tests := []struct {

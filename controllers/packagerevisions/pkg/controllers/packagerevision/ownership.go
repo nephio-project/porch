@@ -93,7 +93,12 @@ func (r *PackageRevisionReconciler) removeFinalizer(ctx context.Context, pr *por
 	}
 
 	if updateLabels {
-		r.updateLatestRevisionLabels(ctx, pr)
+		// Recompute latest across remaining siblings; requeue on stale read.
+		if err := r.updateLatestRevisionLabels(ctx, pr); err != nil {
+			log.FromContext(ctx).V(2).Info("latest-revision update deferred after finalizer removal; requeuing",
+				"name", pr.Name, "reason", err.Error())
+			return &ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
+		}
 	}
 
 	return &ctrl.Result{}, nil

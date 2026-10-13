@@ -44,20 +44,9 @@ func (r *PackageRevisionReconciler) ensureRepositoryLabel(ctx context.Context, p
 	return nil
 }
 
-// ensureLatestRevisionLabel backfills the latest-revision label with the default
-// "false" when it is absent. Called on every reconcile — self-healing if the label
-// was never written (e.g. the one-shot patch during source execution failed because
-// the reconcile context was cancelled under load, which previously left the draft
-// permanently without the label).
-//
-// It only ADDS the label when missing; it never overwrites an existing value. This
-// is deliberate: for published revisions the "latest" winner is set to "true" by
-// updateLatestRevisionLabels, so forcing "false" here on every reconcile would stomp
-// the winner. Backfilling only-when-absent keeps the default without fighting that
-// promotion logic.
-//
-// Returns an error so the caller can requeue and retry the backfill, rather than
-// silently leaving the label missing.
+// ensureLatestRevisionLabel backfills the latest-revision label with "false" when
+// absent (self-healing). It only adds when missing — never overwrites the "true"
+// winner set by updateLatestRevisionLabels. Returns an error so the caller requeues.
 func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
 	if _, ok := pr.Labels[porchv1alpha2.LatestPackageRevisionKey]; ok {
 		return nil
@@ -76,9 +65,10 @@ func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Contex
 	return nil
 }
 
-// updateLatestRevisionLabels sets latest-revision=true on the published package
-// with the highest revision number, and false on all others for the same package/repo.
-func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
+// updateLatestRevisionLabels sets latest-revision=true on the highest published
+// revision and false on the rest. Returns an error so the caller can requeue when
+// a stale cached read would otherwise strand a wrong label.
+func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
 	log := log.FromContext(ctx)
 
 	var allRevs porchv1alpha2.PackageRevisionList
@@ -89,19 +79,35 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 			string(porchv1alpha2.PkgRevSelectorPackageName): pr.Spec.PackageName,
 		},
 	); err != nil {
-		log.Error(err, "failed to list package revisions for latest-revision update")
-		return
+		return fmt.Errorf("failed to list package revisions for latest-revision update: %w", err)
 	}
 
+	// Seed the winner with the in-hand pr (fresher than its cached copy).
 	highestRev := 0
 	var latestName string
+	if pr.DeletionTimestamp.IsZero() && porchv1alpha2.LifecycleIsPublished(pr.Spec.Lifecycle) && pr.Status.Revision > 0 {
+		highestRev = pr.Status.Revision
+		latestName = pr.Name
+	}
+
 	for i := range allRevs.Items {
 		rev := &allRevs.Items[i]
 		if !rev.DeletionTimestamp.IsZero() {
 			continue
 		}
-		if porchv1alpha2.LifecycleIsPublished(rev.Spec.Lifecycle) && rev.Status.Revision > highestRev {
-			highestRev = rev.Status.Revision
+		if !porchv1alpha2.LifecycleIsPublished(rev.Spec.Lifecycle) {
+			continue
+		}
+		revNum := rev.Status.Revision
+		if rev.Name == pr.Name && pr.Status.Revision > revNum {
+			revNum = pr.Status.Revision
+		}
+		// Unobserved revision number = stale read; requeue to recompute.
+		if revNum == 0 {
+			return fmt.Errorf("published revision %q has unobserved revision number; requeuing latest-revision update", rev.Name)
+		}
+		if revNum > highestRev {
+			highestRev = revNum
 			latestName = rev.Name
 		}
 	}
@@ -126,7 +132,8 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 		}
 		rev.Labels[porchv1alpha2.LatestPackageRevisionKey] = desiredLabel
 		if err := r.Patch(ctx, rev, patch); err != nil {
-			log.Error(err, "failed to update latest-revision label", "name", rev.Name)
+			return fmt.Errorf("failed to update latest-revision label on %q: %w", rev.Name, err)
 		}
 	}
+	return nil
 }

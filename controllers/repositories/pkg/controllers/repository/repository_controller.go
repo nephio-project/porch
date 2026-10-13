@@ -146,11 +146,61 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{RequeueAfter: decision.DelayBeforeNextSync}, nil
 	}
 
-	if decision.Type == OperationHealthCheck {
+	switch decision.Type {
+	case OperationHealthCheck:
 		return r.performHealthCheckSync(ctx, repo)
+	case OperationOpenOnly:
+		return r.performOpenOnly(ctx, repo)
+	default:
+		return r.performFullSync(ctx, repo)
+	}
+}
+
+// performOpenOnly: health-check and load repo into cache on controller restart.
+// Defers expensive git sync to normal schedule. Prevents "repository not found" errors.
+func (r *RepositoryReconciler) performOpenOnly(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+
+	// Health check: verify backend is reachable before marking repo opened.
+	if err := r.Cache.CheckRepositoryConnectivity(ctx, repo); err != nil {
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Cold start: repository health check failed", "repoURL", repoURL)
+		retryInterval := r.determineRetryInterval(err)
+		const minRetryInterval = 30 * time.Second
+		if retryInterval < minRetryInterval {
+			retryInterval = minRetryInterval
+		}
+		nextSyncTime := time.Now().Add(retryInterval)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status after cold-start health check failure")
+		}
+		return ctrl.Result{RequeueAfter: retryInterval}, nil
 	}
 
-	return r.performFullSync(ctx, repo)
+	// Open repo into cache (no git sync).
+	if _, err := r.Cache.OpenRepository(ctx, repo); err != nil {
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Cold start: failed to open repository into cache", "repoURL", repoURL)
+		retryInterval := r.determineRetryInterval(err)
+		nextSyncTime := time.Now().Add(retryInterval)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status after open-only failure")
+		}
+		return ctrl.Result{RequeueAfter: retryInterval}, nil
+	}
+
+	// Mark cold start handled; defer full sync to normal schedule.
+	r.coldStartRepos.Store(repo.Namespace+"/"+repo.Name, true)
+	log.V(2).Info("Cold start: repository opened into cache; full sync deferred")
+
+	// Refresh Ready=True, preserve sync timestamps.
+	nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+		log.Error(statusErr, "Failed to update repository status after cold-start open")
+	}
+
+	// Requeue on health-check cadence.
+	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
 // performHealthCheckSync executes synchronous health check

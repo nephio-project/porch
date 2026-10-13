@@ -42,9 +42,8 @@ const (
 	kptfileLabelPrefix = "porch.kpt.dev/kptfile-label__"
 )
 
-// updateStatusWithRetry applies the PR-controller-owned status fields via SSA,
-// retrying on conflict. Used after CloseDraft to durably record completion markers
-// (CreationSource / LastSubpackageOperationHash) before requeueing.
+// updateStatusWithRetry persists completion markers (CreationSource, LastSubpackageOperationHash)
+// by retrying until the patch lands or deadline expires. Critical for idempotency.
 func (r *PackageRevisionReconciler) updateStatusWithRetry(
 	ctx context.Context,
 	pr *porchv1alpha2.PackageRevision,
@@ -53,22 +52,40 @@ func (r *PackageRevisionReconciler) updateStatusWithRetry(
 	lastSubpackageOperationHash string,
 	conditions ...metav1.Condition) error {
 
-	var lastErr error
-	for range 3 {
+	log := log.FromContext(ctx)
+	deadline := time.Now().Add(transientErrorDeadline)
+	retryInterval := reconciledRetryInterval
+	attempt := 0
+
+	for {
+		attempt++
 		r.updateStatus(ctx, pr, content, creationSource, lastSubpackageOperationHash, conditions...)
 		// Re-read to check whether the hash landed.
 		fresh := &porchv1alpha2.PackageRevision{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(pr), fresh); err != nil {
-			lastErr = err
+			if time.Now().After(deadline) {
+				return fmt.Errorf("failed to read status after patch (retried for %v): %w", transientErrorDeadline, err)
+			}
+			log.V(3).Info("status patch read failed; retrying",
+				"name", pr.Name, "attempt", attempt, "error", err.Error())
+			time.Sleep(retryInterval)
 			continue
 		}
 		if (creationSource == "" || fresh.Status.CreationSource == creationSource) &&
 			(lastSubpackageOperationHash == "" || fresh.Status.LastSubpackageOperationHash == lastSubpackageOperationHash) {
+			if attempt > 1 {
+				log.V(3).Info("status patch landed",
+					"name", pr.Name, "attempts", attempt, "creationSource", creationSource)
+			}
 			return nil
 		}
-		lastErr = fmt.Errorf("completion status not yet visible after patch")
+		if time.Now().After(deadline) {
+			return fmt.Errorf("completion status did not land after patch (retried for %v, %d attempts)", transientErrorDeadline, attempt)
+		}
+		log.V(3).Info("status patch not yet visible; retrying",
+			"name", pr.Name, "attempt", attempt, "creationSource", creationSource, "retryAfter", retryInterval)
+		time.Sleep(retryInterval)
 	}
-	return lastErr
 }
 
 // updateStatus applies the PR-controller-owned status fields via SSA.
@@ -96,6 +113,16 @@ func (r *PackageRevisionReconciler) updateStatus(
 		CreationSource:              creationSource,
 		LastSubpackageOperationHash: lastSubpackageOperationHash,
 	}
+
+	// Preserve existing publish metadata: this SSA apply uses one field manager, so
+	// omitting these on a condition-only call (content=nil) would reset them to zero
+	// and regress an already-published revision to Revision=0.
+	status.Revision = pr.Status.Revision
+	status.PublishedBy = pr.Status.PublishedBy
+	status.PublishedAt = pr.Status.PublishedAt
+	status.SelfLock = pr.Status.SelfLock
+	status.UpstreamLock = pr.Status.UpstreamLock
+	status.ResourcesSizeBytes = pr.Status.ResourcesSizeBytes
 
 	if content != nil {
 		if porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(content.Lifecycle(ctx))) {
