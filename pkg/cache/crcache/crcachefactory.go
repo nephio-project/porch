@@ -28,11 +28,10 @@ var _ cachetypes.CacheFactory = &CrCacheFactory{}
 type CrCacheFactory struct {
 }
 
-func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions, renderScheduler *scheduler.RenderScheduler) (cachetypes.Cache, error) {
+func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions, _ *scheduler.RenderScheduler) (cachetypes.Cache, error) {
 	return &Cache{
-		repositories:    repomap.SafeRepoMap{},
-		metadataStore:   meta.NewCrdMetadataStore(options.CoreClient),
-		options:         options,
-		renderScheduler: renderScheduler,
+		repositories:  repomap.SafeRepoMap{},
+		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),
+		options:       options,
 	}, nil
 }

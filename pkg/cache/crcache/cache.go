@@ -25,7 +25,6 @@ import (
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/externalrepo"
 	"github.com/kptdev/porch/pkg/repository"
-	"github.com/kptdev/porch/pkg/scheduler"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/fields"
@@ -37,10 +36,9 @@ import (
 var tracer = otel.Tracer("crcache")
 
 type Cache struct {
-	repositories    repomap.SafeRepoMap
-	metadataStore   meta.MetadataStore
-	options         cachetypes.CacheOptions
-	renderScheduler *scheduler.RenderScheduler
+	repositories  repomap.SafeRepoMap
+	metadataStore meta.MetadataStore
+	options       cachetypes.CacheOptions
 }
 
 var _ cachetypes.Cache = &Cache{}

@@ -134,7 +134,7 @@ func TestUpdateResourcesWritesPackageTar(t *testing.T) {
 	require.Len(t, draft.tasks, 1)
 }
 
-func TestUpdateKptfileContentStoresKptfile(t *testing.T) {
+func TestUpdateKptfileContentStoresKptfileWithoutAppendingTask(t *testing.T) {
 	const kptfileContent = "apiVersion: kpt.dev/v1\nkind: Kptfile\nmetadata:\n  name: test\n"
 	draft := ociDraftWithTestRegistry(t)
 
@@ -142,10 +142,13 @@ func TestUpdateKptfileContentStoresKptfile(t *testing.T) {
 
 	require.Equal(t, kptfileContent, draft.kptfileContent)
 	if err != nil {
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to write")
+		require.Empty(t, draft.tasks)
 		return
 	}
 	require.NotEmpty(t, draft.addendums)
+	require.Empty(t, draft.tasks)
+	require.Equal(t, "kpt:", draft.addendums[len(draft.addendums)-1].History.CreatedBy)
 }
 
 func ociDraftWithTestRegistry(t *testing.T) *ociPackageRevisionDraft {

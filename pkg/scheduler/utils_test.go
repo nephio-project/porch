@@ -192,6 +192,32 @@ metadata:
 	assert.Equal(t, resources.Contents, readBack.Contents)
 }
 
+func TestWriteResourcesRejectsInvalidResourcePaths(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]string{
+		"parent directory": "../escaped",
+		"nested traversal": "a/../../escaped",
+		"absolute path":    "/etc/passwd",
+		"bare parent":      "..",
+	}
+
+	for name, key := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			fs := filesys.MakeFsOnDisk()
+			root := t.TempDir()
+
+			_, err := WriteResources(fs, repository.PackageResources{
+				Contents: map[string]string{key: "pwned"},
+			}, root)
+
+			require.ErrorContains(t, err, "invalid resource path")
+			require.NoFileExists(t, filepath.Join(filepath.Dir(root), "escaped"))
+		})
+	}
+}
+
 func TestWriteResources_NoKptfile(t *testing.T) {
 	// given
 	fs := filesys.MakeFsOnDisk()

@@ -157,7 +157,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	if err == nil {
 		preservePushMarkersIfUnset(pr, existing)
 		updErr := pkgRevUpdateDB(ctx, pr, saveResources)
-		if updErr == nil && saveResources {
+		if updErr == nil {
 			sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
 			klog.Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
 		}
@@ -629,6 +629,8 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	}
 
 	pr.extPRID = pushedPRExtID
+	pr.updated = time.Now()
+	pr.updatedBy = getCurrentUser()
 	dbUpdated := pr.updated
 	pr.lastPushedDbUpdated = &dbUpdated
 

@@ -465,11 +465,14 @@ func (rs *RenderScheduler) renderStatusFromRenderedKptfile(
 	kptfile := &kptfileapi.KptFile{}
 
 	if err := yaml.Unmarshal(kptfileContents, kptfile); err != nil {
-		klog.Warningf("Failed to unmarshal Kptfile contents of package %q (returning empty renderStatus): %v", prKey.K8SName(), err)
-		return renderedContents, kptfileapi.RenderStatus{}
+		klog.Warningf("Failed to unmarshal Kptfile contents of package %q: %v", prKey.K8SName(), err)
+		return inputResources, kptfileapi.RenderStatus{ErrorSummary: fmt.Sprintf("failed to unmarshal rendered Kptfile: %v", err)}
 	}
 
-	renderStatus := kptfile.Status.RenderStatus // intentionally not deepcopy
+	var renderStatus *kptfileapi.RenderStatus
+	if kptfile.Status != nil {
+		renderStatus = kptfile.Status.RenderStatus // intentionally not deepcopy
+	}
 	if renderStatus == nil {
 		return rs.missingRenderStatusResult(prKey, inputResources, renderedContents, multiErr)
 	}

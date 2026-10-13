@@ -281,6 +281,62 @@ upstreamLock:
 	t.Require().NoError(err)
 }
 
+func (t *DbTestSuite) TestPublishedMetadataUnchangedOnSetMeta() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{}).Maybe()
+
+	dbRepo := t.createTestRepo("pub-meta-ns", "pub-meta-repo")
+	defer t.deleteTestRepo(dbRepo.Key())
+	dbPkg := t.createTestPkg(dbRepo.Key(), "pub-meta-pkg")
+	dbPkg.repo = dbRepo
+
+	publishedAt := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
+	const publishedBy = "approver"
+	pr := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "v1",
+			Revision:      1,
+		},
+		meta:      metav1.ObjectMeta{Name: "orig"},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   publishedAt,
+		updatedBy: publishedBy,
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
+
+	t.Require().NoError(pr.SetMeta(t.Context(), metav1.ObjectMeta{
+		Name:   "orig",
+		Labels: map[string]string{"k": "v"},
+	}))
+
+	got, err := pr.GetPackageRevision(t.Context(), true)
+	t.Require().NoError(err)
+	t.Equal("v", got.Labels["k"])
+	t.Equal(publishedBy, got.Status.PublishedBy)
+	t.Equal(publishedAt.Unix(), got.Status.PublishedAt.Unix())
+
+	draft := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "ws",
+			Revision:      0,
+		},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   publishedAt,
+		updatedBy: "old-editor",
+		lifecycle: porchapi.PackageRevisionLifecycleDraft,
+	}
+	t.Require().NoError(pkgRevWriteToDB(t.Context(), &draft))
+	t.Require().NoError(pkgRevUpdateDB(t.Context(), &draft, false))
+	t.NotEqual("old-editor", draft.updatedBy)
+	t.True(draft.updated.After(publishedAt))
+}
+
 func (t *DbTestSuite) TestDBPackageRevisionGetFilteredResourcesReturnsAllFiles() {
 	dbPR := t.createResourcesFixture("gfr-all-ns", "gfr-all-repo", "gfr-all-package", "gfr-all-pr")
 	defer t.deleteTestRepo(dbPR.Key().RKey())

@@ -170,9 +170,13 @@ func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *porc
 		return fmt.Errorf("failed to write remote layer: %w", err)
 	}
 
-	taskJSON, err := json.Marshal(*task)
-	if err != nil {
-		return fmt.Errorf("failed to marshal task %T to json: %w", task, err)
+	createdBy := "kpt:"
+	if task != nil {
+		taskJSON, err := json.Marshal(*task)
+		if err != nil {
+			return fmt.Errorf("failed to marshal task %T to json: %w", task, err)
+		}
+		createdBy = "kpt:" + string(taskJSON)
 	}
 
 	digest, err := layer.Digest()
@@ -192,11 +196,13 @@ func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *porc
 		History: v1.History{
 			Author:    "kool kat",
 			Created:   v1.Time{Time: p.created},
-			CreatedBy: "kpt:" + string(taskJSON),
+			CreatedBy: createdBy,
 		},
 	})
 
-	p.tasks = append(p.tasks, *task)
+	if task != nil {
+		p.tasks = append(p.tasks, *task)
+	}
 
 	return nil
 }
@@ -216,12 +222,11 @@ func (p *ociPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 
 func (p *ociPackageRevisionDraft) UpdateKptfileContent(ctx context.Context, kptfileContent string) error {
 	p.kptfileContent = kptfileContent
-	// UpdateResources dereferences the task. An empty task avoids that panic.
 	return p.UpdateResources(ctx, &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{kptfileapi.KptFileName: kptfileContent},
 		},
-	}, &porchapi.Task{})
+	}, nil)
 }
 
 func (p *ociPackageRevisionDraft) GetKptfileContent(ctx context.Context) (string, error) {

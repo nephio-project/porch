@@ -21,7 +21,7 @@ import (
 	iofs "io/fs"
 	"maps"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -30,6 +30,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/kptdev/porch/pkg/metrics"
 	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -135,25 +136,24 @@ func relativeResourcePath(root, filePath string) string {
 func WriteResources(fs filesys.FileSystem, resources repository.PackageResources, root string) (string, error) {
 	var packageDir string // path to the topmost directory containing Kptfile
 	for k, v := range resources.Contents {
-		relDir := path.Dir(k)
-		absDir := root
-		if relDir != "." {
-			absDir = path.Join(root, relDir)
+		absPath, err := util.FilepathSafeJoin(root, k)
+		if err != nil {
+			return "", fmt.Errorf("invalid resource path %q: %w", k, err)
 		}
+		absDir := filepath.Dir(absPath)
 
 		if err := fs.MkdirAll(absDir); err != nil {
 			return "", err
 		}
 
-		base := path.Base(k)
-		if err := fs.WriteFile(path.Join(absDir, base), []byte(v)); err != nil {
+		if err := fs.WriteFile(absPath, []byte(v)); err != nil {
 			return "", err
 		}
 
-		if base == kptfileapi.KptFileName {
+		if filepath.Base(k) == kptfileapi.KptFileName {
 			// Found Kptfile. Check if the current directory is ancestor of the current
 			// topmost package directory. If so, use it instead.
-			if packageDir == "" || absDir == root || strings.HasPrefix(packageDir, absDir+"/") {
+			if packageDir == "" || absDir == root || strings.HasPrefix(packageDir, absDir+string(filepath.Separator)) {
 				packageDir = absDir
 			}
 		}
