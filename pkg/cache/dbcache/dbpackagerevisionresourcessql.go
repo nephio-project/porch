@@ -102,6 +102,9 @@ func pkgRevResourceKeysReadFromDB(ctx context.Context, prk key.PackageRevisionKe
 		}
 		resources[resKey] = ""
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	klog.V(5).Infof("pkgRevResourceKeysReadFromDB: query succeeded for %q", prk)
 	return resources, nil
 }
