@@ -418,7 +418,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package revision kubernetes resource name invalid",
+			expectedErrorMessage: "package revision kubernetes resource name is invalid",
 		},
 		{
 			name:                 "Repository name only",
@@ -426,7 +426,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package revision kubernetes resource name invalid",
+			expectedErrorMessage: "package revision kubernetes resource name is invalid",
 		},
 		{
 			name:                 "Repository name and package only",
@@ -434,7 +434,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package revision kubernetes resource name invalid",
+			expectedErrorMessage: "package revision kubernetes resource name is invalid",
 		},
 		{
 			name:       "Package revision not found",
@@ -564,7 +564,7 @@ func TestGetPackage(t *testing.T) {
 			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package kubernetes resource name invalid",
+			expectedErrorMessage: "package kubernetes resource name is invalid",
 		},
 		{
 			name:                 "Repository name only",
@@ -572,7 +572,7 @@ func TestGetPackage(t *testing.T) {
 			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package kubernetes resource name invalid",
+			expectedErrorMessage: "package kubernetes resource name is invalid",
 		},
 		{
 			name:    "Package not found",

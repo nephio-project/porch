@@ -15,7 +15,6 @@
 package key
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,11 +165,11 @@ func TestPackageRevisionKey(t *testing.T) {
 func TestGetPRWorkspaceName(t *testing.T) {
 	_, err := PkgRevK8sName2Key("my-ns", "")
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+	assert.ErrorContains(t, err, "package name part \"\" of object name is invalid")
 
 	_, err = PkgRevK8sName2Key("my-ns", "hello")
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+	assert.ErrorContains(t, err, "package name part \"\" of object name is invalid")
 
 	prKey, err := PkgRevK8sName2Key("my-ns", "repo.hello.there")
 	assert.Nil(t, err)
@@ -180,11 +179,11 @@ func TestGetPRWorkspaceName(t *testing.T) {
 
 	prKey, err = PkgRevK8sName2Key("my-ns", "repo..")
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+	assert.ErrorContains(t, err, "package name part \"\" of object name is invalid")
 
 	prKey, err = PkgRevK8sName2Key("my-ns", "v.")
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "workspace name part \"\" of package revision name invalid"))
+	assert.ErrorContains(t, err, "workspace name part \"\" of package revision name is invalid")
 
 	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3")
 	assert.Nil(t, err)
