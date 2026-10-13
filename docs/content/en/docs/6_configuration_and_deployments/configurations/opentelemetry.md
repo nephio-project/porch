@@ -735,11 +735,11 @@ Load-test process metrics (`porch_perf_*`) are documented separately in [Perform
 
 Histogram buckets start at 0.001 seconds and double for 16 boundaries (up to 32.768 seconds).
 
-### Request Counts - In Flight
+### In-flight API Operation Counts
 
 | Metric Name | Type | Unit | Description |
 |-------------|------|------|-------------|
-| `porch_in_flight_api_operations` | Up/Down Counter | — | Total number of requests in progress at a point in time. Incremented at the start of an operation and decremented at the end. |
+| `porch_in_flight_api_operations` | Up/Down Counter | — | Total number of Porch API operations in progress at a point in time. Incremented at the start of an operation and decremented at the end. |
 
 | Attribute | Description |
 |-----------|-------------|
