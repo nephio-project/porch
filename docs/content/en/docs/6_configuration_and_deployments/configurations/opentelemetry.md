@@ -770,7 +770,8 @@ Histogram buckets start at 0.001 seconds and double for 16 boundaries (up to 32.
 
 | `resource` | Component | `verb` / `op` values | `api_version` |
 |------------|-----------|----------------------|---------------|
-| `PackageRevision` | porch-server | `LIST`, `GET`, `CREATE`, `UPDATE`, `DELETE` | `v1alpha1` |
+| `PackageRevision` | porch-server | `GET`, `CREATE`, `UPDATE`, `DELETE` | `v1alpha1` |
+| `PackageRevisions` (plural form only for `ListPackageRevisions`) | porch-server | `LIST` | `v1alpha1` |
 | `PackageRevision` | porch-controllers | `GET`, `CREATE`, `UPDATE`, `DELETE` | `v1alpha2` |
 | `PackageRevisionResources` | porch-server | `LIST`, `GET`, `UPDATE` | `v1alpha1` |
 | `PackageRevisionResources` | porch-controllers | `UPDATE` | `v1alpha2` |

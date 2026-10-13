@@ -1156,7 +1156,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Counts of in-flight (currently in progress) Porch API operations, broken down by resource, operation, and user.",
+      "description": "Counts of in-flight (currently in progress) Porch API operations, broken down by resource, operation, and namespace.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1195,7 +1195,7 @@
         "x": 0,
         "y": 60
       },
-      "id": 503,
+      "id": 504,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -1213,12 +1213,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(porch_in_flight_api_operations) by (resource, operation, user)",
-          "legendFormat": "{{resource}} / {{operation}} / {{user}}",
+          "expr": "sum(porch_in_flight_api_operations) by (resource, operation, namespace)",
+          "legendFormat": "{{resource}} / {{operation}} / {{namespace}}",
           "refId": "A"
         }
       ],
-      "title": "All Resources \u2014 In-Flight Operation Count by Resource, Operation & User",
+      "title": "All Resources \u2014 In-Flight Operation Count by Resource, Operation & Namespace",
       "type": "timeseries"
     },
     {
