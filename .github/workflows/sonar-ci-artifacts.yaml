@@ -43,10 +43,17 @@ jobs:
 
     - name: Archive test results
       if: steps.test.outcome == 'success'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: coverage-report
         path: ./coverage.out
+
+    - name: Archive API test results
+      if: steps.test.outcome == 'success'
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-coverage-report
+        path: ./api/coverage.out
 
     - name: Save PR number to file
       if: github.event_name == 'pull_request'
@@ -54,7 +61,7 @@ jobs:
       
     - name: Archive PR number
       if: github.event_name == 'pull_request'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: PR_NUMBER
         path: PR_NUMBER.txt

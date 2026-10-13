@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt Authors
+// Copyright 2022, 2025-2026 The kpt Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import (
 	"github.com/kptdev/porch/pkg/engine/podevaluator"
 	"github.com/kptdev/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/kptdev/porch/pkg/externalrepo/types"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -527,12 +528,12 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 
 	//GoGit configuration
 	fs.IntVar(&o.GoGitRepoCacheSize, "gogit-repo-cache-size", 8, "Size of the in-memory cache for git repositories when using gogit (in MiB)")
-	fs.Int64Var(&o.GoGitCacheMaxFileSize, "gogit-cache-max-file-size", 1*1024*512, "Maximum file size (in bytes) that will be read into the in-memory cache for git repositories when using gogit; files larger than this will be streamed from disk to avoid memory pressure")
+	fs.Var(datasize.NewValue(&o.GoGitCacheMaxFileSize, 512*datasize.KB), "gogit-cache-max-file-size", "Maximum file size, for example 512KB or a number of bytes, that will be read into the in-memory cache for git repositories when using gogit; files larger than this will be streamed from disk to avoid memory pressure")
 
 	// Function runner configuration
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
-	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
+	fs.Var(datasize.NewValue(&o.MaxRequestBodySize, 6*datasize.MB), "max-request-body-size", "Maximum size of the request body, for example 6MB or a number of bytes. Keep this in sync with function-runner's corresponding argument.")
 	fs.StringVar(&o.PodNamespace, "pod-namespace", "porch-fn-system", "Namespace get FunctionConfig objects for krm functions")
 	fs.IntVar(&o.PodEvaluatorGRPCPort, "pod-evaluator-port", podevaluator.DefaultGRPCPort, "TCP port for the FunctionEvaluator gRPC service (pod evaluator). The PackageRevision controller sends EvaluateFunction here.")
 

@@ -1,4 +1,4 @@
-// Copyright 2023, 2025 The kpt Authors
+// Copyright 2023, 2025-2026 The kpt Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import (
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/apiserver"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -259,6 +260,40 @@ func TestAsyncRenderingFlagParsing(t *testing.T) {
 	extra := opts.buildExtraConfig()
 	assert.True(t, extra.AsyncRendering)
 	assert.True(t, extra.CacheOptions.AsyncRendering)
+}
+
+func TestDataSizeFlagParsing(t *testing.T) {
+	testCases := map[string]struct {
+		args                     []string
+		expectedMaxRequestBody   int
+		expectedGoGitMaxFileSize int64
+	}{
+		"defaults": {
+			args:                     nil,
+			expectedMaxRequestBody:   6 * datasize.MB,
+			expectedGoGitMaxFileSize: 512 * datasize.KB,
+		},
+		"sizes with units": {
+			args:                     []string{"--max-request-body-size=10MB", "--gogit-cache-max-file-size=1MB"},
+			expectedMaxRequestBody:   10 * datasize.MB,
+			expectedGoGitMaxFileSize: 1 * datasize.MB,
+		},
+		"numbers of bytes": {
+			args:                     []string{"--max-request-body-size=6291456", "--gogit-cache-max-file-size=524288"},
+			expectedMaxRequestBody:   6 * datasize.MB,
+			expectedGoGitMaxFileSize: 512 * datasize.KB,
+		},
+	}
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			opts := NewPorchServerOptions(os.Stdout, os.Stderr)
+			fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+			opts.AddFlags(fs)
+			require.NoError(t, fs.Parse(tc.args))
+			assert.Equal(t, tc.expectedMaxRequestBody, opts.MaxRequestBodySize)
+			assert.Equal(t, tc.expectedGoGitMaxFileSize, opts.GoGitCacheMaxFileSize)
+		})
+	}
 }
 
 func TestDelegateAPIServerHealthStandby(t *testing.T) {

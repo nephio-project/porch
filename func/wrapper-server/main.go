@@ -32,6 +32,7 @@ import (
 	pb "github.com/kptdev/porch/func/evaluator"
 	"github.com/kptdev/porch/func/healthchecker"
 	"github.com/kptdev/porch/internal/telemetry"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
@@ -59,7 +60,7 @@ func main() {
 		},
 	}
 	cmd.Flags().IntVar(&op.port, "port", 9446, "The server port")
-	cmd.Flags().IntVar(&op.maxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
+	cmd.Flags().Var(datasize.NewValue(&op.maxGrpcMessageSize, 6*datasize.MB), "max-request-body-size", "Maximum size of grpc messages, for example 6MB or a number of bytes.")
 	cmd.Flags().IntVar(&op.logLevel, "verbosity", 2, "Verbosity of logs.")
 	cmd.Flags().BoolVar(&op.flattenLog, "flatten-log", false, "Flatten multi-line stderr into a single line in response Log, gRPC error messages, and warning logs.")
 
