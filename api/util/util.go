@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-const invalidConst string = " invalid: "
+const invalidConst string = " is invalid: "
 
 func Revision2Int(revisionStr string) int {
 	revisionStr = strings.TrimPrefix(revisionStr, "v")
