@@ -226,5 +226,5 @@ data:
 
 	fetchedPR.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	err = t.Client.Update(t.GetContext(), &fetchedPR)
-	t.Require().ErrorContains(err, "cannot update lifecycle when render fails")
+	t.Require().ErrorContains(err, "cannot update package with failed render")
 }
