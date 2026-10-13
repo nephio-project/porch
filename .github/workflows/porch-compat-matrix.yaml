@@ -105,7 +105,7 @@ jobs:
       # --- Step 2: Setup tooling ---
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -207,7 +207,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: "compat-results-${{ matrix.server_version }}"
           path: .build/compat-results/
@@ -222,7 +222,7 @@ jobs:
           fi
       - name: Archive server logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: "server-log-${{ matrix.server_version }}"
           path: server.log
