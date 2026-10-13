@@ -5,8 +5,7 @@ which manages the lifecycle of KRM configuration packages.
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kptdev/porch/badge)](https://securityscorecards.dev/viewer/?uri=github.com/kptdev/porch) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10062/badge)](https://www.bestpractices.dev/projects/10062)
 
-This code was donated to Kptdev from the [kpt](https://github.com/kptdev/kpt)
-project as of December 2023.
+This code was donated to the Nephio project in December of 2023, but later returned to kptdev in May of 2026.
 
 ## Documentation
 
