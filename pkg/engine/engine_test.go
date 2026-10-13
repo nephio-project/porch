@@ -823,15 +823,14 @@ func TestUpdatePackageRevision(t *testing.T) {
 			errorContains: "error rendering package in kpt function pipeline",
 		},
 		{
-			name:          "failure - render error blocks even Draft→Draft with push annotation",
+			name:          "failure - render error without push annotation",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			oldRV:         "1",
 			newRV:         "1",
-			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
 			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
 			expectError:   true,
-			errorContains: "cannot update lifecycle when render fails",
+			errorContains: "error rendering package",
 		},
 		{
 			name:          "failure - persist error even with push annotation",
@@ -889,17 +888,6 @@ func TestUpdatePackageRevision(t *testing.T) {
 			errorContains: "close draft failed",
 		},
 		{
-			name:          "failure - render error blocks even Draft→Draft with push annotation",
-			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
-			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
-			oldRV:         "1",
-			newRV:         "1",
-			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
-			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
-			expectError:   true,
-			errorContains: "cannot update lifecycle when render fails",
-		},
-		{
 			name:          "failure - render error blocks Draft→Proposed even with push annotation",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			newLifecycle:  porchapi.PackageRevisionLifecycleProposed,
@@ -908,7 +896,7 @@ func TestUpdatePackageRevision(t *testing.T) {
 			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
 			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
 			expectError:   true,
-			errorContains: "cannot update lifecycle when render fails",
+			errorContains: "cannot update package with failed render",
 		},
 		{
 			name:          "failure - render error blocks Draft→Published even with push annotation",
@@ -919,7 +907,7 @@ func TestUpdatePackageRevision(t *testing.T) {
 			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
 			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
 			expectError:   true,
-			errorContains: "cannot update lifecycle when render fails",
+			errorContains: "cannot update package with failed render",
 		},
 		{
 			name:          "failure - render error blocks Proposed→Published even with push annotation",
@@ -930,7 +918,7 @@ func TestUpdatePackageRevision(t *testing.T) {
 			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
 			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
 			expectError:   true,
-			errorContains: "cannot update lifecycle when render fails",
+			errorContains: "cannot update package with failed render",
 		},
 	}
 
@@ -974,7 +962,7 @@ func TestUpdatePackageRevision(t *testing.T) {
 						mockTaskHandler.On("DoPRMutations", mock.Anything, mockPkgRev, oldObj, newObj, mockDraft).
 							Return(&porchapi.RenderStatus{}, tt.renderErr)
 
-						// Render errors block lifecycle transitions regardless of annotation.
+						// Render errors always block lifecycle transitions.
 						proceedAfterRender := tt.renderErr == nil
 						if proceedAfterRender {
 							if tt.updateLifecycleErr != nil {
