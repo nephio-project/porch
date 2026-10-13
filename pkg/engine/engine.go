@@ -376,6 +376,9 @@ func (cad *cadEngine) UpdatePackageRevision(
 		if result, err := handleMutationError(renderErr, newObj); err != nil {
 			return result, err
 		}
+		// Lifecycle transitions must be blocked when render fails.
+		// The push-on-render-failure annotation only allows resource persistence.
+		return nil, fmt.Errorf("cannot update lifecycle when render fails: %w", renderErr)
 	}
 
 	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {

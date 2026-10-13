@@ -182,3 +182,49 @@ data:
 	refetchedKptfile := t.ParseKptfileF(&refetched)
 	t.Equal("true", refetchedKptfile.Annotations[kptfilev1.SaveOnRenderFailureAnnotation], "save-on-render-failure annotation should be preserved")
 }
+
+// TestRenderFailureBlocksLifecycleTransition verifies that lifecycle transitions
+// are blocked when render fails, even with push-on-render-failure annotation.
+func (t *PorchSuite) TestRenderFailureBlocksLifecycleTransition() {
+	t.skipIfLocalPodEvaluator()
+
+	const (
+		repository  = "render-fail-lifecycle"
+		packageName = "test-lifecycle-block"
+		workspace   = defaultWorkspace
+	)
+
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
+
+	// Set push-on-render-failure annotation
+	if pr.Annotations == nil {
+		pr.Annotations = make(map[string]string)
+	}
+	pr.Annotations[porchapi.PushOnFnRenderFailureKey] = "true"
+	t.UpdateF(pr)
+
+	// Add broken pipeline to trigger render failure
+	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
+
+	resources.Spec.Resources["configmap.yaml"] = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+data:
+  key: before-render
+`
+	t.AddMutator(resources, "quay.io/invalid/nonexistent-fn:v0.0.1")
+
+	// Update returns error, but resources are persisted
+	err := t.Client.Update(t.GetContext(), resources)
+	t.Require().Error(err, "expected render failure error")
+
+	// Attempt lifecycle transition - should fail
+	var fetchedPR porchapi.PackageRevision
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &fetchedPR)
+
+	fetchedPR.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	err = t.Client.Update(t.GetContext(), &fetchedPR)
+	t.Require().ErrorContains(err, "cannot update lifecycle when render fails")
+}
