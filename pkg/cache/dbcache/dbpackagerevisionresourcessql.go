@@ -72,8 +72,8 @@ func pkgRevResourceKeysReadFromDB(ctx context.Context, prk key.PackageRevisionKe
 	query, args := pkgRevResourcesQuerySQL(prk, sel)
 	klog.V(6).Infof("pkgRevResourceKeysReadFromDB: running query %q on package revision %+v", query, prk)
 
-	err := GetDB().db.ScanOneTextColumn(ctx, query, args, func(resKey string) error {
-		resources[resKey] = ""
+	err := GetDB().db.ScanTextColumns(ctx, query, args, 1, func(cols []string) error {
+		resources[cols[0]] = ""
 		return nil
 	})
 	if err == nil {
@@ -116,8 +116,8 @@ func pkgRevResourceContentsReadFromDB(ctx context.Context, prk key.PackageRevisi
 	query, args := pkgRevResourcesQuerySQL(prk, sel)
 	klog.V(6).Infof("pkgRevResourceContentsReadFromDB: running query %q on package revision %+v", query, prk)
 
-	err := GetDB().db.ScanTwoTextColumns(ctx, query, args, func(resKey, resVal string) error {
-		resources[resKey] = resVal
+	err := GetDB().db.ScanTextColumns(ctx, query, args, 2, func(cols []string) error {
+		resources[cols[0]] = cols[1]
 		return nil
 	})
 	if err == nil {

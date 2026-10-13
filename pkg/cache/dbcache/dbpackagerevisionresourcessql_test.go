@@ -265,7 +265,7 @@ type forceStdlibResourceQuerySQL struct {
 	dbSQLInterface
 }
 
-func (f *forceStdlibResourceQuerySQL) ScanTwoTextColumns(context.Context, string, []any, func(col1, col2 string) error) error {
+func (f *forceStdlibResourceQuerySQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return ErrPgxQueryUnsupported
 }
 
@@ -274,7 +274,7 @@ type failingStdlibResourceQuerySQL struct {
 	queryErr error
 }
 
-func (f *failingStdlibResourceQuerySQL) ScanTwoTextColumns(context.Context, string, []any, func(col1, col2 string) error) error {
+func (f *failingStdlibResourceQuerySQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return ErrPgxQueryUnsupported
 }
 
@@ -286,7 +286,7 @@ type oneColumnResourceQuerySQL struct {
 	dbSQLInterface
 }
 
-func (f *oneColumnResourceQuerySQL) ScanTwoTextColumns(context.Context, string, []any, func(col1, col2 string) error) error {
+func (f *oneColumnResourceQuerySQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return ErrPgxQueryUnsupported
 }
 
@@ -299,7 +299,7 @@ type failingScanTwoTextColumnsSQL struct {
 	err error
 }
 
-func (f *failingScanTwoTextColumnsSQL) ScanTwoTextColumns(context.Context, string, []any, func(col1, col2 string) error) error {
+func (f *failingScanTwoTextColumnsSQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return f.err
 }
 
@@ -309,7 +309,7 @@ type forceStdlibOneColumnQuerySQL struct {
 	dbSQLInterface
 }
 
-func (f *forceStdlibOneColumnQuerySQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+func (f *forceStdlibOneColumnQuerySQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return ErrPgxQueryUnsupported
 }
 
@@ -318,7 +318,7 @@ type failingStdlibOneColumnQuerySQL struct {
 	queryErr error
 }
 
-func (f *failingStdlibOneColumnQuerySQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+func (f *failingStdlibOneColumnQuerySQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return ErrPgxQueryUnsupported
 }
 
@@ -331,7 +331,7 @@ type failingScanOneTextColumnSQL struct {
 	err error
 }
 
-func (f *failingScanOneTextColumnSQL) ScanOneTextColumn(context.Context, string, []any, func(col1 string) error) error {
+func (f *failingScanOneTextColumnSQL) ScanTextColumns(context.Context, string, []any, int, func(cols []string) error) error {
 	return f.err
 }
 
