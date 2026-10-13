@@ -377,6 +377,7 @@ func (cad *cadEngine) UpdatePackageRevision(
 			return result, err
 		}
 		// Lifecycle transitions must be blocked when render fails.
+		// This ensures Published packages never have failing renders.
 		// The push-on-render-failure annotation only allows resource persistence.
 		return nil, fmt.Errorf("cannot update package with failed render: %w", renderErr)
 	}

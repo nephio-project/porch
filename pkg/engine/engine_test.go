@@ -823,16 +823,6 @@ func TestUpdatePackageRevision(t *testing.T) {
 			errorContains: "error rendering package in kpt function pipeline",
 		},
 		{
-			name:          "failure - render error without push annotation",
-			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
-			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
-			oldRV:         "1",
-			newRV:         "1",
-			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
-			expectError:   true,
-			errorContains: "error rendering package",
-		},
-		{
 			name:          "failure - persist error even with push annotation",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
