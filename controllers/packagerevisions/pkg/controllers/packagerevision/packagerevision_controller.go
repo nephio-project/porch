@@ -291,7 +291,7 @@ func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Con
 }
 
 // verifyRepoMigrated errors if the target repo lacks the v1alpha2-migration annotation.
-func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repoKey repository.RepositoryKey) error {
+func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repoKey key.RepositoryKey) error {
 	var repo configapi.Repository
 	if err := r.Get(ctx, types.NamespacedName{Namespace: repoKey.Namespace, Name: repoKey.Name}, &repo); err != nil {
 		return fmt.Errorf("get repository %s/%s: %w", repoKey.Namespace, repoKey.Name, err)

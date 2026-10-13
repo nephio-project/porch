@@ -2112,7 +2112,7 @@ func TestSyncKptfileFieldsParseError(t *testing.T) {
 }
 
 func TestVerifyRepoMigrated(t *testing.T) {
-	repoKey := repository.RepositoryKey{Namespace: "default", Name: "my-repo"}
+	repoKey := key.RepositoryKey{Namespace: "default", Name: "my-repo"}
 	getRepo := func(annotated bool) func(context.Context, types.NamespacedName, client.Object, ...client.GetOption) {
 		return func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
 			repo := configapi.Repository{ObjectMeta: metav1.ObjectMeta{Name: "my-repo", Namespace: "default"}}
