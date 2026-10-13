@@ -16,10 +16,14 @@ package key
 
 import apiutil "github.com/kptdev/porch/api/util"
 
+// ComposePkgObjName returns the Package object name repo.path.package.
+// Slashes in the package path become dots.
 func ComposePkgObjName(key PackageKey) string {
 	return apiutil.ComposePkgObjName(key.RKey().Name, key.Path, key.Package)
 }
 
+// ComposePkgRevObjName returns the PackageRevision object name
+// repo.path.package.workspace. The revision number is not part of the name.
 func ComposePkgRevObjName(key PackageRevisionKey) string {
 	return apiutil.ComposePkgRevObjName(key.RKey().Name, key.PKey().Path, key.PKey().Package, key.WorkspaceName)
 }

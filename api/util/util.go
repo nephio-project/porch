@@ -27,6 +27,8 @@ import (
 
 const invalidConst string = " is invalid: "
 
+// Revision2Int parses a revision such as "3" or "v3".
+// It returns -1 when the value is not an integer; -1 is the main revision.
 func Revision2Int(revisionStr string) int {
 	revisionStr = strings.TrimPrefix(revisionStr, "v")
 
@@ -37,10 +39,12 @@ func Revision2Int(revisionStr string) int {
 	}
 }
 
+// Revision2Str formats a revision number without a "v" prefix.
 func Revision2Str(revision int) string {
 	return strconv.Itoa(revision)
 }
 
+// ValidateK8SName checks that k8sName is an RFC 1123 DNS label.
 func ValidateK8SName(k8sName string) error {
 	if k8sNameErrs := validation.IsDNS1123Label(k8sName); k8sNameErrs != nil {
 		return errors.New(strings.Join(k8sNameErrs, ","))
@@ -49,8 +53,10 @@ func ValidateK8SName(k8sName string) error {
 	return nil
 }
 
+// ValidateDirectoryName checks that directory is an RFC 1123 DNS label
+// with '/' allowed as a separator. When mandatory is false, an empty
+// directory (including "/") is valid.
 func ValidateDirectoryName(directory string, mandatory bool) error {
-	// A directory must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
 	var dirErrs []string
 	if strings.Contains(directory, "//") {
 		dirErrs = append(dirErrs, "consecutive '/' characters are not allowed")
@@ -70,8 +76,9 @@ func ValidateDirectoryName(directory string, mandatory bool) error {
 	}
 }
 
+// ValidateRepository checks that repoName is an RFC 1123 DNS label and
+// that directory is a valid repository directory. An empty directory is allowed.
 func ValidateRepository(repoName, directory string) error {
-	// The repo name must follow the rules for RFC 1123 DNS labels
 	nameErrs := validation.IsDNS1123Label(repoName)
 
 	dirErr := ValidateDirectoryName(directory, false)
@@ -94,6 +101,8 @@ func ValidateRepository(repoName, directory string) error {
 	return errors.New(repoErrString + dirErrString)
 }
 
+// ComposePkgObjName builds a Package object name, repo.path.package, with
+// '/' in path replaced by '.'. It returns "" when repoName or packageName is empty.
 func ComposePkgObjName(repoName, path, packageName string) string {
 	if len(repoName) == 0 || len(packageName) == 0 {
 		return ""
@@ -104,6 +113,9 @@ func ComposePkgObjName(repoName, path, packageName string) string {
 	return fmt.Sprintf("%s.%s", repoName, dottedPath)
 }
 
+// ComposePkgRevObjName builds a PackageRevision object name,
+// repo.path.package.workspace. It returns "" when repoName, packageName,
+// or workspace is empty. The revision number is not included.
 func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
 	if len(repoName) == 0 || len(packageName) == 0 || len(workspace) == 0 {
 		return ""
@@ -113,6 +125,7 @@ func ComposePkgRevObjName(repoName, path, packageName, workspace string) string 
 	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
 }
 
+// ValidPkgObjName checks that the composed Package object name is a DNS-1123 subdomain.
 func ValidPkgObjName(repoName, path, packageName string) error {
 	errSlice := validPkgNamePart(repoName, path, packageName)
 
@@ -132,6 +145,8 @@ func ValidPkgObjName(repoName, path, packageName string) error {
 	}
 }
 
+// ValidPkgRevObjName checks that workspace is a DNS-1123 label and that the
+// composed PackageRevision object name is a DNS-1123 subdomain.
 func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	errSlice := validPkgNamePart(repoName, path, packageName)
 
@@ -177,6 +192,9 @@ func validPkgNamePart(repoName, path, packageName string) []string {
 	return errSlice
 }
 
+// GetPRWorkspaceName returns the workspace suffix of a PackageRevision object name.
+// A trailing semver (".v1.2.3") is kept intact, including its dots; otherwise
+// the suffix is the segment after the last dot. It returns "" when k8sName has no '.'.
 func GetPRWorkspaceName(k8sName string) string {
 	if !strings.Contains(k8sName, ".") {
 		return ""
@@ -189,6 +207,9 @@ func GetPRWorkspaceName(k8sName string) string {
 	}
 }
 
+// SplitIn3OnDelimiter splits splitee into exactly three parts: head, middle, and tail.
+// One segment yields [s, "", ""]; two yield [first, "", last]. Further segments
+// are rejoined into middle, so a dotted package path stays in the middle.
 func SplitIn3OnDelimiter(splitee, delimiter string) []string {
 	splitSlice := make([]string, 3)
 
