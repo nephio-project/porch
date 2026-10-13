@@ -21,7 +21,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
-	key2 "github.com/kptdev/porch/api/porch/key"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -111,14 +111,14 @@ func TestPackageContentWrapper_GetLock(t *testing.T) {
 
 func TestDraftSlimWrapper_Key(t *testing.T) {
 	mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
-	key := key2.PackageRevisionKey{
-		PkgKey:        key2.PackageKey{Package: testPkg},
+	k := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	}
-	mockDraft.EXPECT().Key().Return(key)
+	mockDraft.EXPECT().Key().Return(k)
 
 	w := &draftSlimWrapper{inner: mockDraft}
-	assert.Equal(t, key, w.Key())
+	assert.Equal(t, k, w.Key())
 }
 
 func TestDraftSlimWrapper_UpdateLifecycle(t *testing.T) {

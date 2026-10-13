@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	key2 "github.com/kptdev/porch/api/porch/key"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -28,9 +28,9 @@ import (
 
 func TestLoadOrCreate_Success(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
-	repo, err := m.LoadOrCreate(key, func() (repository.Repository, error) {
+	repo, err := m.LoadOrCreate(k, func() (repository.Repository, error) {
 		mock := &mockrepository.MockRepository{}
 		mock.On("KubeObjectName").Return("created")
 		return mock, nil
@@ -42,7 +42,7 @@ func TestLoadOrCreate_Success(t *testing.T) {
 
 func TestLoadOrCreate_Reuse(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -50,8 +50,8 @@ func TestLoadOrCreate_Reuse(t *testing.T) {
 		return &mockrepository.MockRepository{}, nil
 	}
 
-	repo1, err1 := m.LoadOrCreate(key, create)
-	repo2, err2 := m.LoadOrCreate(key, create)
+	repo1, err1 := m.LoadOrCreate(k, create)
+	repo2, err2 := m.LoadOrCreate(k, create)
 
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
@@ -61,7 +61,7 @@ func TestLoadOrCreate_Reuse(t *testing.T) {
 
 func TestLoadOrCreate_ErrorRetry(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -73,12 +73,12 @@ func TestLoadOrCreate_ErrorRetry(t *testing.T) {
 	}
 
 	// First call should fail
-	repo1, err1 := m.LoadOrCreate(key, create)
+	repo1, err1 := m.LoadOrCreate(k, create)
 	assert.Error(t, err1)
 	assert.Nil(t, repo1)
 
 	// Second call should succeed (retry)
-	repo2, err2 := m.LoadOrCreate(key, create)
+	repo2, err2 := m.LoadOrCreate(k, create)
 	assert.NoError(t, err2)
 	assert.NotNil(t, repo2)
 	assert.Equal(t, int32(2), atomic.LoadInt32(&callCount))
@@ -86,7 +86,7 @@ func TestLoadOrCreate_ErrorRetry(t *testing.T) {
 
 func TestLoadOrCreate_Concurrent(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -102,7 +102,7 @@ func TestLoadOrCreate_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			repo, err := m.LoadOrCreate(key, create)
+			repo, err := m.LoadOrCreate(k, create)
 			assert.NoError(t, err)
 			results[idx] = repo
 		}(i)
@@ -121,7 +121,7 @@ func TestLoadOrCreate_Concurrent(t *testing.T) {
 
 func TestLoadOrCreate_ConcurrentError(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	var callCount int32
 	create := func() (repository.Repository, error) {
@@ -134,7 +134,7 @@ func TestLoadOrCreate_ConcurrentError(t *testing.T) {
 
 	for range goroutines {
 		wg.Go(func() {
-			_, err := m.LoadOrCreate(key, create)
+			_, err := m.LoadOrCreate(k, create)
 			assert.Error(t, err)
 		})
 	}
@@ -150,45 +150,45 @@ func TestLoadOrCreate_ConcurrentError(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	// Load non-existent key
-	repo, ok := m.Load(key)
+	repo, ok := m.Load(k)
 	assert.False(t, ok)
 	assert.Nil(t, repo)
 
 	// Create a repo
-	m.LoadOrCreate(key, func() (repository.Repository, error) {
+	m.LoadOrCreate(k, func() (repository.Repository, error) {
 		return &mockrepository.MockRepository{}, nil
 	})
 
 	// Load existing key
-	repo, ok = m.Load(key)
+	repo, ok = m.Load(k)
 	assert.True(t, ok)
 	assert.NotNil(t, repo)
 }
 
 func TestLoadAndDelete(t *testing.T) {
 	m := &SafeRepoMap{}
-	key := key2.RepositoryKey{Name: "test-repo"}
+	k := key.RepositoryKey{Name: "test-repo"}
 
 	// LoadAndDelete non-existent key
-	repo, ok := m.LoadAndDelete(key)
+	repo, ok := m.LoadAndDelete(k)
 	assert.False(t, ok)
 	assert.Nil(t, repo)
 
 	// Create a repo
-	m.LoadOrCreate(key, func() (repository.Repository, error) {
+	m.LoadOrCreate(k, func() (repository.Repository, error) {
 		return &mockrepository.MockRepository{}, nil
 	})
 
 	// LoadAndDelete existing key
-	repo, ok = m.LoadAndDelete(key)
+	repo, ok = m.LoadAndDelete(k)
 	assert.True(t, ok)
 	assert.NotNil(t, repo)
 
 	// Verify it's deleted
-	repo, ok = m.Load(key)
+	repo, ok = m.Load(k)
 	assert.False(t, ok)
 }
 
@@ -196,14 +196,14 @@ func TestRange(t *testing.T) {
 	m := &SafeRepoMap{}
 
 	// Create multiple repos
-	keys := []key2.RepositoryKey{
+	keys := []key.RepositoryKey{
 		{Name: "repo1"},
 		{Name: "repo2"},
 		{Name: "repo3"},
 	}
 
-	for _, key := range keys {
-		m.LoadOrCreate(key, func() (repository.Repository, error) {
+	for _, k := range keys {
+		m.LoadOrCreate(k, func() (repository.Repository, error) {
 			return &mockrepository.MockRepository{}, nil
 		})
 	}
