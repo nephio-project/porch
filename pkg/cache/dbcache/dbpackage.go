@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
@@ -33,7 +34,7 @@ var _ repository.Package = &dbPackage{}
 
 type dbPackage struct {
 	repo      *dbRepository
-	pkgKey    repository.PackageKey
+	pkgKey    key.PackageKey
 	meta      metav1.ObjectMeta
 	spec      *porchapi.PackageSpec
 	updated   time.Time
@@ -41,7 +42,7 @@ type dbPackage struct {
 }
 
 func (p *dbPackage) KubeObjectName() string {
-	return repository.ComposePkgObjName(p.Key())
+	return key.ComposePkgObjName(p.Key())
 }
 
 func (p *dbPackage) KubeObjectNamespace() string {
@@ -52,7 +53,7 @@ func (p *dbPackage) UID() types.UID {
 	return util.GenerateUid("dbPackage:", p.KubeObjectNamespace(), p.KubeObjectName())
 }
 
-func (p *dbPackage) Key() repository.PackageKey {
+func (p *dbPackage) Key() key.PackageKey {
 	return p.pkgKey
 }
 

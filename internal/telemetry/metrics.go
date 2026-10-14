@@ -18,9 +18,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	porchcontext "github.com/kptdev/porch/pkg/util/context"
 	"github.com/kptdev/porch/pkg/util/datasize"
 	"go.opentelemetry.io/otel"
@@ -183,7 +183,7 @@ func RecordExternalRepoRequestCount(ctx context.Context, op string) {
 	)
 }
 
-func RecordPackageRevisionResourcesSize(ctx context.Context, prKey repository.PackageRevisionKey, resourcesSize int64) {
+func RecordPackageRevisionResourcesSize(ctx context.Context, prKey key.PackageRevisionKey, resourcesSize int64) {
 	prPath := func() string {
 		if prKey.PKey().Path != "" {
 			return prKey.PKey().Path + "/"

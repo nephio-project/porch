@@ -18,6 +18,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/testutil"
@@ -544,8 +545,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 	}
 
 	// Prepare test data with mixed text and binary files
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "test-pkg",
 		},
@@ -589,10 +590,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	// Execute cacheExternalPRs, should succeed without failing due to binary file
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
@@ -637,8 +638,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "text-pkg",
 		},
@@ -682,10 +683,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
 	t.Require().NoError(err)
@@ -727,8 +728,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "allbin-pkg",
 		},
@@ -771,10 +772,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	// Should not return error
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
@@ -811,8 +812,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "empty-pkg",
 		},
@@ -852,10 +853,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
 	t.Require().NoError(err, "empty resources should not cause error")
@@ -890,8 +891,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "nul-pkg",
 		},
@@ -935,10 +936,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
 	t.Require().NoError(err, "sync should not fail due to NUL byte content")
@@ -982,8 +983,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "path-pkg",
 		},
@@ -1027,10 +1028,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
 	t.Require().NoError(err, "sync should not fail due to invalid filepath")
@@ -1074,8 +1075,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
 		repo: testRepo,
 	}
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "nilres-pkg",
 		},
@@ -1109,10 +1110,10 @@ func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		prKey: fakeExtPR,
 	}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	// Should not panic or return error
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
@@ -1132,27 +1133,27 @@ func (t *DbTestSuite) TestComparePRMaps() {
 	s := &repositorySync{repo: testRepo}
 	repoKey := testRepo.Key()
 
-	keyA := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repoKey, Package: "pkg-a"},
+	keyA := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: repoKey, Package: "pkg-a"},
 		Revision:      1,
 		WorkspaceName: "ws1",
 	}
-	keyB := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repoKey, Package: "pkg-b"},
+	keyB := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: repoKey, Package: "pkg-b"},
 		Revision:      1,
 		WorkspaceName: "ws1",
 	}
-	keyC := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repoKey, Package: "pkg-c"},
+	keyC := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: repoKey, Package: "pkg-c"},
 		Revision:      1,
 		WorkspaceName: "ws1",
 	}
 
-	leftMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	leftMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		keyA: nil, // left only
 		keyB: nil, // in both
 	}
-	rightMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	rightMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		keyB: nil, // in both
 		keyC: nil, // right only
 	}
@@ -1178,8 +1179,8 @@ func (t *DbTestSuite) TestComparePRMaps_EmptyMaps() {
 
 	leftOnly, both, rightOnly := s.comparePRMaps(
 		t.Context(),
-		map[repository.PackageRevisionKey]repository.PackageRevision{},
-		map[repository.PackageRevisionKey]repository.PackageRevision{},
+		map[key.PackageRevisionKey]repository.PackageRevision{},
+		map[key.PackageRevisionKey]repository.PackageRevision{},
 	)
 
 	t.Empty(leftOnly)
@@ -1195,18 +1196,18 @@ func (t *DbTestSuite) TestComparePRMaps_AllInBoth() {
 	s := &repositorySync{repo: testRepo}
 	repoKey := testRepo.Key()
 
-	key1 := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repoKey, Package: "pkg-1"},
+	key1 := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: repoKey, Package: "pkg-1"},
 		Revision:      1,
 		WorkspaceName: "ws1",
 	}
-	key2 := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repoKey, Package: "pkg-2"},
+	key2 := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: repoKey, Package: "pkg-2"},
 		Revision:      2,
 		WorkspaceName: "ws2",
 	}
 
-	sharedMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	sharedMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		key1: nil,
 		key2: nil,
 	}
@@ -1224,8 +1225,8 @@ func (t *DbTestSuite) TestSanitizeResources_NilInput() {
 	defer t.deleteTestRepo(testRepo.Key())
 
 	s := &repositorySync{repo: testRepo}
-	prKey := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
+	prKey := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
 		Revision:      1,
 		WorkspaceName: "ws",
 	}
@@ -1240,8 +1241,8 @@ func (t *DbTestSuite) TestSanitizeResources_NilResourceMap() {
 	defer t.deleteTestRepo(testRepo.Key())
 
 	s := &repositorySync{repo: testRepo}
-	prKey := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
+	prKey := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
 		Revision:      1,
 		WorkspaceName: "ws",
 	}
@@ -1257,8 +1258,8 @@ func (t *DbTestSuite) TestSanitizeResources_FiltersInvalidContent() {
 	defer t.deleteTestRepo(testRepo.Key())
 
 	s := &repositorySync{repo: testRepo}
-	prKey := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
+	prKey := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
 		Revision:      1,
 		WorkspaceName: "ws",
 	}
@@ -1291,8 +1292,8 @@ func (t *DbTestSuite) TestSanitizeResources_AllValid() {
 	defer t.deleteTestRepo(testRepo.Key())
 
 	s := &repositorySync{repo: testRepo}
-	prKey := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
+	prKey := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: testRepo.Key(), Package: "pkg"},
 		Revision:      1,
 		WorkspaceName: "ws",
 	}
@@ -1335,8 +1336,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsRevision0Published() {
 	repoSync := &repositorySync{repo: testRepo}
 
 	// revision=0 with Published lifecycle is an invalid combination that should be skipped
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "r0pub-pkg",
 		},
@@ -1377,8 +1378,8 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsRevision0Published() {
 		},
 	}
 
-	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{prKey: fakeExtPR}
-	inExternalOnly := []repository.PackageRevisionKey{prKey}
+	extPRMap := map[key.PackageRevisionKey]repository.PackageRevision{prKey: fakeExtPR}
+	inExternalOnly := []key.PackageRevisionKey{prKey}
 
 	// Should succeed and silently skip the invalid PR
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
@@ -1447,7 +1448,7 @@ func (t *DbTestSuite) TestHandleInCachedOnly_DeletesPublishedCachedOnly() {
 	t.Len(prList, 2, "PR should exist before calling handleInCachedOnly (workspace PR + main branch PR created on publish)")
 
 	cachedPrMap := repository.PrSlice2Map(prList)
-	inCachedOnly := []repository.PackageRevisionKey{dbPR.Key()}
+	inCachedOnly := []key.PackageRevisionKey{dbPR.Key()}
 
 	// Call handleInCachedOnly – should delete the cached-only workspace PR.
 	err = repoSync.handleInCachedOnly(ctx, cachedPrMap, inCachedOnly)
@@ -1510,10 +1511,10 @@ func (t *DbTestSuite) TestHandleInCachedOnly_DraftNotPushed_PushDraftsToGitFalse
 	cachedPRTyped := dbPR.(*dbPackageRevision)
 	t.False(hasBeenPushedToGit(cachedPRTyped), "new draft should not have been pushed to git")
 
-	cachedPrMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+	cachedPrMap := map[key.PackageRevisionKey]repository.PackageRevision{
 		dbPR.Key(): cachedPRTyped,
 	}
-	inCachedOnly := []repository.PackageRevisionKey{dbPR.Key()}
+	inCachedOnly := []key.PackageRevisionKey{dbPR.Key()}
 
 	// Should not delete the Draft PR since pushDraftsToGit=false means it is kept
 	err = repoSync.handleInCachedOnly(ctx, cachedPrMap, inCachedOnly)
@@ -1550,8 +1551,8 @@ func (t *DbTestSuite) TestDeleteCachedOnlyPR_AlreadyDeleted() {
 	repoSync := &repositorySync{repo: testRepo}
 
 	// Key for a PR that has never been persisted to the DB
-	nonExistentKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	nonExistentKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: testRepo.Key(),
 			Package: "nonexistent-pkg",
 		},

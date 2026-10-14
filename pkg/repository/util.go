@@ -18,13 +18,12 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"strconv"
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
-	"github.com/kptdev/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -95,30 +94,8 @@ func AnyBlockOwnerDeletionSet(obj metav1.ObjectMeta) bool {
 	return false
 }
 
-func Revision2Int(revisionStr string) int {
-	revisionStr = strings.TrimPrefix(revisionStr, "v")
-
-	if revision, err := strconv.Atoi(revisionStr); err == nil {
-		return revision
-	} else {
-		return -1
-	}
-}
-
-func Revision2Str(revision int) string {
-	return strconv.Itoa(revision)
-}
-
-func ComposePkgObjName(key PackageKey) string {
-	return util.ComposePkgObjName(key.RKey().Name, key.Path, key.Package)
-}
-
-func ComposePkgRevObjName(key PackageRevisionKey) string {
-	return util.ComposePkgRevObjName(key.RKey().Name, key.PKey().Path, key.PKey().Package, key.WorkspaceName)
-}
-
-func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevision {
-	prMap := make(map[PackageRevisionKey]PackageRevision)
+func PrSlice2Map(prSlice []PackageRevision) map[key.PackageRevisionKey]PackageRevision {
+	prMap := make(map[key.PackageRevisionKey]PackageRevision)
 
 	for _, pr := range prSlice {
 		prMap[pr.Key()] = pr

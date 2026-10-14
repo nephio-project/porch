@@ -19,6 +19,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 )
@@ -31,7 +32,7 @@ type draftSlimWrapper struct {
 
 var _ repository.PackageRevisionDraftSlim = &draftSlimWrapper{}
 
-func (d *draftSlimWrapper) Key() repository.PackageRevisionKey {
+func (d *draftSlimWrapper) Key() key.PackageRevisionKey {
 	return d.inner.Key()
 }
 
@@ -79,7 +80,7 @@ type packageContentWrapper struct {
 
 var _ repository.PackageContent = &packageContentWrapper{}
 
-func (p *packageContentWrapper) Key() repository.PackageRevisionKey {
+func (p *packageContentWrapper) Key() key.PackageRevisionKey {
 	return p.inner.Key()
 }
 

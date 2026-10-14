@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -355,7 +355,7 @@ status:
 		Return(nil)
 	mockClient.EXPECT().Status().Return(mockStatusWriter)
 
-	r.syncKptfileFields(t.Context(), pr, renderedResources, repository.RepositoryKey{})
+	r.syncKptfileFields(t.Context(), pr, renderedResources, key.RepositoryKey{})
 	// Should not panic and patches should be called
 }
 
@@ -372,7 +372,7 @@ func TestSyncKptfileFieldsParseErrorE2E(t *testing.T) {
 
 	// Should handle parse error gracefully without panicking or patching
 	mockClient.AssertNotCalled(t, "Patch")
-	r.syncKptfileFields(t.Context(), pr, renderedResources, repository.RepositoryKey{})
+	r.syncKptfileFields(t.Context(), pr, renderedResources, key.RepositoryKey{})
 }
 
 func TestSyncKptfileFieldsMissingKptfile(t *testing.T) {
@@ -390,7 +390,7 @@ func TestSyncKptfileFieldsMissingKptfile(t *testing.T) {
 	// Should detect missing Kptfile and log error without patching
 	mockClient.AssertNotCalled(t, "Patch")
 	mockClient.AssertNotCalled(t, "Status")
-	r.syncKptfileFields(t.Context(), pr, renderedResources, repository.RepositoryKey{})
+	r.syncKptfileFields(t.Context(), pr, renderedResources, key.RepositoryKey{})
 }
 
 func TestSyncKptfileFieldsEmptyKptfile(t *testing.T) {
@@ -407,7 +407,7 @@ func TestSyncKptfileFieldsEmptyKptfile(t *testing.T) {
 
 	// Empty Kptfile (kf.Kind == "") should log error
 	mockClient.AssertNotCalled(t, "Patch")
-	r.syncKptfileFields(t.Context(), pr, renderedResources, repository.RepositoryKey{})
+	r.syncKptfileFields(t.Context(), pr, renderedResources, key.RepositoryKey{})
 }
 
 func TestSyncKptfileFieldsEmptyResources(t *testing.T) {
@@ -422,7 +422,7 @@ func TestSyncKptfileFieldsEmptyResources(t *testing.T) {
 
 	// Should detect missing Kptfile and log error
 	mockClient.AssertNotCalled(t, "Patch")
-	r.syncKptfileFields(t.Context(), pr, renderedResources, repository.RepositoryKey{})
+	r.syncKptfileFields(t.Context(), pr, renderedResources, key.RepositoryKey{})
 }
 
 // TestValidateRenderStateBeforePublishBlocksWhenRenderInProgress blocks publish if render active.
@@ -519,7 +519,7 @@ func TestVerifyResourcesAvailable_SuccessFirstAttempt(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -531,7 +531,7 @@ func TestVerifyResourcesAvailable_SuccessFirstAttempt(t *testing.T) {
 		},
 	}
 
-	resources, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	resources, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResources, resources)
@@ -554,11 +554,11 @@ func TestVerifyResourcesAvailable_RetrySuccess(t *testing.T) {
 
 	// First call fails, second succeeds
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(nil, errors.New("cache miss")).
 		Once()
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -570,7 +570,7 @@ func TestVerifyResourcesAvailable_RetrySuccess(t *testing.T) {
 		},
 	}
 
-	resources, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	resources, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResources, resources)
@@ -583,7 +583,7 @@ func TestVerifyResourcesAvailable_RetryExhaustion(t *testing.T) {
 
 	// All three attempts fail
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(nil, errors.New("cache unavailable")).
 		Times(3)
 
@@ -595,7 +595,7 @@ func TestVerifyResourcesAvailable_RetryExhaustion(t *testing.T) {
 		},
 	}
 
-	_, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	_, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "after 3 attempts")
@@ -613,7 +613,7 @@ func TestVerifyResourcesAvailable_EmptyResources(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -625,7 +625,7 @@ func TestVerifyResourcesAvailable_EmptyResources(t *testing.T) {
 		},
 	}
 
-	_, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	_, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no resources found")
@@ -643,7 +643,7 @@ func TestVerifyResourcesAvailable_GetResourceContentsError(t *testing.T) {
 
 	mockCache := mockrepository.NewMockContentCache(t)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -655,7 +655,7 @@ func TestVerifyResourcesAvailable_GetResourceContentsError(t *testing.T) {
 		},
 	}
 
-	_, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	_, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load resources")
@@ -674,7 +674,7 @@ func TestVerifyResourcesAvailable_RetryDelayRespectsCancellation(t *testing.T) {
 
 	// First call succeeds (no delay)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -688,7 +688,7 @@ func TestVerifyResourcesAvailable_RetryDelayRespectsCancellation(t *testing.T) {
 
 	// Test with a generous timeout - should succeed immediately
 	start := time.Now()
-	_, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	_, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 	duration := time.Since(start)
 
 	assert.NoError(t, err)
@@ -709,11 +709,11 @@ func TestVerifyResourcesAvailable_MultipleRetries(t *testing.T) {
 
 	// First two attempts fail, third succeeds
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(nil, errors.New("cache miss")).
 		Times(2)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -725,7 +725,7 @@ func TestVerifyResourcesAvailable_MultipleRetries(t *testing.T) {
 		},
 	}
 
-	resources, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	resources, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resources)
@@ -750,11 +750,11 @@ func TestVerifyResourcesAvailable_FinalRetrySucceeds(t *testing.T) {
 
 	// First two attempts fail, final (third) attempt succeeds
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(nil, errors.New("cache miss")).
 		Times(2)
 	mockCache.EXPECT().
-		GetPackageContent(context.Background(), repository.RepositoryKey{}, "test-pkg", "v1").
+		GetPackageContent(context.Background(), key.RepositoryKey{}, "test-pkg", "v1").
 		Return(mockContent, nil).
 		Once()
 
@@ -766,7 +766,7 @@ func TestVerifyResourcesAvailable_FinalRetrySucceeds(t *testing.T) {
 		},
 	}
 
-	resources, err := reconciler.verifyResourcesAvailable(context.Background(), repository.RepositoryKey{}, pr)
+	resources, err := reconciler.verifyResourcesAvailable(context.Background(), key.RepositoryKey{}, pr)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResources, resources)

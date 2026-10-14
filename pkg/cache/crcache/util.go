@@ -20,11 +20,12 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 )
 
-func identifyLatestRevisions(ctx context.Context, result map[repository.PackageRevisionKey]*cachedPackageRevision) {
+func identifyLatestRevisions(ctx context.Context, result map[key.PackageRevisionKey]*cachedPackageRevision) {
 	// Compute the latest among the different revisions of the same package.
 	// The map is keyed by the package name; Values are the latest revision found so far.
 
@@ -63,7 +64,7 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 }
 
 func toPackageRevisionSlice(
-	ctx context.Context, cached map[repository.PackageRevisionKey]*cachedPackageRevision, filter repository.ListPackageRevisionFilter) []repository.PackageRevision {
+	ctx context.Context, cached map[key.PackageRevisionKey]*cachedPackageRevision, filter repository.ListPackageRevisionFilter) []repository.PackageRevision {
 	result := make([]repository.PackageRevision, 0, len(cached))
 	for _, p := range cached {
 		if filter.Matches(ctx, p) {
@@ -86,7 +87,7 @@ func toPackageRevisionSlice(
 	return result
 }
 
-func toPackageSlice(cached map[repository.PackageKey]*cachedPackage, filter repository.ListPackageFilter) []repository.Package {
+func toPackageSlice(cached map[key.PackageKey]*cachedPackage, filter repository.ListPackageFilter) []repository.Package {
 	result := make([]repository.Package, 0, len(cached))
 	for _, p := range cached {
 		if filter.Matches(p) {

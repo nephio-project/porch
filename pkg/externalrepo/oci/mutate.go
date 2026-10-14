@@ -34,9 +34,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/kptdev/kpt/pkg/oci"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
+	apiutil "github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/pkg/repository"
-	"github.com/kptdev/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,14 +53,14 @@ func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(r.Key().Name, "/", packageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := apiutil.ValidPkgRevObjName(r.Key().Name, "/", packageName, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	// digestName := ImageDigestName{}
 	return &ociPackageRevisionDraft{
-		prKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		prKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Package: packageName,
 			},
 		},
@@ -100,8 +101,8 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	return &ociPackageRevisionDraft{
-		prKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		prKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Package: packageName,
 			},
 		},
@@ -115,7 +116,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 }
 
 type ociPackageRevisionDraft struct {
-	prKey     repository.PackageRevisionKey
+	prKey     key.PackageRevisionKey
 	parent    *ociRepository
 	metadata  metav1.ObjectMeta
 	tasks     []porchapi.Task
@@ -203,7 +204,7 @@ func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new porch
 	return nil
 }
 
-func (p *ociPackageRevisionDraft) Key() repository.PackageRevisionKey {
+func (p *ociPackageRevisionDraft) Key() key.PackageRevisionKey {
 	return p.prKey
 }
 
@@ -246,8 +247,8 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				r := p.parent
 				// Finalize the package revision. Assign it a revision number of latest + 1.
 				revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-					Key: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
+					Key: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
 							Package: p.Key().PkgKey.Package,
 						},
 					},
@@ -263,7 +264,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 					}
 				}
 				revision = highestRev + 1
-				addendum.Annotations[annotationKeyRevision] = repository.Revision2Str(revision)
+				addendum.Annotations[annotationKeyRevision] = apiutil.Revision2Str(revision)
 			}
 		}
 	}

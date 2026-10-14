@@ -23,6 +23,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
@@ -58,16 +59,16 @@ func (g GitSuite) TestLock(t *testing.T) {
 		t.Fatalf("Failed to list packages from %q: %v", tarfile, err)
 	}
 
-	wantRefs := map[repository.PackageRevisionKey]string{
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
+	wantRefs := map[key.PackageRevisionKey]string{
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
 
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  g.branch,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   g.branch,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: g.branch,
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  g.branch,
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   g.branch,
+		{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: g.branch,
 	}
 
 	for _, rev := range revisions {
@@ -133,9 +134,9 @@ func (g GitSuite) TestLock(t *testing.T) {
 
 func TestPackageGetters(t *testing.T) {
 	gitPr := gitPackageRevision{
-		prKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		prKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name:      "my-repo",
 					Namespace: "my-namespace",
 				},
@@ -242,9 +243,9 @@ func (g GitSuite) openSimpleEmptyPackage(t *testing.T) (context.Context, reposit
 	require.NoError(t, err)
 
 	return ctx, findPackageRevision(t, revisions, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: simpleRepositoryName,
 				},
 				Package: emptyPackageName,

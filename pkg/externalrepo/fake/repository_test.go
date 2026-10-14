@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ import (
 
 func TestRepositoryFunctions(t *testing.T) {
 	fakeRepo := Repository{
-		key: repository.RepositoryKey{
+		key: key.RepositoryKey{
 			Name:      "my-repo",
 			Namespace: "my-namespace",
 		},
@@ -58,7 +59,7 @@ func TestRepositoryFunctions(t *testing.T) {
 	assert.Equal(t, 0, len(pkgRevs))
 
 	fakePkg := FakePackage{
-		PkgKey: repository.PackageKey{
+		PkgKey: key.PackageKey{
 			RepoKey: fakeRepo.key,
 			Package: "my-package",
 		},
@@ -70,7 +71,7 @@ func TestRepositoryFunctions(t *testing.T) {
 	assert.Equal(t, 1, len(pkgs))
 
 	fakePR := FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
+		PrKey: key.PackageRevisionKey{
 			PkgKey:        fakePkg.Key(),
 			WorkspaceName: "my-workspace",
 		},

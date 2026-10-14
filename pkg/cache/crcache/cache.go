@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/crcache/meta"
 	"github.com/kptdev/porch/pkg/cache/repomap"
@@ -69,7 +70,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	return cachedRepo, nil
 }
 
-func (c *Cache) createRepository(ctx context.Context, key repository.RepositoryKey, repositorySpec *configapi.Repository) (repository.Repository, error) {
+func (c *Cache) createRepository(ctx context.Context, key key.RepositoryKey, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	klog.Infof("Creating repository : %v", key)
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
@@ -112,12 +113,12 @@ func (c *Cache) EvictCachedRepository(ctx context.Context, namespace, name strin
 	defer span.End()
 
 	var found bool
-	c.repositories.Range(func(key, value any) bool {
-		repoKey := key.(repository.RepositoryKey)
+	c.repositories.Range(func(k, v any) bool {
+		repoKey := k.(key.RepositoryKey)
 		if repoKey.Namespace == namespace && repoKey.Name == name {
 			c.repositories.LoadAndDelete(repoKey)
-			if value != nil {
-				cachedRepo := value.(*cachedRepository)
+			if v != nil {
+				cachedRepo := v.(*cachedRepository)
 				cachedRepo.refreshWg.Wait()
 				if cachedRepo.repo != nil {
 					if err := cachedRepo.repo.Close(ctx); err != nil {
@@ -149,7 +150,7 @@ func (c *Cache) GetRepositories() []*configapi.Repository {
 	return repoSlice
 }
 
-func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+func (c *Cache) GetRepository(repoKey key.RepositoryKey) repository.Repository {
 	repo, _ := c.repositories.Load(repoKey)
 	return repo
 }

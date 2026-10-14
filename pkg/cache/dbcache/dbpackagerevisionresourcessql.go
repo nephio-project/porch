@@ -20,14 +20,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/internal/telemetry"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
-func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, resKey string) (string, string, error) {
+func pkgRevResourceReadFromDB(ctx context.Context, prk key.PackageRevisionKey, resKey string) (string, string, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceReadFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -54,7 +54,7 @@ func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisio
 	return resKey, resVal, err
 }
 
-func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, selector selector.PRRGet) (map[string]string, error) {
+func pkgRevResourcesReadFromDB(ctx context.Context, prk key.PackageRevisionKey, selector selector.PRRGet) (map[string]string, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesReadFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -104,7 +104,7 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisi
 	return resources, nil
 }
 
-func pkgRevResourcesQuerySQL(prk repository.PackageRevisionKey, selector selector.PRRGet) (string, []any) {
+func pkgRevResourcesQuerySQL(prk key.PackageRevisionKey, selector selector.PRRGet) (string, []any) {
 	if selector.IsAllFiles() {
 		return `SELECT resource_key, resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`,
 			[]any{prk.K8SNS(), prk.K8SName()}
@@ -113,7 +113,7 @@ func pkgRevResourcesQuerySQL(prk repository.PackageRevisionKey, selector selecto
 		[]any{prk.K8SNS(), prk.K8SName(), selector.FilePaths}
 }
 
-func pkgRevResourcesDbQuery(ctx context.Context, prk repository.PackageRevisionKey, selector selector.PRRGet) (*sql.Rows, error) {
+func pkgRevResourcesDbQuery(ctx context.Context, prk key.PackageRevisionKey, selector selector.PRRGet) (*sql.Rows, error) {
 	sqlStatement, args := pkgRevResourcesQuerySQL(prk, selector)
 	if selector.IsAllFiles() {
 		klog.V(6).Infof("pkgRevResourcesReadFromDB: running query %q on package revision %+v", sqlStatement, prk)
@@ -164,7 +164,7 @@ func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error 
 	return tx.Commit()
 }
 
-func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) error {
+func pkgRevResourcesDeleteFromDB(ctx context.Context, prk key.PackageRevisionKey) error {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 

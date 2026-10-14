@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/kptdev/kpt/pkg/oci"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,8 +47,8 @@ func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 	meta := draftPr.GetMeta()
 	assert.Equal(t, "", meta.Name)
 
-	draftPrKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	draftPrKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			Package: "my-package-name",
 		},
 	}

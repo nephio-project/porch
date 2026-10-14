@@ -27,10 +27,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	configapi2 "github.com/kptdev/porch/api/porchconfig/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -652,7 +652,7 @@ func (t *TestSuite) normalizeYamlOrdering(contents string) string {
 	return stable.String()
 }
 
-func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionList, name repository.PackageRevisionKey) *porchapi.PackageRevision {
+func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionList, name key.PackageRevisionKey) *porchapi.PackageRevision {
 	t.T().Helper()
 	for i := range packages.Items {
 		pr := &packages.Items[i]
