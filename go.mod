@@ -5,7 +5,7 @@ go 1.26.5
 replace k8s.io/apiserver v0.37.0 => ./third_party/k8s.io/apiserver-v0.37.0
 
 // TODO: Comment the line below out when the next version of the API is released.
- replace github.com/kptdev/porch/api => ./api
+// replace github.com/kptdev/porch/api => ./api
 
 require (
 	cloud.google.com/go/iam v1.11.0
@@ -26,7 +26,7 @@ require (
 	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.5
 	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.6
 	github.com/kptdev/krm-functions-sdk/go/fn v1.1.1
-	github.com/kptdev/porch/api v1.0.3
+	github.com/kptdev/porch/api v1.0.4-pre.2
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.44.0
 	github.com/pkg/errors v0.9.1
@@ -52,7 +52,6 @@ require (
 	google.golang.org/genproto v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.0
 	k8s.io/apimachinery v0.37.0
@@ -68,6 +67,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.21.1
 	sigs.k8s.io/yaml v1.6.0
 )
+
+require gopkg.in/yaml.v2 v2.4.0 // indirect
 
 require (
 	cel.dev/expr v0.25.2 // indirect
