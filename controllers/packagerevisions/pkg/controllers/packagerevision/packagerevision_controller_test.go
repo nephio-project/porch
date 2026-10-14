@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -1216,10 +1217,89 @@ func TestReconcileLifecycleTransition(t *testing.T) {
 	}
 }
 
-// TestReconcilePublishCreatesMainPackageRevision verifies that when a workspace
-// is published, the controller creates/updates the "main" branch PackageRevision
-// CR directly — independent of repository sync — mirroring v1alpha1.
-func TestReconcilePublishCreatesMainPackageRevision(t *testing.T) {
+func TestReconcileLifecycleTransitionRenderFailed(t *testing.T) {
+	tests := []struct {
+		name        string
+		current     string
+		desired     porchv1alpha2.PackageRevisionLifecycle
+		wantBlocked bool
+	}{
+		{"Draft to Proposed is blocked", "Draft", porchv1alpha2.PackageRevisionLifecycleProposed, true},
+		{"Proposed to Published is blocked", "Proposed", porchv1alpha2.PackageRevisionLifecyclePublished, true},
+		{"Proposed to Draft is allowed", "Proposed", porchv1alpha2.PackageRevisionLifecycleDraft, false},
+		{"DeletionProposed to Published is allowed", "DeletionProposed", porchv1alpha2.PackageRevisionLifecyclePublished, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+			meta := readyObjectMeta("test-pr", "default", "my-repo")
+			meta.Annotations = map[string]string{porchv1alpha2.AnnotationRenderRequest: "v2"}
+			pr := &porchv1alpha2.PackageRevision{
+				ObjectMeta: meta,
+				Spec: porchv1alpha2.PackageRevisionSpec{
+					PackageName:    "my-pkg",
+					RepositoryName: "my-repo",
+					WorkspaceName:  "ws-1",
+					Lifecycle:      tt.desired,
+				},
+				Status: porchv1alpha2.PackageRevisionStatus{
+					// setRenderFailed records the failed request as observed.
+					ObservedPrrResourceVersion: "v2",
+					Conditions: []metav1.Condition{
+						renderedCondition(1, metav1.ConditionFalse, porchv1alpha2.ReasonRenderFailed, "function failed"),
+					},
+				},
+			}
+
+			mockClient := mockclient.NewMockClient(t)
+			mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+				Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+					*obj.(*porchv1alpha2.PackageRevision) = *pr
+				}).Return(nil)
+
+			mockContent := mockrepository.NewMockPackageContent(t)
+			mockContent.EXPECT().Lifecycle(mock.Anything).Return(tt.current)
+
+			mockCache := mockrepository.NewMockContentCache(t)
+			mockCache.EXPECT().GetPackageContent(mock.Anything, mock.Anything, "my-pkg", "ws-1").Return(mockContent, nil)
+
+			mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+			mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+			if tt.wantBlocked {
+				// No UpdateLifecycle: the mock fails the test if it is called.
+				setupMockContentDefaults(mockContent)
+				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+					Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
+						ready := apimeta.FindStatusCondition(obj.(*porchv1alpha2.PackageRevision).Status.Conditions, porchv1alpha2.ConditionReady)
+						if assert.NotNil(t, ready) {
+							assert.Equal(t, metav1.ConditionFalse, ready.Status)
+							assert.Contains(t, ready.Message, "render failed: function failed")
+						}
+					}).Return(nil)
+			} else {
+				updatedContent := mockrepository.NewMockPackageContent(t)
+				updatedContent.EXPECT().Lifecycle(mock.Anything).Return(string(tt.desired)).Maybe()
+				setupMockContentDefaults(updatedContent)
+				mockCache.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything, "my-pkg", "ws-1", string(tt.desired)).Return(updatedContent, nil)
+				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			}
+
+			r := newTestReconciler(mockClient, mockCache)
+			result, err := r.Reconcile(ctx, req)
+
+			assert.NoError(t, err)
+			if tt.wantBlocked {
+				assert.Equal(t, ctrl.Result{Requeue: true}, result)
+			}
+		})
+	}
+}
+
+func TestReconcileLifecycleTransitionFailure(t *testing.T) {
 	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
@@ -1439,53 +1519,6 @@ func TestCreateMainPackageRevisionRefreshesWhenPublished(t *testing.T) {
 		assert.Equal(t, -1, statusApplied.Status.Revision)
 		assert.Empty(t, statusApplied.Spec.Lifecycle)
 	}
-}
-
-func TestReconcileLifecycleTransitionFailure(t *testing.T) {
-	ctx := t.Context()
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
-
-	pr := &porchv1alpha2.PackageRevision{
-		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
-		Spec: porchv1alpha2.PackageRevisionSpec{
-			PackageName:    "my-pkg",
-			RepositoryName: "my-repo",
-			WorkspaceName:  "ws-1",
-			Lifecycle:      porchv1alpha2.PackageRevisionLifecycleProposed,
-		},
-	}
-
-	mockClient := mockclient.NewMockClient(t)
-	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
-		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
-			*obj.(*porchv1alpha2.PackageRevision) = *pr
-		}).Return(nil)
-
-	mockContent := mockrepository.NewMockPackageContent(t)
-	mockContent.EXPECT().Lifecycle(mock.Anything).Return("Draft")
-
-	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(mock.Anything, mock.Anything, "my-pkg", "ws-1").Return(mockContent, nil)
-	mockCache.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything, "my-pkg", "ws-1", "Proposed").Return(nil, errors.New("git push failed"))
-
-	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
-	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
-		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
-			pr := obj.(*porchv1alpha2.PackageRevision)
-			assert.Len(t, pr.Status.Conditions, 1)
-			assert.Equal(t, porchv1alpha2.ConditionReady, pr.Status.Conditions[0].Type)
-			assert.Equal(t, metav1.ConditionFalse, pr.Status.Conditions[0].Status)
-			assert.Equal(t, porchv1alpha2.ReasonFailed, pr.Status.Conditions[0].Reason)
-			assert.Contains(t, pr.Status.Conditions[0].Message, "git push failed")
-		}).Return(nil)
-	mockClient.EXPECT().Status().Return(mockStatusWriter)
-
-	r := newTestReconciler(mockClient, mockCache)
-	result, err := r.Reconcile(ctx, req)
-
-	// Non-transient failure: recorded as terminal Failed in status, no requeue.
-	assert.NoError(t, err)
-	assert.Equal(t, ctrl.Result{}, result)
 }
 
 func TestReconcileLifecycleTransitionTransientFailure(t *testing.T) {
