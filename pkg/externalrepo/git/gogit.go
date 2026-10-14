@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt Authors
+// Copyright 2022, 2026 The kpt Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	pkgerrors "github.com/pkg/errors"
 )
 
@@ -59,7 +60,7 @@ func openRepository(path string, opts GitRepositoryOptions) (*git.Repository, er
 
 	const (
 		defaultRepoCacheSizeMiB = 8
-		defaultMaxFileSize      = 512 * 1024
+		defaultMaxFileSize      = 512 * datasize.KB
 	)
 	cacheSizeMiB := opts.GoGitRepoCacheSize
 	if cacheSizeMiB <= 0 {

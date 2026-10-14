@@ -7,9 +7,10 @@ package cachetypes
 import (
 	"context"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/mock"
 )
 
 // NewMockCache creates a new instance of MockCache. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -341,7 +342,7 @@ func (_c *MockCache_GetRepositories_Call) RunAndReturn(run func() []*v1alpha1.Re
 }
 
 // GetRepository provides a mock function for the type MockCache
-func (_mock *MockCache) GetRepository(repositoryKey repository.RepositoryKey) repository.Repository {
+func (_mock *MockCache) GetRepository(repositoryKey key.RepositoryKey) repository.Repository {
 	ret := _mock.Called(repositoryKey)
 
 	if len(ret) == 0 {
@@ -349,7 +350,7 @@ func (_mock *MockCache) GetRepository(repositoryKey repository.RepositoryKey) re
 	}
 
 	var r0 repository.Repository
-	if returnFunc, ok := ret.Get(0).(func(repository.RepositoryKey) repository.Repository); ok {
+	if returnFunc, ok := ret.Get(0).(func(key.RepositoryKey) repository.Repository); ok {
 		r0 = returnFunc(repositoryKey)
 	} else {
 		if ret.Get(0) != nil {
@@ -370,11 +371,11 @@ func (_e *MockCache_Expecter) GetRepository(repositoryKey interface{}) *MockCach
 	return &MockCache_GetRepository_Call{Call: _e.mock.On("GetRepository", repositoryKey)}
 }
 
-func (_c *MockCache_GetRepository_Call) Run(run func(repositoryKey repository.RepositoryKey)) *MockCache_GetRepository_Call {
+func (_c *MockCache_GetRepository_Call) Run(run func(repositoryKey key.RepositoryKey)) *MockCache_GetRepository_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 repository.RepositoryKey
+		var arg0 key.RepositoryKey
 		if args[0] != nil {
-			arg0 = args[0].(repository.RepositoryKey)
+			arg0 = args[0].(key.RepositoryKey)
 		}
 		run(
 			arg0,
@@ -388,7 +389,7 @@ func (_c *MockCache_GetRepository_Call) Return(repository1 repository.Repository
 	return _c
 }
 
-func (_c *MockCache_GetRepository_Call) RunAndReturn(run func(repositoryKey repository.RepositoryKey) repository.Repository) *MockCache_GetRepository_Call {
+func (_c *MockCache_GetRepository_Call) RunAndReturn(run func(repositoryKey key.RepositoryKey) repository.Repository) *MockCache_GetRepository_Call {
 	_c.Call.Return(run)
 	return _c
 }

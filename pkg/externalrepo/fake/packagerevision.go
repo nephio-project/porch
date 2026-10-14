@@ -19,6 +19,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
@@ -29,7 +30,7 @@ import (
 
 // Implementation of the repository.PackageRevision interface for testing.
 type FakePackageRevision struct {
-	PrKey            repository.PackageRevisionKey
+	PrKey            key.PackageRevisionKey
 	Meta             *metav1.ObjectMeta
 	Uid              types.UID
 	PackageLifecycle porchapi.PackageRevisionLifecycle
@@ -45,7 +46,7 @@ var _ repository.PackageRevisionDraft = &FakePackageRevision{}
 
 func (fpr *FakePackageRevision) KubeObjectName() string {
 	fpr.Ops = append(fpr.Ops, "KubeObjectName")
-	return repository.ComposePkgRevObjName(fpr.Key())
+	return key.ComposePkgRevObjName(fpr.Key())
 }
 
 func (fpr *FakePackageRevision) KubeObjectNamespace() string {
@@ -70,7 +71,7 @@ func (fpr *FakePackageRevision) ResourceVersion() string {
 	return fpr.PackageRevision.ResourceVersion
 }
 
-func (fpr *FakePackageRevision) Key() repository.PackageRevisionKey {
+func (fpr *FakePackageRevision) Key() key.PackageRevisionKey {
 	fpr.Ops = append(fpr.Ops, "Key")
 	return fpr.PrKey
 }

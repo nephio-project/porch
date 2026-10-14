@@ -26,6 +26,7 @@ import (
 	"github.com/kptdev/porch/pkg/cache/contentcache"
 	"github.com/kptdev/porch/pkg/engine"
 	porch "github.com/kptdev/porch/pkg/registry/porch"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -35,7 +36,7 @@ const (
 	defaultMaxConcurrentRenders       = 20
 	defaultRenderRequeueDelay         = 2 * time.Second
 	defaultRepoOperationRetryAttempts = 3
-	defaultMaxGRPCMessageSize         = 6 * 1024 * 1024 // 6MB
+	defaultMaxGRPCMessageSize         = 6 * datasize.MB
 )
 
 func (r *PackageRevisionReconciler) InitDefaults() {
@@ -51,7 +52,7 @@ func (r *PackageRevisionReconciler) BindFlags(prefix string, flags *flag.FlagSet
 	flags.IntVar(&r.MaxConcurrentRenders, prefix+"max-concurrent-renders", defaultMaxConcurrentRenders, "Maximum number of concurrent renders (0 = unbounded)")
 	flags.DurationVar(&r.RenderRequeueDelay, prefix+"render-requeue-delay", defaultRenderRequeueDelay, "Delay before requeuing when render concurrency limit is reached")
 	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
-	flags.IntVar(&r.MaxGRPCMessageSize, prefix+"max-grpc-message-size", defaultMaxGRPCMessageSize, "Maximum gRPC message size in bytes for fn-runner communication")
+	flags.Var(datasize.NewValue(&r.MaxGRPCMessageSize, defaultMaxGRPCMessageSize), prefix+"max-grpc-message-size", "Maximum gRPC message size for fn-runner communication, for example 6MB or a number of bytes")
 }
 
 // Init wires runtime dependencies (credential resolvers, renderer)

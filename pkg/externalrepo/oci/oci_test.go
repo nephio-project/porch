@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/oci"
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,9 +49,9 @@ func TestRepoGettersAndSetters(t *testing.T) {
 
 func TestPackageGettersAndSetters(t *testing.T) {
 	fakePr := ociPackageRevision{
-		prKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		prKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Namespace: "my-namespace",
 					Name:      "oci-repo-name",
 				},
@@ -60,7 +60,7 @@ func TestPackageGettersAndSetters(t *testing.T) {
 			WorkspaceName: "my-workspace",
 		},
 		parent: &ociRepository{
-			key: repository.RepositoryKey{
+			key: key.RepositoryKey{
 				Namespace: "my-namespace",
 				Name:      "oci-repo-name",
 			},

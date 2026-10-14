@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -41,8 +41,8 @@ func TestRecordPackageRevisionResourcesSize_NilInstruments(t *testing.T) {
 	defer func() { prResourceSizeHistogram = histogramBefore }()
 
 	fake :=
-		repository.PackageRevisionKey{
-			PkgKey:        repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "ns"}},
+		key.PackageRevisionKey{
+			PkgKey:        key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "ns"}},
 			WorkspaceName: "ws",
 			Revision:      1,
 		}
@@ -102,8 +102,8 @@ func TestRecordPackageRevisionResourcesSize_RecordsMetrics(t *testing.T) {
 	require.NoError(t, InitMetrics())
 
 	fake :=
-		repository.PackageRevisionKey{
-			PkgKey:        repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "test-ns"}},
+		key.PackageRevisionKey{
+			PkgKey:        key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "test-ns"}},
 			WorkspaceName: "ws",
 			Revision:      1,
 		}
@@ -304,9 +304,9 @@ func TestRecordExternalRepoRequestCount_NilInstrument(t *testing.T) {
 func TestRecordPackageRevisionResourcesSize_WithPath(t *testing.T) {
 	reader := setupMetricsTestMeterProvider(t)
 
-	fake := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{Namespace: "test-ns", Name: "repo"},
+	fake := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{Namespace: "test-ns", Name: "repo"},
 			Path:    "configs",
 			Package: "my-pkg",
 		},
@@ -326,8 +326,8 @@ func TestRecordPackageRevisionResourcesSize_VerboseLogging(t *testing.T) {
 	klog.InitFlags(nil)
 	require.NoError(t, flag.Set("v", "3"))
 
-	fake := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "test-ns"}},
+	fake := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "test-ns"}},
 		WorkspaceName: "ws",
 		Revision:      1,
 	}

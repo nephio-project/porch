@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/util"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/printers"
 )
@@ -95,7 +95,7 @@ func (r *v1alpha2Runner) findUpstreamUpdates(prs []porchv1alpha2.PackageRevision
 		} else {
 			var revisions []string
 			for _, u := range updates {
-				revisions = append(revisions, "v"+repository.Revision2Str(u.Status.Revision))
+				revisions = append(revisions, "v"+util.Revision2Str(u.Status.Revision))
 			}
 			rows = append(rows, []string{pr.Name, repoName, strings.Join(revisions, ", ")})
 		}
@@ -136,7 +136,7 @@ func (r *v1alpha2Runner) buildDownstreamRows(prs []porchv1alpha2.PackageRevision
 func (r *v1alpha2Runner) oldUpstreamRevStr(pr *porchv1alpha2.PackageRevision) string {
 	oldUpstreamName := r.findUpstreamName(pr)
 	if up := r.findPackageRevision(oldUpstreamName); up != nil {
-		return "v" + repository.Revision2Str(up.Status.Revision)
+		return "v" + util.Revision2Str(up.Status.Revision)
 	}
 	return "v0"
 }

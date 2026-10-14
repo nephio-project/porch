@@ -21,8 +21,8 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -111,14 +111,14 @@ func TestPackageContentWrapper_GetLock(t *testing.T) {
 
 func TestDraftSlimWrapper_Key(t *testing.T) {
 	mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
-	key := repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	k := key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	}
-	mockDraft.EXPECT().Key().Return(key)
+	mockDraft.EXPECT().Key().Return(k)
 
 	w := &draftSlimWrapper{inner: mockDraft}
-	assert.Equal(t, key, w.Key())
+	assert.Equal(t, k, w.Key())
 }
 
 func TestDraftSlimWrapper_UpdateLifecycle(t *testing.T) {
@@ -131,10 +131,38 @@ func TestDraftSlimWrapper_UpdateLifecycle(t *testing.T) {
 }
 
 func TestDraftSlimWrapper_UpdateResources(t *testing.T) {
-	mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
-	mockDraft.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	resources := map[string]string{"f.yaml": "data"}
 
-	w := &draftSlimWrapper{inner: mockDraft}
-	err := w.UpdateResources(context.Background(), map[string]string{"f.yaml": "data"}, "commit msg")
-	assert.NoError(t, err)
+	tests := []struct {
+		commitMsg string
+		want      porchapi.TaskType
+	}{
+		// Creation sources passed by the PackageRevision controller.
+		{commitMsg: "init", want: porchapi.TaskTypeInit},
+		{commitMsg: "clone", want: porchapi.TaskTypeClone},
+		{commitMsg: "copy", want: porchapi.TaskTypeEdit},
+		{commitMsg: "upgrade", want: porchapi.TaskTypeUpgrade},
+		// Later writes must not be recorded as a creation task.
+		{commitMsg: "rendered", want: porchapi.TaskTypeRender},
+		{commitMsg: "metadata-sync", want: porchapi.TaskTypeRender},
+		{commitMsg: "0a1b2c3d", want: porchapi.TaskTypeRender},
+		{commitMsg: "", want: porchapi.TaskTypeRender},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.commitMsg, func(t *testing.T) {
+			mockDraft := mockrepository.NewMockPackageRevisionDraft(t)
+			mockDraft.EXPECT().UpdateResources(mock.Anything,
+				mock.MatchedBy(func(prr *porchapi.PackageRevisionResources) bool {
+					return assert.ObjectsAreEqual(resources, prr.Spec.Resources)
+				}),
+				mock.MatchedBy(func(task *porchapi.Task) bool {
+					return task != nil && task.Type == tt.want
+				})).Return(nil)
+
+			w := &draftSlimWrapper{inner: mockDraft}
+			err := w.UpdateResources(context.Background(), resources, tt.commitMsg)
+			assert.NoError(t, err)
+		})
+	}
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/kptdev/porch/func/healthchecker"
 	"github.com/kptdev/porch/func/internal"
 	"github.com/kptdev/porch/internal/telemetry"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -63,7 +64,7 @@ func main() {
 	// flags for the exec runtime
 	flag.StringVar(&o.FunctionCacheDir, "functions", "./functions", "Path to cached functions.")
 	// flags for the pod runtime
-	flag.IntVar(&o.MaxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes. Keep this in sync with porch-server's corresponding argument.")
+	flag.Var(datasize.NewValue(&o.MaxGrpcMessageSize, 6*datasize.MB), "max-request-body-size", "Maximum size of grpc messages, for example 6MB or a number of bytes. Keep this in sync with porch-server's corresponding argument.")
 
 	flag.Parse()
 

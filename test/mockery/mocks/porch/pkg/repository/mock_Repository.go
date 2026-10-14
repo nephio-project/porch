@@ -7,9 +7,10 @@ package repository
 import (
 	"context"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/mock"
 )
 
 // NewMockRepository creates a new instance of MockRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -350,18 +351,18 @@ func (_c *MockRepository_DeletePackageRevision_Call) RunAndReturn(run func(ctx c
 }
 
 // Key provides a mock function for the type MockRepository
-func (_mock *MockRepository) Key() repository.RepositoryKey {
+func (_mock *MockRepository) Key() key.RepositoryKey {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Key")
 	}
 
-	var r0 repository.RepositoryKey
-	if returnFunc, ok := ret.Get(0).(func() repository.RepositoryKey); ok {
+	var r0 key.RepositoryKey
+	if returnFunc, ok := ret.Get(0).(func() key.RepositoryKey); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(repository.RepositoryKey)
+		r0 = ret.Get(0).(key.RepositoryKey)
 	}
 	return r0
 }
@@ -383,12 +384,12 @@ func (_c *MockRepository_Key_Call) Run(run func()) *MockRepository_Key_Call {
 	return _c
 }
 
-func (_c *MockRepository_Key_Call) Return(repositoryKey repository.RepositoryKey) *MockRepository_Key_Call {
+func (_c *MockRepository_Key_Call) Return(repositoryKey key.RepositoryKey) *MockRepository_Key_Call {
 	_c.Call.Return(repositoryKey)
 	return _c
 }
 
-func (_c *MockRepository_Key_Call) RunAndReturn(run func() repository.RepositoryKey) *MockRepository_Key_Call {
+func (_c *MockRepository_Key_Call) RunAndReturn(run func() key.RepositoryKey) *MockRepository_Key_Call {
 	_c.Call.Return(run)
 	return _c
 }

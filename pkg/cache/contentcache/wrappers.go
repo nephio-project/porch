@@ -19,6 +19,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 )
@@ -31,7 +32,7 @@ type draftSlimWrapper struct {
 
 var _ repository.PackageRevisionDraftSlim = &draftSlimWrapper{}
 
-func (d *draftSlimWrapper) Key() repository.PackageRevisionKey {
+func (d *draftSlimWrapper) Key() key.PackageRevisionKey {
 	return d.inner.Key()
 }
 
@@ -42,9 +43,30 @@ func (d *draftSlimWrapper) UpdateResources(ctx context.Context, resources map[st
 		},
 	}
 	task := &porchapi.Task{
-		Type: porchapi.TaskTypeEdit,
+		Type: taskTypeFor(commitMsg),
 	}
 	return d.inner.UpdateResources(ctx, prr, task)
+}
+
+// taskTypeFor maps the commit message the PackageRevision controller passes
+// to UpdateResources to the v1alpha1 task type recorded with the commit.
+// The creation sources map to the task v1alpha1 records for them. Every other
+// write (render, metadata sync, subpackage operation) is recorded as a render
+// task, as v1alpha1 does, so that it does not replace the creation task.
+func taskTypeFor(commitMsg string) porchapi.TaskType {
+	switch commitMsg {
+	case "init":
+		return porchapi.TaskTypeInit
+	case "clone":
+		return porchapi.TaskTypeClone
+	case "copy":
+		// v1alpha1 records a copy of an earlier revision as an edit task.
+		return porchapi.TaskTypeEdit
+	case "upgrade":
+		return porchapi.TaskTypeUpgrade
+	default:
+		return porchapi.TaskTypeRender
+	}
 }
 
 func (d *draftSlimWrapper) UpdateLifecycle(ctx context.Context, lifecycle string) error {
@@ -58,7 +80,7 @@ type packageContentWrapper struct {
 
 var _ repository.PackageContent = &packageContentWrapper{}
 
-func (p *packageContentWrapper) Key() repository.PackageRevisionKey {
+func (p *packageContentWrapper) Key() key.PackageRevisionKey {
 	return p.inner.Key()
 }
 

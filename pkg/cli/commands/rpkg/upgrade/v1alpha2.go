@@ -27,8 +27,8 @@ import (
 	porchapi "github.com/kptdev/porch/api/porch"
 	porchapiv1alpha1 "github.com/kptdev/porch/api/porch/v1alpha1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
+	apiutil "github.com/kptdev/porch/api/util"
 	cliutils "github.com/kptdev/porch/internal/cliutils"
-	pkgutil "github.com/kptdev/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -328,7 +328,7 @@ func buildUpgradePackageRevision(pr, oldUpstream, newUpstream *porchv1alpha2.Pac
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pr.Namespace,
-			Name:      pkgutil.ComposePkgRevObjName(pr.Spec.RepositoryName, "", pr.Spec.PackageName, workspace),
+			Name:      apiutil.ComposePkgRevObjName(pr.Spec.RepositoryName, "", pr.Spec.PackageName, workspace),
 		},
 		Spec: porchv1alpha2.PackageRevisionSpec{
 			PackageName:    pr.Spec.PackageName,

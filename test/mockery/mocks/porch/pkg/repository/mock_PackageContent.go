@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/api/kptfile/v1"
-	"github.com/kptdev/porch/pkg/repository"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/kptdev/porch/api/porch/key"
+	"github.com/stretchr/testify/mock"
 )
 
 // NewMockPackageContent creates a new instance of MockPackageContent. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -348,18 +348,18 @@ func (_c *MockPackageContent_GetUpstreamLock_Call) RunAndReturn(run func(ctx con
 }
 
 // Key provides a mock function for the type MockPackageContent
-func (_mock *MockPackageContent) Key() repository.PackageRevisionKey {
+func (_mock *MockPackageContent) Key() key.PackageRevisionKey {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Key")
 	}
 
-	var r0 repository.PackageRevisionKey
-	if returnFunc, ok := ret.Get(0).(func() repository.PackageRevisionKey); ok {
+	var r0 key.PackageRevisionKey
+	if returnFunc, ok := ret.Get(0).(func() key.PackageRevisionKey); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(repository.PackageRevisionKey)
+		r0 = ret.Get(0).(key.PackageRevisionKey)
 	}
 	return r0
 }
@@ -381,12 +381,12 @@ func (_c *MockPackageContent_Key_Call) Run(run func()) *MockPackageContent_Key_C
 	return _c
 }
 
-func (_c *MockPackageContent_Key_Call) Return(packageRevisionKey repository.PackageRevisionKey) *MockPackageContent_Key_Call {
+func (_c *MockPackageContent_Key_Call) Return(packageRevisionKey key.PackageRevisionKey) *MockPackageContent_Key_Call {
 	_c.Call.Return(packageRevisionKey)
 	return _c
 }
 
-func (_c *MockPackageContent_Key_Call) RunAndReturn(run func() repository.PackageRevisionKey) *MockPackageContent_Key_Call {
+func (_c *MockPackageContent_Key_Call) RunAndReturn(run func() key.PackageRevisionKey) *MockPackageContent_Key_Call {
 	_c.Call.Return(run)
 	return _c
 }

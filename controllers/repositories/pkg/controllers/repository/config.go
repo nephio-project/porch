@@ -23,6 +23,7 @@ import (
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/repositories/pkg/webhooks"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -36,8 +37,8 @@ const (
 	defaultSyncStaleTimeout           = 20 * time.Minute
 	defaultRepoOperationRetryAttempts = 3
 	defaultCacheDirectory             = "/cache"
-	defaultGoGitRepoCacheSize         = 8              // MiB
-	defaultGoGitCacheMaxFileSize      = 1 * 1024 * 512 // bytes (512 KiB)
+	defaultGoGitRepoCacheSize         = 8 // MiB
+	defaultGoGitCacheMaxFileSize      = 512 * datasize.KB
 )
 
 // InitDefaults initializes default values for standalone controller
@@ -69,7 +70,7 @@ func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
 	flags.BoolVar(&r.CreateV1Alpha2Rpkg, prefix+"create-v1alpha2-rpkg", false, "Create v1alpha2 PackageRevision resources during repository sync")
 	flags.BoolVar(&r.PushDraftsToGit, prefix+"push-drafts-to-git", false, "Push draft and proposed branches to git when using DB cache")
 	flags.IntVar(&r.GoGitRepoCacheSize, prefix+"gogit-repo-cache-size", defaultGoGitRepoCacheSize, "Size of the in-memory cache for git repositories when using gogit (in MiB)")
-	flags.Int64Var(&r.GoGitCacheMaxFileSize, prefix+"gogit-cache-max-file-size", defaultGoGitCacheMaxFileSize, "Maximum file size (in bytes) that will be read into the in-memory cache for git repositories when using gogit; files larger than this will be streamed from disk")
+	flags.Var(datasize.NewValue(&r.GoGitCacheMaxFileSize, defaultGoGitCacheMaxFileSize), prefix+"gogit-cache-max-file-size", "Maximum file size, for example 512KB or a number of bytes, that will be read into the in-memory cache for git repositories when using gogit; files larger than this will be streamed from disk")
 }
 
 // validateConfig ensures configuration values are valid

@@ -21,7 +21,7 @@ import (
 
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/util"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/printers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,7 +77,7 @@ func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositorie
 		} else {
 			var revisions []string
 			for _, update := range availableUpdates {
-				revisions = append(revisions, "v"+repository.Revision2Str(update.Spec.Revision))
+				revisions = append(revisions, "v"+util.Revision2Str(update.Spec.Revision))
 			}
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, strings.Join(revisions, ", ")})
 		}
@@ -127,7 +127,7 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.Locator, repositories *
 		currentUpstreamRevision = 0
 		draftName = upstreamLock.Git.Ref[lastIndex+1:]
 	} else {
-		currentUpstreamRevision = repository.Revision2Int(upstreamLock.Git.Ref[lastIndex+1:])
+		currentUpstreamRevision = util.Revision2Int(upstreamLock.Git.Ref[lastIndex+1:])
 	}
 
 	// upstream.git.ref could look like drafts/pkgname/version or pkgname/version

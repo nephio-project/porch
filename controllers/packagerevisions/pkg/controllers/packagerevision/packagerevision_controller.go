@@ -16,13 +16,16 @@ package packagerevision
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
+	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/controllers/sharding"
 	"github.com/kptdev/porch/internal/telemetry"
@@ -30,6 +33,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -104,7 +108,7 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Spec.RepositoryName,
 	}
@@ -152,7 +156,7 @@ func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *
 	return nil, r.ensureFinalizerAndOwner(ctx, pr)
 }
 
-func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	desired := string(pr.Spec.Lifecycle)
 
@@ -215,7 +219,18 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 // Returns (nil, nil) if no source needs to be applied.
 // Returns (result, nil) if source was applied and status was updated.
 // Returns (nil, err) on failure.
-func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
+	// Skip if already created or no source to apply (same conditions as applySource).
+	if pr.Status.CreationSource != "" || pr.Spec.Source == nil {
+		return nil, nil
+	}
+
+	// Reject source execution on repos missing the v1alpha2-migration annotation,
+	// before applySource so no source work runs. Backstops the webhook if bypassed.
+	if err := r.verifyRepoMigrated(ctx, repoKey); err != nil {
+		return nil, r.setFailedConditionsAndLog(ctx, pr, "", err)
+	}
+
 	resources, sourceOperationType, err := r.applySource(ctx, pr)
 	if err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, sourceOperationType, err)
@@ -240,7 +255,7 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 // Returns (nil, nil) if no source needs to be applied.
 // Returns (result, nil) if source was applied and status was updated.
 // Returns (nil, err) on failure.
-func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	subpackageResources, subpackageOperationType, err := r.applySubpackageOperation(ctx, pr)
 	if err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, subpackageOperationType, err)
@@ -290,6 +305,18 @@ func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Con
 	return r.finalizeDraftAndUpdateStatus(ctx, pr, repoKey, draft, parentResources, "", r.getSubpackageOperationHash(pr))
 }
 
+// verifyRepoMigrated errors if the target repo lacks the v1alpha2-migration annotation.
+func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repoKey key.RepositoryKey) error {
+	var repo configapi.Repository
+	if err := r.Get(ctx, types.NamespacedName{Namespace: repoKey.Namespace, Name: repoKey.Name}, &repo); err != nil {
+		return fmt.Errorf("get repository %s/%s: %w", repoKey.Namespace, repoKey.Name, err)
+	}
+	if repo.Annotations[configapi.AnnotationKeyV1Alpha2Migration] != configapi.AnnotationValueMigrationEnabled {
+		return fmt.Errorf("repository %s/%s not enabled for v1alpha2", repoKey.Namespace, repoKey.Name)
+	}
+	return nil
+}
+
 // finalizeDraftAndUpdateStatus completes the draft operation by updating resources,
 // closing the draft, and updating the package revision status.
 // The status patch (which records CreationSource / LastSubpackageOperationHash) is
@@ -299,7 +326,7 @@ func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Con
 func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 	ctx context.Context,
 	pr *porchv1alpha2.PackageRevision,
-	repoKey repository.RepositoryKey,
+	repoKey key.RepositoryKey,
 	draft repository.PackageRevisionDraftSlim,
 	resources map[string]string,
 	creationSource string,
@@ -352,7 +379,7 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 // TODO: Consider centralising all ctrl.Result creation in packagerevision_controller.go
 // so requeue decisions are visible in one place. Sub-functions would return signals
 // and the controller translates them into ctrl.Result.
-func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	if r.Renderer == nil {
 		return nil, nil
 	}

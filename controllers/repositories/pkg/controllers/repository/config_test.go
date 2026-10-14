@@ -22,6 +22,7 @@ import (
 	"time"
 
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	"github.com/kptdev/porch/pkg/util/datasize"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +54,29 @@ func TestBindFlags(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 100, r.MaxConcurrentReconciles)
+	assert.Equal(t, int64(defaultGoGitCacheMaxFileSize), r.GoGitCacheMaxFileSize)
+}
+
+func TestBindFlagsGoGitCacheMaxFileSize(t *testing.T) {
+	testCases := map[string]struct {
+		value    string
+		expected int64
+	}{
+		"size with unit":  {value: "2MB", expected: 2 * datasize.MB},
+		"number of bytes": {value: "2097152", expected: 2 * datasize.MB},
+		// gogit uses its default for a size that is not positive
+		"negative number": {value: "-1", expected: -1},
+	}
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			r := &RepositoryReconciler{}
+			flags := flag.NewFlagSet("test", flag.ContinueOnError)
+			r.BindFlags("repo-", flags)
+
+			require.NoError(t, flags.Parse([]string{"--repo-gogit-cache-max-file-size=" + tc.value}))
+			assert.Equal(t, tc.expected, r.GoGitCacheMaxFileSize)
+		})
+	}
 }
 
 type mockLogger struct {

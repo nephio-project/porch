@@ -12,13 +12,23 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
         id: filter
         with:
           filters: |
             code:
-              - '!docs/**'
+              - '**/*.go'
+              - 'Makefile'
+              - 'api/**'
+              - 'cmd/**'
+              - 'controllers/**'
+              - 'func/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'internal/**'
+              - 'make/**.mk'
+              - 'pkg/**'
 
   build:
     runs-on: ubuntu-latest
@@ -27,7 +37,7 @@ jobs:
     steps:
 
     - name: Checkout repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         # Disabling shallow clones is recommended for improving the relevancy of reporting
         fetch-depth: 0
@@ -41,9 +51,12 @@ jobs:
       id: test
       run: make test
 
+    - name: Combine coverage results
+      run: tail -n+2 ./api/coverage.out >> ./coverage.out
+
     - name: Archive test results
       if: steps.test.outcome == 'success'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: coverage-report
         path: ./coverage.out
@@ -54,7 +67,7 @@ jobs:
       
     - name: Archive PR number
       if: github.event_name == 'pull_request'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: PR_NUMBER
         path: PR_NUMBER.txt

@@ -24,13 +24,24 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
         id: filter
         with:
           filters: |
             code:
-              - '!docs/**'
+              - '**/Dockerfile*'
+              - 'Makefile'
+              - 'api/**'
+              - 'build/**'
+              - 'cmd/**'
+              - 'controllers/**'
+              - 'func/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'internal/**'
+              - 'make/**.mk'
+              - 'pkg/**'
 
   tests:
     name: Porch gosec scan
@@ -45,7 +56,7 @@ jobs:
       GOTOOLCHAIN: auto
     steps:
       - name: Checkout Porch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Go
         uses: kptdev/kpt/.github/actions/setup-go-kpt@main
         with:
@@ -57,7 +68,7 @@ jobs:
           GOTOOLCHAIN: auto
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4.38.0
+        uses: github/codeql-action/upload-sarif@v4.38.3
         with:
           sarif_file: gosec-results.sarif
           token: ${{ secrets.GITHUB_TOKEN }}

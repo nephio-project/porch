@@ -34,11 +34,11 @@ var _ = Describe("Migration Rollback", Ordered, func() {
 	// Known losses on rollback (by design):
 	// - Custom labels/annotations on the v1alpha2 CRD (not in git)
 	// - status.creationSource (v1alpha2-only field)
-	// - Original creation task type: v1alpha2 writes TaskTypeEdit to git
-	//   commit annotations regardless of source type, so v1alpha1 sees
-	//   tasks=[{type:"edit"}] instead of the original init/clone/copy/upgrade
+	// - Details of the creation task (e.g. the upstream of a clone): v1alpha2
+	//   records only the task type in the git commit annotation
 	//
 	// Preserved on rollback:
+	// - Creation task type (from git commit annotations)
 	// - Package content (all resource files)
 	// - Kptfile metadata (labels, annotations, readinessGates, pipeline)
 	// - Revision number (from git tags)
@@ -135,6 +135,8 @@ var _ = Describe("Migration Rollback", Ordered, func() {
 					item.Spec.Revision > 0 {
 					v1PkgName = item.Name
 					g.Expect(item.Spec.Lifecycle).To(Equal(porchapi.PackageRevisionLifecyclePublished))
+					g.Expect(item.Spec.Tasks).To(HaveLen(1))
+					g.Expect(item.Spec.Tasks[0].Type).To(Equal(porchapi.TaskTypeInit))
 					return
 				}
 			}

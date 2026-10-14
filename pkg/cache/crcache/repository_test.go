@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/testutil"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
-	"github.com/kptdev/porch/pkg/repository"
 	mockmeta "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/cache/crcache/meta"
 	mockcachetypes "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/cache/types"
 	mockrepo "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
@@ -59,7 +59,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	metaMap := []metav1.ObjectMeta{}
 
-	mockRepo.On("Key").Return(repository.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
+	mockRepo.On("Key").Return(key.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
 	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
 	repoVersionCall := mockRepo.EXPECT().Version(mock.Anything).Return("v1.0", nil).Maybe()
 	repoListPRCall := mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
@@ -68,16 +68,16 @@ func TestCachedRepoRefresh(t *testing.T) {
 	metaListCall := mockMeta.EXPECT().List(mock.Anything, mock.Anything).Return(metaMap, nil).Maybe()
 	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(0).Maybe()
 
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: namespace,
 		Name:      repoName,
 	}
 	cr := newRepository(repoKey, &repoSpec, mockRepo, mockMeta, options)
 	assert.Equal(t, repoKey, cr.Key())
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: namespace,
 				Name:      repoName,
 			},
@@ -92,7 +92,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 		PrKey: prKey,
 	}
 
-	cr.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+	cr.cachedPackageRevisions = make(map[key.PackageRevisionKey]*cachedPackageRevision)
 	cr.cachedPackageRevisions[prKey] = &cachedPackageRevision{
 		PackageRevision:  &fpr,
 		metadataStore:    mockMeta,
@@ -207,14 +207,14 @@ func TestCRDeleteLatestRevision(t *testing.T) {
 		},
 	}
 
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: namespace,
 		Name:      repoName,
 	}
 
 	// Create two package revisions for the same package
-	prKey1 := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey1 := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: repoKey,
 			Path:    "",
 			Package: "test-package",
@@ -223,8 +223,8 @@ func TestCRDeleteLatestRevision(t *testing.T) {
 		Revision:      1,
 	}
 
-	prKey2 := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
+	prKey2 := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
 			RepoKey: repoKey,
 			Path:    "",
 			Package: "test-package",
@@ -259,11 +259,11 @@ func TestCRDeleteLatestRevision(t *testing.T) {
 		repo:                 mockRepo,
 		metadataStore:        mockMeta,
 		repoPRChangeNotifier: mockNotifier,
-		cachedPackages:       make(map[repository.PackageKey]*cachedPackage), // Initialize to enable deletion
+		cachedPackages:       make(map[key.PackageKey]*cachedPackage), // Initialize to enable deletion
 	}
 
 	// Initialize cache with two revisions
-	cr.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+	cr.cachedPackageRevisions = make(map[key.PackageRevisionKey]*cachedPackageRevision)
 	cr.cachedPackageRevisions[prKey1] = &cachedPackageRevision{
 		PackageRevision:  fpr1,
 		metadataStore:    mockMeta,
@@ -310,7 +310,7 @@ func TestCachedRepoBranchCommitHash(t *testing.T) {
 
 	repoName := "test-repo"
 	namespace := "test-ns"
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: namespace,
 		Name:      repoName,
 	}

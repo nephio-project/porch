@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 )
@@ -28,7 +29,7 @@ type PackageFetcher struct {
 }
 
 func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *porchapi.PackageRevisionRef, namespace string) (PackageRevision, error) {
-	prKey, err := PkgRevK8sName2Key(namespace, packageRevisionRef.Name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, packageRevisionRef.Name)
 	if err != nil {
 		return nil, err
 	}

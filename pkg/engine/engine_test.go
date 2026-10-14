@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/repository"
@@ -100,7 +101,7 @@ func newTestFixture(t *testing.T) *testFixture {
 func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
 	mockPkgRev := &mockrepo.MockPackageRevision{}
 	// Setup common mock package revision expectations
-	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
+	mockPkgRev.On("Key").Return(key.PackageRevisionKey{})
 	mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
 	mockPkgRev.On("GetKptfile", mock.Anything).Return(kptfilev1.KptFile{}, nil)
 	mockPkgRev.On("KubeObjectName").Return("test-pkg")
@@ -135,7 +136,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
-				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
+				f.mockRepo.On("Key", mock.Anything).Return(key.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
 			},
@@ -153,7 +154,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
-				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
+				f.mockRepo.On("Key", mock.Anything).Return(key.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
@@ -170,7 +171,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
-				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
+				f.mockRepo.On("Key", mock.Anything).Return(key.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
@@ -194,7 +195,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(closedRev, nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
-				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
+				f.mockRepo.On("Key", mock.Anything).Return(key.RepositoryKey{})
 				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedError: true,
@@ -301,7 +302,7 @@ func (m *mockCache) GetRepositories() []*configapi.Repository {
 	return args.Get(0).([]*configapi.Repository)
 }
 
-func (m *mockCache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+func (m *mockCache) GetRepository(repoKey key.RepositoryKey) repository.Repository {
 	args := m.Called()
 	return args.Get(0).(repository.Repository)
 }
@@ -371,9 +372,9 @@ func TestCreatePRInitIsAdded(t *testing.T) {
 
 func TestValidateUpgradeTask(t *testing.T) {
 	oldUpstream := &fake.FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: "blueprint",
 				},
 				Package: "test-package",
@@ -388,9 +389,9 @@ func TestValidateUpgradeTask(t *testing.T) {
 
 	t.Run("Successful", func(t *testing.T) {
 		local := &fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Name: "deployment",
 					},
 					Package: "test-package",
@@ -419,9 +420,9 @@ func TestValidateUpgradeTask(t *testing.T) {
 
 	t.Run("Failure", func(t *testing.T) {
 		local := &fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
+			PrKey: key.PackageRevisionKey{
+				PkgKey: key.PackageKey{
+					RepoKey: key.RepositoryKey{
 						Name: "deployment",
 					},
 					Package: "test-package",
@@ -466,9 +467,9 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 			name: "success - existing revision in different repo",
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{
 								Name: "different-repo",
 							},
 							Package: "test-package",
@@ -483,9 +484,9 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 			name: "failure - existing revision with same package and repo",
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{
 								Name: "test-repo",
 							},
 							Package: "test-package",
@@ -530,7 +531,7 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 			f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil).Maybe()
 			f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil).Maybe()
 			f.mockRepo.On("Close", mock.Anything).Return(nil).Maybe()
-			f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{}).Maybe()
+			f.mockRepo.On("Key", mock.Anything).Return(key.RepositoryKey{}).Maybe()
 
 			f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -625,9 +626,9 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			},
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{Name: "repo1"},
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{Name: "repo1"},
 							Package: "pkg2",
 						},
 					},
@@ -645,9 +646,9 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			},
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{Name: "repo1"},
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{Name: "repo1"},
 							Package: "parent",
 						},
 					},
@@ -666,9 +667,9 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			},
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{Name: "repo1"},
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{Name: "repo1"},
 							Package: "pkg1",
 						},
 					},
@@ -687,9 +688,9 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			},
 			existingRevs: []repository.PackageRevision{
 				&fake.FakePackageRevision{
-					PrKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{Name: "repo2"},
+					PrKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
+							RepoKey: key.RepositoryKey{Name: "repo2"},
 							Package: "pkg1",
 						},
 					},
@@ -823,15 +824,6 @@ func TestUpdatePackageRevision(t *testing.T) {
 			errorContains: "error rendering package in kpt function pipeline",
 		},
 		{
-			name:         "success with render status - push annotation set",
-			oldLifecycle: porchapi.PackageRevisionLifecycleDraft,
-			newLifecycle: porchapi.PackageRevisionLifecycleDraft,
-			oldRV:        "1",
-			newRV:        "1",
-			annotations:  map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
-			renderErr:    &task.RenderError{Err: fmt.Errorf("render failed")},
-		},
-		{
 			name:          "failure - persist error even with push annotation",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
@@ -886,6 +878,39 @@ func TestUpdatePackageRevision(t *testing.T) {
 			expectError:   true,
 			errorContains: "close draft failed",
 		},
+		{
+			name:          "failure - render error blocks Draft→Proposed even with push annotation",
+			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
+			newLifecycle:  porchapi.PackageRevisionLifecycleProposed,
+			oldRV:         "1",
+			newRV:         "1",
+			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
+			expectError:   true,
+			errorContains: "cannot update package with failed render",
+		},
+		{
+			name:          "failure - render error blocks Draft→Published even with push annotation",
+			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
+			newLifecycle:  porchapi.PackageRevisionLifecyclePublished,
+			oldRV:         "1",
+			newRV:         "1",
+			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
+			expectError:   true,
+			errorContains: "cannot update package with failed render",
+		},
+		{
+			name:          "failure - render error blocks Proposed→Published even with push annotation",
+			oldLifecycle:  porchapi.PackageRevisionLifecycleProposed,
+			newLifecycle:  porchapi.PackageRevisionLifecyclePublished,
+			oldRV:         "1",
+			newRV:         "1",
+			annotations:   map[string]string{porchapi.PushOnFnRenderFailureKey: "true"},
+			renderErr:     &task.RenderError{Err: fmt.Errorf("render failed")},
+			expectError:   true,
+			errorContains: "cannot update package with failed render",
+		},
 	}
 
 	for _, tt := range tests {
@@ -928,9 +953,8 @@ func TestUpdatePackageRevision(t *testing.T) {
 						mockTaskHandler.On("DoPRMutations", mock.Anything, mockPkgRev, oldObj, newObj, mockDraft).
 							Return(&porchapi.RenderStatus{}, tt.renderErr)
 
-						pushOnRenderFailure := tt.annotations[porchapi.PushOnFnRenderFailureKey] == "true"
-						_, isRenderErr := tt.renderErr.(*task.RenderError)
-						proceedAfterRender := tt.renderErr == nil || (isRenderErr && pushOnRenderFailure)
+						// Render errors always block lifecycle transitions.
+						proceedAfterRender := tt.renderErr == nil
 						if proceedAfterRender {
 							if tt.updateLifecycleErr != nil {
 								mockDraft.On("UpdateLifecycle", mock.Anything, tt.newLifecycle).Return(tt.updateLifecycleErr)
@@ -1032,7 +1056,7 @@ func TestUpdatePackageRevisionLifecycleTransitions(t *testing.T) {
 			mockRepo := &mockrepo.MockRepository{}
 			mockCache := &mockCache{}
 			mockPkgRev := &mockrepo.MockPackageRevision{}
-			mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
+			mockPkgRev.On("Key").Return(key.PackageRevisionKey{})
 			mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
 			mockPkgRev.On("KubeObjectName").Return("test-pkg").Maybe()
 			mockPkgRev.On("KubeObjectNamespace").Return("default").Maybe()
@@ -1382,7 +1406,7 @@ func TestUpdatePackageResourcesRenderFailure(t *testing.T) {
 				},
 			}, nil)
 
-			mockPkgRev.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+			mockPkgRev.On("Key").Return(key.PackageRevisionKey{}).Maybe()
 
 			mockCache.On("OpenRepository", mock.Anything, repositoryObj).Return(mockRepo, nil)
 			mockRepo.On("UpdatePackageRevision", mock.Anything, mockPkgRev).Return(mockDraft, nil)
@@ -1530,7 +1554,7 @@ func TestUpdatePackageResourcesWithoutRender(t *testing.T) {
 			}
 
 			mockPkgRev.On("Lifecycle", mock.Anything).Return(tt.lifecycle).Maybe()
-			mockPkgRev.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+			mockPkgRev.On("Key").Return(key.PackageRevisionKey{}).Maybe()
 
 			// Only expect repo open + draft flow when we pass all pre-draft validation
 			needsDraft := !tt.skipWriteClose && tt.newRV != "" && tt.oldRV == tt.newRV &&

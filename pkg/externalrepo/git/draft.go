@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -26,7 +27,7 @@ import (
 )
 
 type gitPackageRevisionDraft struct {
-	prKey    repository.PackageRevisionKey
+	prKey    key.PackageRevisionKey
 	repo     *gitRepository // repo is repo containing the package
 	metadata metav1.ObjectMeta
 	updated  time.Time
@@ -50,7 +51,7 @@ type gitPackageRevisionDraft struct {
 
 var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
-func (d *gitPackageRevisionDraft) Key() repository.PackageRevisionKey {
+func (d *gitPackageRevisionDraft) Key() key.PackageRevisionKey {
 	return d.prKey
 }
 

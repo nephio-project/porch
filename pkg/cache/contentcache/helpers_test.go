@@ -17,6 +17,7 @@ package contentcache
 import (
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
@@ -27,12 +28,12 @@ import (
 )
 
 var (
-	testRepoKey = repository.RepositoryKey{Namespace: "ns", Name: "repo"}
+	testRepoKey = key.RepositoryKey{Namespace: "ns", Name: "repo"}
 	testPkg     = "my-pkg"
 	testWS      = "ws-1"
 
 	// Full key as produced by externalrepo.RepositoryKey for testRepoSpec.
-	testFullRepoKey = repository.RepositoryKey{Namespace: "ns", Name: "repo", Path: "", PlaceholderWSname: "main"}
+	testFullRepoKey = key.RepositoryKey{Namespace: "ns", Name: "repo", Path: "", PlaceholderWSname: "main"}
 
 	testRepoSpec = &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "repo"},
@@ -63,8 +64,8 @@ func setupCacheWithPkgRev(t *testing.T, lifecycle porchapi.PackageRevisionLifecy
 	mockGetRepo(mockCache, mockRepo)
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).
 		Return([]repository.PackageRevision{mockPkgRev}, nil).Maybe()
-	mockPkgRev.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{Package: testPkg},
+	mockPkgRev.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{Package: testPkg},
 		WorkspaceName: testWS,
 	}).Maybe()
 	mockPkgRev.EXPECT().Lifecycle(mock.Anything).Return(lifecycle).Maybe()

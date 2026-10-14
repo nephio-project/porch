@@ -22,8 +22,8 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
 	porchapi "github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -56,7 +56,7 @@ func (r *PackageRevisionReconciler) cloneFromUpstreamRef(ctx context.Context, pr
 
 	log.V(1).Info("cloning from upstream ref", "upstream", ref.Name)
 
-	repoKey := repository.RepositoryKey{Namespace: pr.Namespace, Name: sourcePR.Spec.RepositoryName}
+	repoKey := key.RepositoryKey{Namespace: pr.Namespace, Name: sourcePR.Spec.RepositoryName}
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, sourcePR.Spec.PackageName, sourcePR.Spec.WorkspaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get upstream package content: %w", err)

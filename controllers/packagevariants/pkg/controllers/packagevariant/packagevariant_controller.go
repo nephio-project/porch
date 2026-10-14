@@ -24,13 +24,12 @@ import (
 
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	"github.com/kptdev/porch/api/util"
 	pkgerrors "github.com/pkg/errors"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/krm-functions-sdk/go/fn"
-	"github.com/kptdev/porch/pkg/repository"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -652,7 +651,7 @@ func (r *PackageVariantReconciler) isUpToDate(pv *configapi.PackageVariant, down
 // revisionFromLocator extracts the revision number from a Locator's Git ref.
 func revisionFromLocator(lock *porchapi.Locator) int {
 	lastIndex := strings.LastIndex(lock.Git.Ref, "/")
-	return repository.Revision2Int(lock.Git.Ref[lastIndex+1:])
+	return util.Revision2Int(lock.Git.Ref[lastIndex+1:])
 }
 
 func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,

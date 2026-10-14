@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
@@ -36,7 +37,7 @@ func NewContentCache(cache cachetypes.Cache) repository.ContentCache {
 	return &contentCache{cache: cache}
 }
 
-func (c *contentCache) GetPackageContent(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace string) (repository.PackageContent, error) {
+func (c *contentCache) GetPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (repository.PackageContent, error) {
 	pkgRev, err := c.findPackageRevision(ctx, repoKey, pkg, workspace)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func (c *contentCache) GetPackageContent(ctx context.Context, repoKey repository
 	return &packageContentWrapper{inner: pkgRev}, nil
 }
 
-func (c *contentCache) CreateNewDraft(ctx context.Context, repoKey repository.RepositoryKey, pkgName, workspace, lifecycle string) (repository.PackageRevisionDraftSlim, error) {
+func (c *contentCache) CreateNewDraft(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace, lifecycle string) (repository.PackageRevisionDraftSlim, error) {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return nil, err
@@ -66,7 +67,7 @@ func (c *contentCache) CreateNewDraft(ctx context.Context, repoKey repository.Re
 	return &draftSlimWrapper{inner: draft}, nil
 }
 
-func (c *contentCache) CreateDraftFromExisting(ctx context.Context, repoKey repository.RepositoryKey, pkgName, workspace string) (repository.PackageRevisionDraftSlim, error) {
+func (c *contentCache) CreateDraftFromExisting(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace string) (repository.PackageRevisionDraftSlim, error) {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return nil, err
@@ -84,7 +85,7 @@ func (c *contentCache) CreateDraftFromExisting(ctx context.Context, repoKey repo
 	return &draftSlimWrapper{inner: draft}, nil
 }
 
-func (c *contentCache) CloseDraft(ctx context.Context, repoKey repository.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error {
+func (c *contentCache) CloseDraft(ctx context.Context, repoKey key.RepositoryKey, draft repository.PackageRevisionDraftSlim, version int) error {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return err
@@ -99,7 +100,7 @@ func (c *contentCache) CloseDraft(ctx context.Context, repoKey repository.Reposi
 	return err
 }
 
-func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace, desired string) (repository.PackageContent, error) {
+func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace, desired string) (repository.PackageContent, error) {
 	pkgRev, err := c.findPackageRevision(ctx, repoKey, pkg, workspace)
 	if err != nil {
 		return nil, err
@@ -154,7 +155,7 @@ func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey repository.R
 	return &packageContentWrapper{inner: closed}, nil
 }
 
-func (c *contentCache) DeletePackage(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace string) error {
+func (c *contentCache) DeletePackage(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) error {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return err
@@ -182,7 +183,7 @@ func isKnownLifecycle(lc porchv1alpha2.PackageRevisionLifecycle) bool {
 
 // getRepository resolves a partial RepositoryKey (namespace+name only) to the
 // full cache key by scanning GetRepositories(), then looks up the repo.
-func (c *contentCache) getRepository(repoKey repository.RepositoryKey) (repository.Repository, error) {
+func (c *contentCache) getRepository(repoKey key.RepositoryKey) (repository.Repository, error) {
 	for _, spec := range c.cache.GetRepositories() {
 		if spec.Namespace == repoKey.Namespace && spec.Name == repoKey.Name {
 			fullKey, err := externalrepo.RepositoryKey(spec)
@@ -197,7 +198,7 @@ func (c *contentCache) getRepository(repoKey repository.RepositoryKey) (reposito
 	return nil, fmt.Errorf("repository %s not found", repoKey)
 }
 
-func (c *contentCache) findPackageRevision(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace string) (repository.PackageRevision, error) {
+func (c *contentCache) findPackageRevision(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (repository.PackageRevision, error) {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return nil, err
@@ -205,11 +206,11 @@ func (c *contentCache) findPackageRevision(ctx context.Context, repoKey reposito
 
 	// Split the package name into path and leaf name for matching.
 	// e.g. "sub/folder/pkg" -> path="sub/folder", leafName="pkg"
-	pkgPath, leafName := repository.SplitPackagePathName(pkg)
+	pkgPath, leafName := key.SplitPackagePathName(pkg)
 
 	revisions, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey:        repository.PackageKey{Path: pkgPath, Package: leafName},
+		Key: key.PackageRevisionKey{
+			PkgKey:        key.PackageKey{Path: pkgPath, Package: leafName},
 			WorkspaceName: workspace,
 		},
 	})

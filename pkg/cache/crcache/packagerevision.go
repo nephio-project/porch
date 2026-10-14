@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/crcache/meta"
 	"github.com/kptdev/porch/pkg/repository"
@@ -45,7 +46,7 @@ type cachedPackageRevision struct {
 }
 
 func (c *cachedPackageRevision) KubeObjectName() string {
-	return repository.ComposePkgRevObjName(c.Key())
+	return key.ComposePkgRevObjName(c.Key())
 }
 
 func (c *cachedPackageRevision) KubeObjectNamespace() string {

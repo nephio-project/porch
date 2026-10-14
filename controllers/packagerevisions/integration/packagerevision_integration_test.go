@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -16,7 +17,6 @@ import (
 
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/controllers/packagerevisions/pkg/controllers/packagerevision"
-	"github.com/kptdev/porch/pkg/repository"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 )
 
@@ -101,7 +101,7 @@ var _ = Describe("PackageRevision Controller Integration", func() {
 
 			mockContent := mockrepository.NewMockPackageContent(GinkgoT())
 			mockContent.EXPECT().Lifecycle(mock.Anything).Return("Published")
-			mockContent.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+			mockContent.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 			mockContent.EXPECT().GetCommitInfo().Return(time.Time{}, "").Maybe()
 			mockCache.EXPECT().GetPackageContent(mock.Anything, mock.Anything, "test-package", "workspace-1").Return(mockContent, nil)
 
@@ -132,13 +132,13 @@ var _ = Describe("PackageRevision Controller Integration", func() {
 				fetched.Spec.Lifecycle = tc.desired
 				Expect(k8sClient.Update(ctx, &fetched)).To(Succeed())
 
-				repoKey := repository.RepositoryKey{Namespace: "default", Name: "test-repo"}
+				repoKey := key.RepositoryKey{Namespace: "default", Name: "test-repo"}
 				mockContent := mockrepository.NewMockPackageContent(GinkgoT())
 				mockContent.EXPECT().Lifecycle(mock.Anything).Return(tc.current)
 				mockCache.EXPECT().GetPackageContent(mock.Anything, repoKey, "test-package", "workspace-1").Return(mockContent, nil)
 				updatedContent := mockrepository.NewMockPackageContent(GinkgoT())
 				updatedContent.EXPECT().Lifecycle(mock.Anything).Return(string(tc.desired)).Maybe()
-				updatedContent.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+				updatedContent.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 				updatedContent.EXPECT().GetCommitInfo().Return(time.Time{}, "").Maybe()
 				mockCache.EXPECT().UpdateLifecycle(mock.Anything, repoKey, "test-package", "workspace-1", string(tc.desired)).Return(updatedContent, nil)
 
@@ -160,7 +160,7 @@ var _ = Describe("PackageRevision Controller Integration", func() {
 			fetched.Spec.Lifecycle = porchv1alpha2.PackageRevisionLifecycleProposed
 			Expect(k8sClient.Update(ctx, &fetched)).To(Succeed())
 
-			repoKey := repository.RepositoryKey{Namespace: "default", Name: "test-repo"}
+			repoKey := key.RepositoryKey{Namespace: "default", Name: "test-repo"}
 			mockContent := mockrepository.NewMockPackageContent(GinkgoT())
 			mockContent.EXPECT().Lifecycle(mock.Anything).Return("Draft")
 			mockCache.EXPECT().GetPackageContent(mock.Anything, repoKey, "test-package", "workspace-1").Return(mockContent, nil)
@@ -179,7 +179,7 @@ var _ = Describe("PackageRevision Controller Integration", func() {
 		})
 
 		It("Should set Ready=False when GetPackageContent fails", func() {
-			repoKey := repository.RepositoryKey{Namespace: "default", Name: "test-repo"}
+			repoKey := key.RepositoryKey{Namespace: "default", Name: "test-repo"}
 			mockCache.EXPECT().GetPackageContent(mock.Anything, repoKey, "test-package", "workspace-1").Return(nil, fmt.Errorf("repo not found"))
 
 			result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: nn})

@@ -17,39 +17,20 @@
 TEST_COVERAGE_FILE=coverage.out
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
 TEST_COVERAGE_FUNC_FILE=func_coverage.out
-TEST_OUTPUT_LOG_FILE=test_output.log
-TEST_COVERAGE_TMP_DIR := $(shell mktemp --directory)
 
 ##@ Testing
 
 .PHONY: unit test
 unit: test
 
-test: ## Run unit tests (go test)
-ifeq ($(CONTAINER_RUNNABLE), 0)
-	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:"$(GOLANG_BOOKWORM_VERSION)" \
-	sh -c "useradd -m -s /bin/sh porch && \
-	         mkdir -p ${TEST_COVERAGE_TMP_DIR} && chown porch:porch ${TEST_COVERAGE_TMP_DIR} && \
-	         su porch -c 'export TEST_COVERAGE_TMP_DIR=${TEST_COVERAGE_TMP_DIR}; \
-	                       export PORCHDIR=${PORCHDIR}; \
-	                       git config --global user.name test; \
-	                       git config --global user.email test@kpt.dev; \
-	                       go test -short ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
-	                       go tool cover -html=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} && \
-	                       go tool cover -func=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE}' && \
-	         cp ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE} ."
-else
-	go test -short ./... -v -coverprofile=${TEST_COVERAGE_FILE}
+test: api/test ## Run unit tests (go test)
+	go test -short ./... -v -coverprofile=${TEST_COVERAGE_FILE} -ldflags "-extldflags \"-z noexecstack\""
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
 	go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
-endif
 
 .PHONY: unit-clean
-unit-clean: ## Clean up the artifacts created by the unit tests
-ifeq ($(CONTAINER_RUNNABLE), 0)
-		$(CONTAINER_RUNTIME) system prune -f
-endif
-		rm -f ${TEST_COVERAGE_FILE} ${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_FUNC_FILE} ${TEST_OUTPUT_LOG_FILE} > /dev/null 2>&1
+unit-clean: api/unit-clean ## Clean up the artifacts created by the unit tests
+	rm -f ${TEST_COVERAGE_FILE} ${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_FUNC_FILE} > /dev/null 2>&1
 
 .PHONY: vulncheck
 vulncheck: build
@@ -104,3 +85,23 @@ test-disaster-recovery: ## Run disaster-recovery test scenarios against environm
 # To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
 #	to the `go test` command line below
 	go test -count 1 -v -failfast -timeout 60m ./test/disaster/api
+
+
+##@ OTEL Testing
+
+# Note: OTEL testing requires DB cache (PostgreSQL for full stack observability)
+# Uses lightweight v1alpha2 CRD tests to exercise components without timeouts
+
+.PHONY: test-e2e-otel
+test-e2e-otel: ## Run OTEL exporter E2E test (validates all Porch components export traces/metrics)
+test-e2e-otel: run-in-kind-v1alpha2
+	./scripts/monitoring/deploy-monitoring.sh deploy
+	./scripts/monitoring/deploy-monitoring.sh jaeger
+	kubectl wait --for=condition=ready pod -l app=jaeger -n porch-monitoring --timeout=300s || true
+	kubectl rollout status deployment/porch-server -n porch-system --timeout=300s || true
+	kubectl rollout status deployment/porch-controllers -n porch-system --timeout=300s || true
+	kubectl rollout status deployment/function-runner -n porch-system --timeout=300s || true
+	@echo "Running lightweight v1alpha2 E2E tests to exercise Porch components..."
+	E2E=1 go test -v -failfast ./test/e2e/crd -ginkgo.v -ginkgo.focus="Init|should update resources with a render pipeline" -ginkgo.label-filter='!migration'
+	@echo "E2E tests complete, validating OTEL traces and metrics..."
+	./scripts/testing/validate-otel.sh

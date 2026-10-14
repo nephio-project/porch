@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
-func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbRepository, error) {
+func repoReadFromDB(ctx context.Context, rk key.RepositoryKey) (*dbRepository, error) {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoReadFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -113,7 +113,7 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 	return err
 }
 
-func repoDeleteFromDB(ctx context.Context, rk repository.RepositoryKey) error {
+func repoDeleteFromDB(ctx context.Context, rk key.RepositoryKey) error {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
