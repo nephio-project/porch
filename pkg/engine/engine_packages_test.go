@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/repository"
@@ -31,8 +32,8 @@ import (
 func TestListPackagesReturnsPackagesFromRepository(t *testing.T) {
 	f := newTestFixture(t)
 	expected := []repository.Package{
-		&fake.FakePackage{PkgKey: repository.PackageKey{Package: "pkg-a"}},
-		&fake.FakePackage{PkgKey: repository.PackageKey{Package: "pkg-b"}},
+		&fake.FakePackage{PkgKey: key.PackageKey{Package: "pkg-a"}},
+		&fake.FakePackage{PkgKey: key.PackageKey{Package: "pkg-b"}},
 	}
 	f.mockRepo.On("ListPackages", mock.Anything, mock.Anything).Return(expected, nil)
 

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	kptfile "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
@@ -38,7 +39,7 @@ func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace:         "my-ns",
 			Name:              "my-repo",
 			Path:              "my-path",
@@ -52,7 +53,7 @@ func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
 	}
 
 	dbPkg := dbPackage{
-		pkgKey: repository.PackageKey{
+		pkgKey: key.PackageKey{
 			RepoKey: dbRepo.Key(),
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
@@ -64,7 +65,7 @@ func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
 	}
 
 	dbPR := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "my-lovely-pr",
 			Revision:      0,
@@ -123,7 +124,7 @@ func (t *DbTestSuite) TestPackageRevisionLatest() {
 	dbPkg.repo = dbRepo
 
 	dbPR1 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "my-lovely-pr-1",
 			Revision:      0,
@@ -168,7 +169,7 @@ func (t *DbTestSuite) TestPackageRevisionLatest() {
 	t.assertPackageRevsEqual(&dbPR1, latestPR)
 
 	dbPR2 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "my-lovely-pr-2",
 			Revision:      0,
@@ -189,7 +190,7 @@ func (t *DbTestSuite) TestPackageRevisionLatest() {
 	t.Equal(1, latestPR.pkgRevKey.Revision)
 
 	dbPR3 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "my-lovely-pr-3",
 			Revision:      10,
@@ -210,7 +211,7 @@ func (t *DbTestSuite) TestPackageRevisionLatest() {
 	t.Equal(10, latestPR.pkgRevKey.Revision)
 
 	dbPR4 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "my-lovely-pr-4",
 			Revision:      10,
@@ -251,7 +252,7 @@ func (t *DbTestSuite) TestPackageRevisionResources() {
 	dbPkg := t.createTestPkg(dbRepo.Key(), "my-package")
 	dbPkg.repo = dbRepo
 
-	_, _, err := pkgRevResourceReadFromDB(t.Context(), repository.PackageRevisionKey{}, "")
+	_, _, err := pkgRevResourceReadFromDB(t.Context(), key.PackageRevisionKey{}, "")
 	t.Require().ErrorContains(err, "no rows in result set")
 
 	dbPR := t.createTestPR(dbPkg.Key(), "my_pr")
@@ -326,9 +327,9 @@ func (t *DbTestSuite) TestPackageRevisionDBSchema() {
 	err := pkgRevWriteToDB(t.Context(), &dbPR)
 	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
-	dbPR.pkgRevKey = repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	dbPR.pkgRevKey = key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "my-ns",
 			},
 		},
@@ -363,7 +364,7 @@ func (t *DbTestSuite) TestPackageRevisionDBSchema() {
 	t.Require().ErrorContains(err, "violates foreign key constraint")
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace: "my-ns",
 			Name:      "my-repo",
 		},
@@ -373,7 +374,7 @@ func (t *DbTestSuite) TestPackageRevisionDBSchema() {
 	t.Require().NoError(err)
 
 	dbPkg := dbPackage{
-		pkgKey: repository.PackageKey{
+		pkgKey: key.PackageKey{
 			RepoKey: dbRepo.Key(),
 			Package: "my-package",
 		},
@@ -613,7 +614,7 @@ func (t *DbTestSuite) TestPackageRevisionFilterByKptfileLabels() {
 	dbPkg := t.createTestPkg(dbRepo.Key(), "label-pkg")
 
 	pr := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-1",
 			Revision:      1,
@@ -628,7 +629,7 @@ func (t *DbTestSuite) TestPackageRevisionFilterByKptfileLabels() {
 	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
 
 	pr2 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-2",
 			Revision:      2,
@@ -795,7 +796,7 @@ func (t *DbTestSuite) listRepoPkgPRs(pkgs []dbPackage) []*dbPackageRevision {
 
 	for _, pkg := range pkgs {
 		prFilter := repository.ListPackageRevisionFilter{
-			Key: repository.PackageRevisionKey{
+			Key: key.PackageRevisionKey{
 				PkgKey: pkg.Key(),
 			},
 		}
@@ -813,7 +814,7 @@ func (t *DbTestSuite) assertPackageRevListsEqual(left []dbPackageRevision, right
 	t.Len(left, count)
 	t.Len(right, count)
 
-	leftMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
+	leftMap := make(map[key.PackageRevisionKey]*dbPackageRevision)
 	for _, leftPr := range left {
 		resources, err := pkgRevResourcesReadFromDB(t.Context(), leftPr.Key(), selector.AllFiles)
 		t.Require().NoError(err)
@@ -822,7 +823,7 @@ func (t *DbTestSuite) assertPackageRevListsEqual(left []dbPackageRevision, right
 		leftMap[leftPr.Key()] = &leftPr
 	}
 
-	rightMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
+	rightMap := make(map[key.PackageRevisionKey]*dbPackageRevision)
 	for _, rightPr := range right {
 		rightMap[rightPr.Key()] = rightPr
 
@@ -871,7 +872,7 @@ func (t *DbTestSuite) TestFindUpstreamReference() {
 	upstreamPkg.repo = upstreamRepo
 
 	upstreamPR := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        upstreamPkg.Key(),
 			WorkspaceName: "v1",
 			Revision:      1,
@@ -935,7 +936,7 @@ func (t *DbTestSuite) TestFindUpstreamReference() {
 					}}
 				}
 				pr := dbPackageRevision{
-					pkgRevKey: repository.PackageRevisionKey{PkgKey: downstreamPkg.Key(), WorkspaceName: tt.wsName},
+					pkgRevKey: key.PackageRevisionKey{PkgKey: downstreamPkg.Key(), WorkspaceName: tt.wsName},
 					meta:      metav1.ObjectMeta{Name: fmt.Sprintf("downstream.%s.%s", tt.pkgName, tt.wsName), Namespace: "test-ns"},
 					lifecycle: porchapi.PackageRevisionLifecycleDraft,
 					tasks:     []porchapi.Task{task},
@@ -956,7 +957,7 @@ func (t *DbTestSuite) TestFindUpstreamReference() {
 	t.NoError(err)
 }
 
-func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func()) {
+func (t *DbTestSuite) setupLabelFilterTestData() (key.RepositoryKey, func()) {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
@@ -966,7 +967,7 @@ func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func
 
 	// PR with labels app=web, env=prod
 	pr1 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-1",
 			Revision:      1,
@@ -981,7 +982,7 @@ func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func
 
 	// PR with labels app=api, env=staging
 	pr2 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-2",
 			Revision:      2,
@@ -995,7 +996,7 @@ func (t *DbTestSuite) setupLabelFilterTestData() (repository.RepositoryKey, func
 	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr2))
 
 	pr3 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-3",
 			Revision:      3,
@@ -1020,7 +1021,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1034,7 +1035,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1048,7 +1049,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1061,7 +1062,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1074,7 +1075,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1088,7 +1089,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1105,7 +1106,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req, *reqExists),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1121,7 +1122,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*reqApp, *reqEnv),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1132,7 +1133,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 
 	t.Run("NilSelector", func() {
 		filter := repository.ListPackageRevisionFilter{
-			Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
 		t.Require().NoError(err)
@@ -1144,7 +1145,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1157,7 +1158,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1171,7 +1172,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1187,7 +1188,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1206,7 +1207,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*latestReq, *appReq),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1221,7 +1222,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*notLatestReq, *appReq),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1235,7 +1236,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1249,7 +1250,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1263,7 +1264,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1279,7 +1280,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1293,7 +1294,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1309,7 +1310,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1323,7 +1324,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)
@@ -1339,7 +1340,7 @@ func (t *DbTestSuite) TestPrLabelFilter() {
 		t.Require().NoError(err)
 
 		filter := repository.ListPackageRevisionFilter{
-			Key:   repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repoKey}},
+			Key:   key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: repoKey}},
 			Label: labels.NewSelector().Add(*req),
 		}
 		results, err := pkgRevListPRsFromDB(t.Context(), filter)

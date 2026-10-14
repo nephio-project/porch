@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/internal/telemetry"
 	"github.com/kptdev/porch/pkg/repository"
@@ -242,9 +243,10 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, saveErr(apierrors.NewBadRequest("spec.repositoryName is required"))
 	}
 
-	pkgKeyStruct := repository.FromFullPathname(repository.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
+	action := createAction(newApiPkgRev)
+	pkgKeyStruct := key.FromFullPathname(key.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
 
-	prName := repository.PackageRevisionKey{
+	prName := key.PackageRevisionKey{
 		PkgKey:        pkgKeyStruct,
 		WorkspaceName: newApiPkgRev.Spec.WorkspaceName,
 	}.K8SName()

@@ -18,9 +18,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	porchcontext "github.com/kptdev/porch/pkg/util/context"
 	"github.com/kptdev/porch/pkg/util/datasize"
 	"go.opentelemetry.io/otel"
@@ -254,7 +254,19 @@ func RecordExternalRepoRequestCount(ctx context.Context, op string) {
 	)
 }
 
-func RecordPackageRevisionResourcesSize(ctx context.Context, prKey repository.PackageRevisionKey, resourcesSize int64) {
+func RecordPackageRevisionResourcesSize(ctx context.Context, prKey key.PackageRevisionKey, resourcesSize int64) {
+	prPath := func() string {
+		if prKey.PKey().Path != "" {
+			return prKey.PKey().Path + "/"
+		}
+		return ""
+	}()
+	attributes := attribute.NewSet(
+		attribute.String("namespace", prKey.RKey().Namespace),
+		attribute.String("repository", prKey.RKey().Name),
+		attribute.String("package", prPath+prKey.PKey().Package),
+		attribute.String("workspace_name", prKey.WorkspaceName),
+	)
 
 	if prResourceSizeHistogram == nil {
 		klog.Warning("prResourceSizeHistogram is nil - was InitMetrics() called?")

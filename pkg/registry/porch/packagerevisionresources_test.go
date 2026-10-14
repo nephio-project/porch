@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
-	"github.com/kptdev/porch/api/porch/v1alpha1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
@@ -93,8 +93,8 @@ func TestListResources(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
-	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "repo"}},
+	mockPkgRev.On("Key").Return(key.PackageRevisionKey{
+		PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: "repo"}},
 	}).Maybe()
 	mockPkgRev.On("KubeObjectNamespace").Return("").Maybe()
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()

@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,9 +26,9 @@ import (
 
 func TestPackageRevisionGetters(t *testing.T) {
 	fakePr := FakePackageRevision{
-		PrKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		PrKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name:      "my-repo",
 					Namespace: "my-namespace",
 				},

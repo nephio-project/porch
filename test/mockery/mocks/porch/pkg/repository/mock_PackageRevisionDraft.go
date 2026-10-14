@@ -7,9 +7,9 @@ package repository
 import (
 	"context"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -85,18 +85,18 @@ func (_c *MockPackageRevisionDraft_GetMeta_Call) RunAndReturn(run func() v1.Obje
 }
 
 // Key provides a mock function for the type MockPackageRevisionDraft
-func (_mock *MockPackageRevisionDraft) Key() repository.PackageRevisionKey {
+func (_mock *MockPackageRevisionDraft) Key() key.PackageRevisionKey {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Key")
 	}
 
-	var r0 repository.PackageRevisionKey
-	if returnFunc, ok := ret.Get(0).(func() repository.PackageRevisionKey); ok {
+	var r0 key.PackageRevisionKey
+	if returnFunc, ok := ret.Get(0).(func() key.PackageRevisionKey); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(repository.PackageRevisionKey)
+		r0 = ret.Get(0).(key.PackageRevisionKey)
 	}
 	return r0
 }
@@ -118,12 +118,12 @@ func (_c *MockPackageRevisionDraft_Key_Call) Run(run func()) *MockPackageRevisio
 	return _c
 }
 
-func (_c *MockPackageRevisionDraft_Key_Call) Return(packageRevisionKey repository.PackageRevisionKey) *MockPackageRevisionDraft_Key_Call {
+func (_c *MockPackageRevisionDraft_Key_Call) Return(packageRevisionKey key.PackageRevisionKey) *MockPackageRevisionDraft_Key_Call {
 	_c.Call.Return(packageRevisionKey)
 	return _c
 }
 
-func (_c *MockPackageRevisionDraft_Key_Call) RunAndReturn(run func() repository.PackageRevisionKey) *MockPackageRevisionDraft_Key_Call {
+func (_c *MockPackageRevisionDraft_Key_Call) RunAndReturn(run func() key.PackageRevisionKey) *MockPackageRevisionDraft_Key_Call {
 	_c.Call.Return(run)
 	return _c
 }

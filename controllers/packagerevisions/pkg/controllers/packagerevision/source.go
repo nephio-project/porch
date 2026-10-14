@@ -21,8 +21,8 @@ import (
 	"github.com/kptdev/kpt/pkg/kptpkg"
 	"github.com/kptdev/kpt/pkg/printer"
 	"github.com/kptdev/kpt/pkg/printer/fake"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -112,7 +112,7 @@ func (r *PackageRevisionReconciler) copyPackage(ctx context.Context, pr *porchv1
 	}
 
 	log.V(1).Info("copying from source", "source", sourceRef.Name)
-	repoKey := repository.RepositoryKey{Namespace: pr.Namespace, Name: pr.Spec.RepositoryName}
+	repoKey := key.RepositoryKey{Namespace: pr.Namespace, Name: pr.Spec.RepositoryName}
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, sourcePR.Spec.PackageName, sourcePR.Spec.WorkspaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get source package content: %w", err)

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/internal/telemetry"
@@ -42,7 +43,7 @@ import (
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
-	repoKey              repository.RepositoryKey
+	repoKey              key.RepositoryKey
 	meta                 metav1.ObjectMeta
 	spec                 *configapi.Repository
 	externalRepo         repository.Repository
@@ -66,7 +67,7 @@ func (r *dbRepository) UID() types.UID {
 	return util.GenerateUid("repositories.", r.KubeObjectNamespace(), r.KubeObjectName())
 }
 
-func (r *dbRepository) Key() repository.RepositoryKey {
+func (r *dbRepository) Key() key.RepositoryKey {
 	return r.repoKey
 }
 
@@ -200,8 +201,8 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 
 	dbPkgRev := &dbPackageRevision{
 		repo: r,
-		pkgRevKey: repository.PackageRevisionKey{
-			PkgKey:        repository.FromFullPathname(r.Key(), newPR.Spec.PackageName),
+		pkgRevKey: key.PackageRevisionKey{
+			PkgKey:        key.FromFullPathname(r.Key(), newPR.Spec.PackageName),
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
@@ -282,7 +283,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
 
-	pk := repository.PackageKey{
+	pk := key.PackageKey{
 		RepoKey: r.Key(),
 		Path:    pr2Delete.Key().PKey().Path,
 		Package: pr2Delete.Key().PKey().Package,

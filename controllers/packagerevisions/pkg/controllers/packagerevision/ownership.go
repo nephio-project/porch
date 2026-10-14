@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/internal/telemetry"
@@ -79,7 +80,7 @@ func (r *PackageRevisionReconciler) deleteFromGit(ctx context.Context, pr *porch
 		telemetry.RecordControllerOperation(ctx, prTelemetryName, op.AllCaps, op.TitleCase+prTelemetryName, time.Since(start), err, lifecycle, &key)
 	}()
 
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Spec.RepositoryName,
 	}

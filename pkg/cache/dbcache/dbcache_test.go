@@ -24,6 +24,7 @@ import (
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/joho/godotenv"
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/testutil"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
@@ -258,7 +259,7 @@ func (t *DbTestSuite) TestDBRepositoryConnectivityCheck() {
 
 func (t *DbTestSuite) createTestRepo(namespace, name string) *dbRepository {
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace: namespace,
 			Name:      name,
 		},
@@ -277,15 +278,15 @@ func (t *DbTestSuite) createTestRepo(namespace, name string) *dbRepository {
 	return &dbRepo
 }
 
-func (t *DbTestSuite) deleteTestRepo(key repository.RepositoryKey) {
+func (t *DbTestSuite) deleteTestRepo(key key.RepositoryKey) {
 	err := repoDeleteFromDB(t.Context(), key)
 	t.NoError(err)
 }
 
-func (t *DbTestSuite) createTestPkg(repoKey repository.RepositoryKey, name string) dbPackage {
+func (t *DbTestSuite) createTestPkg(repoKey key.RepositoryKey, name string) dbPackage {
 	dbPkg := dbPackage{
 		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
-		pkgKey: repository.PackageKey{
+		pkgKey: key.PackageKey{
 			RepoKey: repoKey,
 			Package: name,
 		},
@@ -297,10 +298,10 @@ func (t *DbTestSuite) createTestPkg(repoKey repository.RepositoryKey, name strin
 	return dbPkg
 }
 
-func (t *DbTestSuite) createTestPkgWithPath(repoKey repository.RepositoryKey, name, path string) dbPackage {
+func (t *DbTestSuite) createTestPkgWithPath(repoKey key.RepositoryKey, name, path string) dbPackage {
 	dbPkg := dbPackage{
 		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
-		pkgKey: repository.PackageKey{
+		pkgKey: key.PackageKey{
 			RepoKey: repoKey,
 			Package: name,
 			Path:    path,
@@ -313,7 +314,7 @@ func (t *DbTestSuite) createTestPkgWithPath(repoKey repository.RepositoryKey, na
 	return dbPkg
 }
 
-func (t *DbTestSuite) createTestPkgs(repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
+func (t *DbTestSuite) createTestPkgs(repoKey key.RepositoryKey, namePrefix string, count int) []dbPackage {
 	var testPkgs []dbPackage
 
 	for i := range count {
@@ -323,9 +324,9 @@ func (t *DbTestSuite) createTestPkgs(repoKey repository.RepositoryKey, namePrefi
 	return testPkgs
 }
 
-func (t *DbTestSuite) createTestPR(pkgKey repository.PackageKey, name string) dbPackageRevision {
+func (t *DbTestSuite) createTestPR(pkgKey key.PackageKey, name string) dbPackageRevision {
 	dbPkgRev := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        pkgKey,
 			WorkspaceName: name,
 			Revision:      t.nextPkgRev,
@@ -395,7 +396,7 @@ func (t *DbTestSuite) TestEvictCachedRepository() {
 			dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 			t.NoError(err)
 
-			var repoKey repository.RepositoryKey
+			var repoKey key.RepositoryKey
 			if tt.setupRepo {
 				repo, err := dbCache.OpenRepository(ctx, repositorySpec)
 				t.NoError(err)

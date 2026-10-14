@@ -23,6 +23,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/functionconfigs"
@@ -97,7 +98,7 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	repoKey := repository.RepositoryKey{
+	repoKey := key.RepositoryKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Spec.RepositoryName,
 	}
@@ -145,7 +146,7 @@ func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *
 	return nil, r.ensureFinalizerAndOwner(ctx, pr)
 }
 
-func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	desiredLifecycle := pr.Spec.Lifecycle
 
@@ -244,7 +245,7 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 // Returns (nil, nil) if no source needs to be applied.
 // Returns (result, nil) if source was applied and status was updated.
 // Returns (nil, err) on failure.
-func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	op := telemetry.Operations.Create
 	key, _ := repository.PkgRevK8sName2Key(pr.Namespace, pr.Name)
 	start := time.Now()
@@ -301,7 +302,7 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 // Returns (nil, nil) if no source needs to be applied.
 // Returns (result, nil) if source was applied and status was updated.
 // Returns (nil, err) on failure.
-func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	op := telemetry.Operations.Update
 	key, _ := repository.PkgRevK8sName2Key(pr.Namespace, pr.Name)
 	start := time.Now()
@@ -372,7 +373,7 @@ func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Con
 }
 
 // verifyRepoMigrated errors if the target repo lacks the v1alpha2-migration annotation.
-func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repoKey repository.RepositoryKey) error {
+func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repoKey key.RepositoryKey) error {
 	var repo configapi.Repository
 	if err := r.Get(ctx, types.NamespacedName{Namespace: repoKey.Namespace, Name: repoKey.Name}, &repo); err != nil {
 		return fmt.Errorf("get repository %s/%s: %w", repoKey.Namespace, repoKey.Name, err)
@@ -392,7 +393,7 @@ func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repo
 func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 	ctx context.Context,
 	pr *porchv1alpha2.PackageRevision,
-	repoKey repository.RepositoryKey,
+	repoKey key.RepositoryKey,
 	draft repository.PackageRevisionDraftSlim,
 	resources map[string]string,
 	creationSource string,
@@ -443,7 +444,7 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 // TODO: Consider centralising all ctrl.Result creation in packagerevision_controller.go
 // so requeue decisions are visible in one place. Sub-functions would return signals
 // and the controller translates them into ctrl.Result.
-func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	if r.Renderer == nil {
 		return nil, nil
 	}

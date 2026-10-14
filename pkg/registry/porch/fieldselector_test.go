@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	fakeextrepo "github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/repository"
@@ -81,11 +82,11 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 		},
 		{
 			name:   "matching filter",
-			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+			filter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "foo"}}}},
 			p: &fakeextrepo.FakePackageRevision{
-				PrKey: repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
+				PrKey: key.PackageRevisionKey{
+					PkgKey: key.PackageKey{
+						RepoKey: key.RepositoryKey{
 							Namespace: "foo",
 						},
 					},
@@ -101,11 +102,11 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 		},
 		{
 			name:   "non-matching filter",
-			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "bar"}}}},
+			filter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "bar"}}}},
 			p: &fakeextrepo.FakePackageRevision{
-				PrKey: repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
+				PrKey: key.PackageRevisionKey{
+					PkgKey: key.PackageKey{
+						RepoKey: key.RepositoryKey{
 							Namespace: "foo",
 						},
 					},
@@ -132,7 +133,7 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 			filter: repository.ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/latest-revision": "false"}.AsSelector()},
 			p: func() repository.PackageRevision {
 				mockPkgRev := &mockrepo.MockPackageRevision{}
-				mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
+				mockPkgRev.On("Key").Return(key.PackageRevisionKey{})
 				mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
 				mockPkgRev.On("IsLatestRevision").Return(false)
 
@@ -166,42 +167,42 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 		{
 			name:       "name selector",
 			selector:   "metadata.name=blueprints.foo.v1",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "blueprints"}, Package: "foo"}, WorkspaceName: "v1"}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: "blueprints"}, Package: "foo"}, WorkspaceName: "v1"}},
 		},
 		{
 			name:       "namespace selector",
 			selector:   "metadata.namespace=foo",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "foo"}}}},
 		},
 		{
 			name:       "namespace selector with == operator",
 			selector:   "metadata.namespace==foo",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "foo"}}}},
 		},
 		{
 			name:       "revision selector",
 			selector:   "spec.revision=1",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{Revision: 1}},
 		},
 		{
 			name:       "packageName selector",
 			selector:   "spec.packageName=foo",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{Package: "foo"}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{Package: "foo"}}},
 		},
 		{
 			name:       "multi-level packageName selector",
 			selector:   "spec.packageName=foo/bar",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{Path: "foo", Package: "bar"}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{Path: "foo", Package: "bar"}}},
 		},
 		{
 			name:       "repository selector",
 			selector:   "spec.repository=blueprints",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "blueprints"}}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: "blueprints"}}}},
 		},
 		{
 			name:       "workspaceName selector",
 			selector:   "spec.workspaceName=v1",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{WorkspaceName: "v1"}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{WorkspaceName: "v1"}},
 		},
 		{
 			name:       "lifecycle selector",
@@ -286,17 +287,17 @@ func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
 		{
 			name:       "revision selector",
 			selector:   "spec.revision=1",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{Revision: 1}},
 		},
 		{
 			name:       "namespace selector",
 			selector:   "metadata.namespace=foo",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "foo"}}}},
 		},
 		{
 			name:       "namespace selector with == operator",
 			selector:   "metadata.namespace==foo",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+			wantFilter: repository.ListPackageRevisionFilter{Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "foo"}}}},
 		},
 	}
 	for _, tt := range tests {

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/internal/telemetry"
@@ -33,7 +34,7 @@ import (
 
 // reconcilePackageMetadata syncs user-set spec.packageMetadata to the Kptfile.
 // Only applies to Draft packages; Proposed and Published are immutable (aligns with v1alpha1).
-func (r *PackageRevisionReconciler) reconcilePackageMetadata(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) reconcilePackageMetadata(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	// Only Draft packages can have metadata synced.
@@ -78,7 +79,7 @@ func (r *PackageRevisionReconciler) reconcilePackageMetadata(ctx context.Context
 }
 
 // readAndParseKptfile reads all package resources and parses the Kptfile.
-func (r *PackageRevisionReconciler) readAndParseKptfile(ctx context.Context, repoKey repository.RepositoryKey, pr *porchv1alpha2.PackageRevision) (map[string]string, kptfilev1.KptFile, error) {
+func (r *PackageRevisionReconciler) readAndParseKptfile(ctx context.Context, repoKey key.RepositoryKey, pr *porchv1alpha2.PackageRevision) (map[string]string, kptfilev1.KptFile, error) {
 	log := log.FromContext(ctx)
 
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
@@ -103,7 +104,7 @@ func (r *PackageRevisionReconciler) readAndParseKptfile(ctx context.Context, rep
 }
 
 // applyAndWriteMetadata applies metadata changes and writes to a draft.
-func (r *PackageRevisionReconciler) applyAndWriteMetadata(ctx context.Context, repoKey repository.RepositoryKey, pr *porchv1alpha2.PackageRevision, resources map[string]string, kf kptfilev1.KptFile) (bool, error) {
+func (r *PackageRevisionReconciler) applyAndWriteMetadata(ctx context.Context, repoKey key.RepositoryKey, pr *porchv1alpha2.PackageRevision, resources map[string]string, kf kptfilev1.KptFile) (bool, error) {
 	log := log.FromContext(ctx)
 
 	// Apply spec.packageMetadata to Kptfile (merge mode).
