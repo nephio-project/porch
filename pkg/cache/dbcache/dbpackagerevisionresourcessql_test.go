@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kptdev/porch/api/porch/key"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
 	mockcachetypes "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
@@ -102,7 +102,7 @@ func (t *DbTestSuite) TestPkgRevResourcesReadFromDBReturnsScanTwoTextColumnsErro
 // --- PathOnly unit tests ---
 
 func (t *DbTestSuite) TestPkgRevResourcesQuerySQLPathOnlyOmitsValueColumn() {
-	prk := repository.PackageRevisionKey{}
+	prk := key.PackageRevisionKey{}
 	prk.PkgKey.RepoKey.Namespace = "ns"
 	prk.PkgKey.RepoKey.Name = "repo"
 	prk.WorkspaceName = "ws"
@@ -113,7 +113,7 @@ func (t *DbTestSuite) TestPkgRevResourcesQuerySQLPathOnlyOmitsValueColumn() {
 }
 
 func (t *DbTestSuite) TestPkgRevResourcesQuerySQLFullContentsIncludesValueColumn() {
-	prk := repository.PackageRevisionKey{}
+	prk := key.PackageRevisionKey{}
 	prk.PkgKey.RepoKey.Namespace = "ns"
 	prk.PkgKey.RepoKey.Name = "repo"
 	prk.WorkspaceName = "ws"

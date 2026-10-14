@@ -22,7 +22,6 @@ import (
 
 	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/internal/telemetry"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
