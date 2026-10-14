@@ -1226,7 +1226,8 @@ func TestValidateUpdateInvalidTransition(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid transition")
 }
 
-// TestValidateUpdateNoLifecycleChange tests ValidateUpdate allows when lifecycle unchanged.
+// TestValidateUpdateLastRenderFailed tests ValidateUpdate blocks Draft and Proposed packages
+// whose last render failed, and allows the other transitions.
 func TestValidateUpdateLastRenderFailed(t *testing.T) {
 	validator := NewPackageRevisionValidator(fake.NewClientBuilder().Build())
 
@@ -1264,6 +1265,7 @@ func TestValidateUpdateLastRenderFailed(t *testing.T) {
 	}
 }
 
+// TestValidateUpdateNoLifecycleChange tests ValidateUpdate allows when lifecycle unchanged.
 func TestValidateUpdateNoLifecycleChange(t *testing.T) {
 	validator := NewPackageRevisionValidator(fake.NewClientBuilder().Build())
 
