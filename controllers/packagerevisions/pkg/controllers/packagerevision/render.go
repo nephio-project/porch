@@ -238,9 +238,9 @@ func (r *PackageRevisionReconciler) requeueOrFailRender(ctx context.Context, pr 
 	if !repository.IsTransientError(err) {
 		return nil
 	}
-	if pendingExpired(pr, transientErrorDeadline) {
+	if pendingExpired(pr, r.TransientErrorRetryDeadline) {
 		log.Error(err, "transient error persisted past deadline; failing",
-			"op", op, "deadline", transientErrorDeadline)
+			"op", op, "deadline", r.TransientErrorRetryDeadline)
 		return nil
 	}
 	// Preserve first-Pending timestamp across retries for deadline calculation.

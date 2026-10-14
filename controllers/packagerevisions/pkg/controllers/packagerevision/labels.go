@@ -66,9 +66,11 @@ func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Contex
 }
 
 // updateLatestRevisionLabels sets latest-revision=true on the highest published
-// revision and false on the rest. Returns an error so the caller can requeue when
-// a stale cached read would otherwise strand a wrong label.
-func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Context, pr *porchv1alpha2.PackageRevision) error {
+// revision and false on the rest. It returns the name of the latest revision so
+// the caller can tell whether the in-hand pr is the winner (e.g. only the latest
+// should refresh the main CR). Returns an error so the caller can requeue when a
+// stale cached read would otherwise strand a wrong label.
+func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Context, pr *porchv1alpha2.PackageRevision) (string, error) {
 	log := log.FromContext(ctx)
 
 	var allRevs porchv1alpha2.PackageRevisionList
@@ -79,7 +81,7 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 			string(porchv1alpha2.PkgRevSelectorPackageName): pr.Spec.PackageName,
 		},
 	); err != nil {
-		return fmt.Errorf("failed to list package revisions for latest-revision update: %w", err)
+		return "", fmt.Errorf("failed to list package revisions for latest-revision update: %w", err)
 	}
 
 	// Seed the winner with the in-hand pr (fresher than its cached copy).
@@ -102,9 +104,18 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 		if rev.Name == pr.Name && pr.Status.Revision > revNum {
 			revNum = pr.Status.Revision
 		}
-		// Unobserved revision number = stale read; requeue to recompute.
+		// A published sibling whose revision number hasn't been observed yet
+		// (Status.Revision == 0) is skipped, not treated as fatal. Erroring here
+		// would requeue the whole operation; at scale, when several siblings are
+		// briefly unobserved, that requeue storm starves the very reconciles that
+		// would populate Status.Revision — a self-sustaining livelock that also
+		// blocks finalizer removal on the delete path. Skipping lets us label the
+		// observed revisions now; when the unobserved sibling's own reconcile lands
+		// its Status.Revision, that reconcile re-runs this and corrects the winner.
 		if revNum == 0 {
-			return fmt.Errorf("published revision %q has unobserved revision number; requeuing latest-revision update", rev.Name)
+			log.V(4).Info("skipping published revision with unobserved revision number for latest-revision labeling",
+				"name", rev.Name)
+			continue
 		}
 		if revNum > highestRev {
 			highestRev = revNum
@@ -132,8 +143,8 @@ func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Conte
 		}
 		rev.Labels[porchv1alpha2.LatestPackageRevisionKey] = desiredLabel
 		if err := r.Patch(ctx, rev, patch); err != nil {
-			return fmt.Errorf("failed to update latest-revision label on %q: %w", rev.Name, err)
+			return "", fmt.Errorf("failed to update latest-revision label on %q: %w", rev.Name, err)
 		}
 	}
-	return nil
+	return latestName, nil
 }

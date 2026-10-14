@@ -85,19 +85,23 @@ func (r *PackageRevisionReconciler) deleteFromGit(ctx context.Context, pr *porch
 }
 
 func (r *PackageRevisionReconciler) removeFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision, updateLabels bool) (*ctrl.Result, error) {
+	// Recompute latest-revision across the remaining siblings BEFORE removing the
+	// finalizer. Once the finalizer is gone the object can be garbage-collected
+	// immediately, so a post-removal requeue would reconcile NotFound and never
+	// retry a failed sibling-label update. Keep the finalizer and requeue on
+	// failure so the recompute is retried while the object still exists.
+	if updateLabels {
+		if _, err := r.updateLatestRevisionLabels(ctx, pr); err != nil {
+			log.FromContext(ctx).V(2).Info("latest-revision update deferred; keeping finalizer and requeuing",
+				"name", pr.Name, "reason", err.Error())
+			return &ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
+		}
+	}
+
 	patch := client.MergeFrom(pr.DeepCopy())
 	if controllerutil.RemoveFinalizer(pr, porchv1alpha2.PackageRevisionFinalizer) {
 		if err := r.Patch(ctx, pr, patch); client.IgnoreNotFound(err) != nil {
 			return nil, fmt.Errorf("failed to remove finalizer: %w", err)
-		}
-	}
-
-	if updateLabels {
-		// Recompute latest across remaining siblings; requeue on stale read.
-		if err := r.updateLatestRevisionLabels(ctx, pr); err != nil {
-			log.FromContext(ctx).V(2).Info("latest-revision update deferred after finalizer removal; requeuing",
-				"name", pr.Name, "reason", err.Error())
-			return &ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
 		}
 	}
 

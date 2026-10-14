@@ -170,12 +170,24 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, UseExponentialBackoff: true}
 	}
 
-	// First reconcile after a controller (re)start: open the repo into cache
-	// (no git sync) to avoid a thundering-herd full re-sync of every repo. The
-	// full sync is deferred to the normal schedule (isFullSyncDue staggers it).
+	// First reconcile after a controller (re)start for a repo that was ALREADY
+	// synced in a previous process AND has no pending work: open it into the cache
+	// (no git sync) to avoid a thundering-herd full re-sync of every repo on
+	// restart. The full sync is deferred to the normal schedule (isFullSyncDue
+	// staggers it).
+	//
+	// Cold-start open-only is only correct for a clean, previously-synced repo:
+	//   - LastFullSyncTime != nil: it was synced before (not a brand-new repo that
+	//     still needs its initial sync to load packages).
+	//   - !hasSpecChanged && !isOneTimeSyncDue: it has no pending update to apply.
+	//     A spec change or due one-time sync that lands on the first post-restart
+	//     reconcile must still sync, so we fall through to the switch below.
 	repoKey := repo.Namespace + "/" + repo.Name
-	if _, seen := r.coldStartRepos.Load(repoKey); !seen {
-		log.FromContext(ctx).V(2).Info("Cold start: opening repository into cache without a git sync")
+	if _, seen := r.coldStartRepos.Load(repoKey); !seen &&
+		repo.Status.LastFullSyncTime != nil &&
+		!r.hasSpecChanged(repo) &&
+		!r.isOneTimeSyncDue(repo) {
+		log.FromContext(ctx).V(4).Info("Cold start: opening repository in the cache without a git sync")
 		return SyncDecision{Type: OperationOpenOnly, SyncNecessary: true, DelayBeforeNextSync: 0}
 	}
 

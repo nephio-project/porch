@@ -397,6 +397,27 @@ func TestPerformOpenOnly(t *testing.T) {
 		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
 		assert.False(t, seen, "a failed open must not mark the repo cold-start handled")
 	})
+
+	t.Run("sync capacity exceeded requeues without opening", func(t *testing.T) {
+		repo := createTestRepo("test-repo", "test-ns")
+		mockClient := mockclient.NewMockClient(t)
+		mockCache := cachetypes.NewMockCache(t)
+
+		// No cache calls expected: the limiter is full so we must requeue before
+		// doing any git network I/O.
+		r := &RepositoryReconciler{Client: mockClient, Cache: mockCache, MaxConcurrentSyncs: 1}
+		r.InitializeSyncLimiter()
+		r.syncLimiter <- struct{}{} // Fill the single slot.
+
+		result, err := r.performOpenOnly(ctx, repo)
+
+		assert.NoError(t, err)
+		// Short fixed requeue since a slot frees quickly.
+		assert.Equal(t, time.Second, result.RequeueAfter)
+		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
+		assert.False(t, seen, "capacity-exceeded must not mark the repo cold-start handled")
+		<-r.syncLimiter // Clean up.
+	})
 }
 
 func TestPerformFullSync(t *testing.T) {

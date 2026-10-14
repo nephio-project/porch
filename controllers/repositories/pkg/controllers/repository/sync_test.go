@@ -886,6 +886,105 @@ func TestDetermineSyncDecisionColdStart(t *testing.T) {
 	assert.NotEqual(t, OperationFullSync, decision.Type, "recently-synced repo must not full sync after cold start")
 }
 
+// TestDetermineSyncDecisionUpdatedRepoNotColdStart verifies that a
+// previously-synced repo whose spec changed while the controller was down (or
+// whose spec-change event lands on the first post-restart reconcile) does NOT get
+// the open-only cold-start treatment — the pending update must be synced.
+func TestDetermineSyncDecisionUpdatedRepoNotColdStart(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+
+	// Previously synced (LastFullSyncTime set) but spec changed since last sync
+	// (ObservedGeneration != Generation). coldStartRepos is empty (fresh process).
+	repo := &api.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "repo-updated", Namespace: "ns", Generation: 5},
+		Status: api.RepositoryStatus{
+			LastFullSyncTime:   &metav1.Time{Time: now.Add(-10 * time.Minute)},
+			ObservedGeneration: 4, // < Generation → spec changed
+			Conditions: []metav1.Condition{{
+				Type:               api.RepositoryReady,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+			}},
+		},
+	}
+
+	r := &RepositoryReconciler{
+		HealthCheckFrequency: 5 * time.Minute,
+		FullSyncFrequency:    1 * time.Hour,
+	}
+
+	decision := r.determineSyncDecision(ctx, repo)
+	assert.NotEqual(t, OperationOpenOnly, decision.Type,
+		"a repo with a pending spec change must not be treated as cold start")
+	assert.Equal(t, OperationFullSync, decision.Type,
+		"a spec-changed repo must full sync even on the first post-restart reconcile")
+}
+
+// TestDetermineSyncDecisionRunOnceAtForcesFullSyncOnColdStart verifies the
+// force-sync escape hatch: setting spec.sync.runOnceAt (to now/past) forces a
+// full sync even on the first post-restart reconcile, overriding the cold-start
+// open-only optimization. This is how a user forces a fresh sync after a restart.
+func TestDetermineSyncDecisionRunOnceAtForcesFullSyncOnColdStart(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+
+	// Previously synced and clean, EXCEPT a runOnceAt was just requested (past
+	// time, not yet observed). coldStartRepos is empty (fresh process).
+	repo := &api.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "repo-forced", Namespace: "ns", Generation: 3},
+		Spec: api.RepositorySpec{
+			Sync: &api.RepositorySync{RunOnceAt: &metav1.Time{Time: now.Add(-1 * time.Minute)}},
+		},
+		Status: api.RepositoryStatus{
+			LastFullSyncTime:   &metav1.Time{Time: now.Add(-10 * time.Minute)},
+			ObservedGeneration: 3, // spec not otherwise changed
+			// ObservedRunOnceAt nil → the runOnceAt request has not been observed.
+			Conditions: []metav1.Condition{{
+				Type:               api.RepositoryReady,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+			}},
+		},
+	}
+
+	r := &RepositoryReconciler{
+		HealthCheckFrequency: 5 * time.Minute,
+		FullSyncFrequency:    1 * time.Hour,
+	}
+
+	decision := r.determineSyncDecision(ctx, repo)
+	assert.NotEqual(t, OperationOpenOnly, decision.Type,
+		"a pending runOnceAt must override cold-start open-only")
+	assert.Equal(t, OperationFullSync, decision.Type,
+		"runOnceAt must force a full sync even on the first post-restart reconcile")
+}
+
+// TestDetermineSyncDecisionNewRepoNotColdStart verifies that a brand-new repo
+// (never completed a full sync, LastFullSyncTime == nil) does NOT get the
+// open-only cold-start treatment — it must run its initial full sync so its
+// packages load into the cache, otherwise clones/upstream lookups fail.
+func TestDetermineSyncDecisionNewRepoNotColdStart(t *testing.T) {
+	ctx := context.Background()
+
+	// A freshly-registered repo: no LastFullSyncTime, not in coldStartRepos.
+	repo := &api.Repository{
+		ObjectMeta: metav1.ObjectMeta{Name: "repo-new", Namespace: "ns"},
+		Status:     api.RepositoryStatus{},
+	}
+
+	r := &RepositoryReconciler{
+		HealthCheckFrequency: 5 * time.Minute,
+		FullSyncFrequency:    1 * time.Hour,
+	}
+
+	decision := r.determineSyncDecision(ctx, repo)
+	assert.NotEqual(t, OperationOpenOnly, decision.Type,
+		"a never-synced repo must not be treated as cold start")
+	assert.Equal(t, OperationFullSync, decision.Type,
+		"a new repo must run its initial full sync to load packages")
+}
+
 func TestIsErrorRetryDue(t *testing.T) {
 	now := time.Now()
 	tests := []struct {

@@ -42,8 +42,21 @@ const (
 	kptfileLabelPrefix = "porch.kpt.dev/kptfile-label__"
 )
 
-// updateStatusWithRetry persists completion markers (CreationSource, LastSubpackageOperationHash)
-// by retrying until the patch lands or deadline expires. Critical for idempotency.
+const (
+	// statusReadbackInterval is how long to wait between readback attempts while
+	// the informer cache catches up with the status write.
+	statusReadbackInterval = 100 * time.Millisecond
+	// statusReadbackDeadline bounds the total readback wait; a persistent miss
+	// returns an error so the caller requeues instead of blocking the worker.
+	statusReadbackDeadline = 2 * time.Second
+)
+
+// updateStatusWithRetry persists completion markers (CreationSource,
+// LastSubpackageOperationHash) and confirms they landed by reading back. Critical
+// for idempotency: callers must not replay the already-committed git mutation, so
+// a failure returns an error for the caller to requeue rather than proceeding with
+// unconfirmed status. It polls the cached read every statusReadbackInterval for up
+// to statusReadbackDeadline to let the informer cache catch up.
 func (r *PackageRevisionReconciler) updateStatusWithRetry(
 	ctx context.Context,
 	pr *porchv1alpha2.PackageRevision,
@@ -52,39 +65,28 @@ func (r *PackageRevisionReconciler) updateStatusWithRetry(
 	lastSubpackageOperationHash string,
 	conditions ...metav1.Condition) error {
 
-	log := log.FromContext(ctx)
-	deadline := time.Now().Add(transientErrorDeadline)
-	retryInterval := reconciledRetryInterval
-	attempt := 0
+	r.updateStatus(ctx, pr, content, creationSource, lastSubpackageOperationHash, conditions...)
 
+	deadline := time.Now().Add(statusReadbackDeadline)
+	var lastErr error
 	for {
-		attempt++
-		r.updateStatus(ctx, pr, content, creationSource, lastSubpackageOperationHash, conditions...)
-		// Re-read to check whether the hash landed.
 		fresh := &porchv1alpha2.PackageRevision{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(pr), fresh); err != nil {
-			if time.Now().After(deadline) {
-				return fmt.Errorf("failed to read status after patch (retried for %v): %w", transientErrorDeadline, err)
-			}
-			log.V(3).Info("status patch read failed; retrying",
-				"name", pr.Name, "attempt", attempt, "error", err.Error())
-			time.Sleep(retryInterval)
-			continue
-		}
-		if (creationSource == "" || fresh.Status.CreationSource == creationSource) &&
+			lastErr = fmt.Errorf("failed to read status after patch: %w", err)
+		} else if (creationSource == "" || fresh.Status.CreationSource == creationSource) &&
 			(lastSubpackageOperationHash == "" || fresh.Status.LastSubpackageOperationHash == lastSubpackageOperationHash) {
-			if attempt > 1 {
-				log.V(3).Info("status patch landed",
-					"name", pr.Name, "attempts", attempt, "creationSource", creationSource)
-			}
 			return nil
+		} else {
+			lastErr = fmt.Errorf("completion status not yet visible after patch")
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("completion status did not land after patch (retried for %v, %d attempts)", transientErrorDeadline, attempt)
+			return lastErr
 		}
-		log.V(3).Info("status patch not yet visible; retrying",
-			"name", pr.Name, "attempt", attempt, "creationSource", creationSource, "retryAfter", retryInterval)
-		time.Sleep(retryInterval)
+		select {
+		case <-time.After(statusReadbackInterval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 

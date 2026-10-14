@@ -34,6 +34,11 @@ import (
 // fieldManagerPRControllerMain is the SSA field manager for the "main" placeholder CR.
 const fieldManagerPRControllerMain = "packagerev-controller-main"
 
+// fieldManagerPRControllerMainMeta owns only the main CR's spec.packageMetadata
+// and spec.readinessGates, so refreshing them to track the latest published
+// revision never stomps the user-owned spec.lifecycle.
+const fieldManagerPRControllerMainMeta = "packagerev-controller-main-meta"
+
 // createMainPackageRevision creates or updates the "main" branch placeholder CR
 // (Revision -1) when a workspace is published, mirroring v1alpha1 but driven by
 // the controller rather than repository sync. Source is nil (repo-discovered).
@@ -75,14 +80,24 @@ func (r *PackageRevisionReconciler) createMainPackageRevision(
 		}}
 	}
 
-	_, upstreamLock, _ := mainContent.GetUpstreamLock(ctx)
-	_, selfLock, _ := mainContent.GetLock(ctx)
+	// patchMainStatus force-applies these under a stable field manager, so a
+	// discarded read error would blank out valid locks it previously owned. Return
+	// the error so the caller requeues instead of persisting empty locks.
+	_, upstreamLock, err := mainContent.GetUpstreamLock(ctx)
+	if err != nil {
+		return pkgerrors.Wrap(err, "unable to read main PackageRevision upstream lock")
+	}
+	_, selfLock, err := mainContent.GetLock(ctx)
+	if err != nil {
+		return pkgerrors.Wrap(err, "unable to read main PackageRevision self lock")
+	}
 	commitTime, commitAuthor := mainContent.GetCommitInfo()
 
-	var sizeBytes int64
-	if resources, err := mainContent.GetResourceContents(ctx); err == nil {
-		sizeBytes = repository.CalculateResourcesSize(resources)
+	resources, err := mainContent.GetResourceContents(ctx)
+	if err != nil {
+		return pkgerrors.Wrap(err, "unable to read main PackageRevision resources")
 	}
+	sizeBytes := repository.CalculateResourcesSize(resources)
 
 	// spec.lifecycle on the main CR is user-owned once it exists: only create when
 	// absent, never re-assert Published (a user propose-delete must stick).
@@ -93,11 +108,16 @@ func (r *PackageRevisionReconciler) createMainPackageRevision(
 		// Leave untouched if deleting or no longer Published.
 		if !existing.DeletionTimestamp.IsZero() ||
 			existing.Spec.Lifecycle != porchv1alpha2.PackageRevisionLifecyclePublished {
-			log.V(4).Info("main PackageRevision exists and is not steady-state Published; leaving untouched",
+			log.V(4).Info("main PackageRevision exists and is not Published; leaving untouched",
 				"name", name, "lifecycle", existing.Spec.Lifecycle)
 			return nil
 		}
-		// Steady-state Published: refresh HEAD-tracking status fields.
+		// Published: refresh HEAD-tracking status fields and the package
+		// metadata/readiness gates to track the latest published revision
+		// (mirrors v1alpha1, which re-derives these on every publish).
+		if err := r.patchMainSpecMetadata(ctx, publishedPR.Namespace, name, publishedPR); err != nil {
+			return pkgerrors.Wrapf(err, "unable to update main PackageRevision metadata %s/%s", publishedPR.Namespace, name)
+		}
 		if err := r.patchMainStatus(ctx, publishedPR.Namespace, name, key.Revision, commitAuthor, commitTime, upstreamLock, selfLock, repo.Spec.Deployment, sizeBytes); err != nil {
 			return pkgerrors.Wrapf(err, "unable to update main PackageRevision status %s/%s", publishedPR.Namespace, name)
 		}
@@ -125,6 +145,11 @@ func (r *PackageRevisionReconciler) createMainPackageRevision(
 				RepositoryName: key.RKey().Name,
 				WorkspaceName:  key.WorkspaceName,
 				Lifecycle:      porchv1alpha2.PackageRevisionLifecyclePublished,
+				// Carry package metadata and readiness gates from the published
+				// revision the main HEAD now tracks (mirrors v1alpha1's
+				// ToMainPackageRevision, which copies these onto the -1 placeholder).
+				PackageMetadata: publishedPR.Spec.PackageMetadata.DeepCopy(),
+				ReadinessGates:  append([]porchv1alpha2.ReadinessGate(nil), publishedPR.Spec.ReadinessGates...),
 			},
 		}
 		if err := r.Create(ctx, newMain); err != nil {
@@ -179,4 +204,28 @@ func (r *PackageRevisionReconciler) patchMainStatus(
 	}
 	return r.Status().Patch(ctx, statusObj, client.Apply,
 		client.FieldOwner(fieldManagerPRControllerMain), client.ForceOwnership)
+}
+
+// patchMainSpecMetadata refreshes the main CR's spec.packageMetadata and
+// spec.readinessGates to track the latest published revision, via an SSA apply
+// scoped to a dedicated field manager. It deliberately omits spec.lifecycle so
+// the user-owned lifecycle (e.g. a propose-delete) is never stomped.
+func (r *PackageRevisionReconciler) patchMainSpecMetadata(
+	ctx context.Context,
+	namespace, name string,
+	publishedPR *porchv1alpha2.PackageRevision,
+) error {
+	applyObj := &porchv1alpha2.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchv1alpha2.SchemeGroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageMetadata: publishedPR.Spec.PackageMetadata.DeepCopy(),
+			ReadinessGates:  append([]porchv1alpha2.ReadinessGate(nil), publishedPR.Spec.ReadinessGates...),
+		},
+	}
+	return r.Patch(ctx, applyObj, client.Apply,
+		client.FieldOwner(fieldManagerPRControllerMainMeta), client.ForceOwnership)
 }
