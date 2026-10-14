@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,8 +111,8 @@ func TestUpdateStatusWithPublishedContent(t *testing.T) {
 
 	content := mockrepository.NewMockPackageContent(t)
 	content.EXPECT().Lifecycle(mock.Anything).Return("Published")
-	content.EXPECT().Key().Return(repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{},
+	content.EXPECT().Key().Return(key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{},
 		WorkspaceName: "ws",
 		Revision:      5,
 	})

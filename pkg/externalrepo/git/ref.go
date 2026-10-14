@@ -22,7 +22,9 @@ import (
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
+	"github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/pkg/repository"
 )
 
@@ -114,17 +116,17 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 	return trimOptionalPrefix(n.String(), tagsPrefixInLocalRepo)
 }
 
-func createDraftName(key repository.PackageRevisionKey) branchName {
+func createDraftName(key key.PackageRevisionKey) branchName {
 	return branchName(draftsPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createProposedName(key repository.PackageRevisionKey) branchName {
+func createProposedName(key key.PackageRevisionKey) branchName {
 	return branchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createDeletionProposedName(key repository.PackageRevisionKey) branchName {
+func createDeletionProposedName(key key.PackageRevisionKey) branchName {
 	if key.Revision > 0 {
-		return branchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "v"+repository.Revision2Str(key.Revision)))
+		return branchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "v"+util.Revision2Str(key.Revision)))
 	} else {
 		return branchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
 	}
@@ -137,9 +139,9 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 	return "", false
 }
 
-func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
+func createFinalTagNameInLocal(key key.PackageRevisionKey) plumbing.ReferenceName {
 	if key.Revision > 0 {
-		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "v"+repository.Revision2Str(key.Revision)))
+		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "v"+util.Revision2Str(key.Revision)))
 	} else {
 		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
 	}

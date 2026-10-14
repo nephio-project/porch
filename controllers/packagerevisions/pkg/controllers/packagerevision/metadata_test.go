@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -499,7 +499,7 @@ func TestReconcilePackageMetadataSuccessNewPackage(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
 	mockPackageContent := mockrepository.NewMockPackageContent(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 	resources := map[string]string{
 		"Kptfile": `apiVersion: kpt.dev/v1
 kind: KptFile
@@ -562,7 +562,7 @@ func TestReconcilePackageMetadataSuccessRenderedPackage(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	// Mock GetPackageContent to fail early (log and continue behavior)
 	mockContentCache.EXPECT().
@@ -609,7 +609,7 @@ func TestReconcilePackageMetadataGetContentError(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockContentCache.EXPECT().
 		GetPackageContent(mock.Anything, repoKey, "my-pkg", "v1").
@@ -650,7 +650,7 @@ func TestReconcilePackageMetadataGetResourcesError(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
 	mockPackageContent := mockrepository.NewMockPackageContent(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockContentCache.EXPECT().
 		GetPackageContent(mock.Anything, repoKey, "my-pkg", "v1").
@@ -696,7 +696,7 @@ func TestReconcilePackageMetadataCreateDraftError(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
 	mockPackageContent := mockrepository.NewMockPackageContent(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 	resources := map[string]string{
 		"Kptfile": `apiVersion: kpt.dev/v1
 kind: KptFile
@@ -757,7 +757,7 @@ func TestReadAndParseKptfileSuccess(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
 	mockPackageContent := mockrepository.NewMockPackageContent(t)
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 	resources := map[string]string{
 		"Kptfile": `apiVersion: kpt.dev/v1
 kind: Kptfile
@@ -787,7 +787,7 @@ func TestReadAndParseKptfileGetContentError(t *testing.T) {
 	ctx := context.Background()
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockContentCache.EXPECT().
 		GetPackageContent(ctx, repoKey, "test-pkg", "v1").
@@ -807,7 +807,7 @@ func TestReadAndParseKptfileGetResourcesError(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
 	mockPackageContent := mockrepository.NewMockPackageContent(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockContentCache.EXPECT().
 		GetPackageContent(ctx, repoKey, "test-pkg", "v1").
@@ -830,7 +830,7 @@ func TestApplyAndWriteMetadataNoChanges(t *testing.T) {
 	ctx := context.Background()
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	r := &PackageRevisionReconciler{Client: mockClient, ContentCache: mockContentCache}
 	pr := newTestPR()
@@ -882,7 +882,7 @@ func TestApplyAndWriteMetadataSuccess(t *testing.T) {
 	ctx := context.Background()
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	r := &PackageRevisionReconciler{Client: mockClient, ContentCache: mockContentCache}
 	pr := newTestPR(withMetadata(map[string]string{"app": "test"}, nil))
@@ -902,7 +902,7 @@ func TestApplyAndWriteMetadataCreateDraftError(t *testing.T) {
 	ctx := context.Background()
 	mockClient := mockclient.NewMockClient(t)
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockContentCache.EXPECT().
 		CreateDraftFromExisting(ctx, repoKey, "test-pkg", "v1").
@@ -1045,7 +1045,7 @@ func TestSetRenderRequestAnnotationSuccessiveCalls(t *testing.T) {
 func TestReconcilePackageMetadataSkipsNonDraft(t *testing.T) {
 	r := &PackageRevisionReconciler{}
 	pr := newTestPR(withLifecycle(porchv1alpha2.PackageRevisionLifecyclePublished), withMetadata(map[string]string{"k": "v"}, nil))
-	result, err := r.reconcilePackageMetadata(t.Context(), pr, repository.RepositoryKey{})
+	result, err := r.reconcilePackageMetadata(t.Context(), pr, key.RepositoryKey{})
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -1053,7 +1053,7 @@ func TestReconcilePackageMetadataSkipsNonDraft(t *testing.T) {
 func TestReconcilePackageMetadataSkipsNilMetadata(t *testing.T) {
 	r := &PackageRevisionReconciler{}
 	pr := newTestPR(withLifecycle(porchv1alpha2.PackageRevisionLifecycleDraft))
-	result, err := r.reconcilePackageMetadata(t.Context(), pr, repository.RepositoryKey{})
+	result, err := r.reconcilePackageMetadata(t.Context(), pr, key.RepositoryKey{})
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -1063,7 +1063,7 @@ func TestReconcilePackageMetadataSkipsWhenRenderPending(t *testing.T) {
 	pr := newTestPR(withLifecycle(porchv1alpha2.PackageRevisionLifecycleDraft), withMetadata(map[string]string{"k": "v"}, nil))
 	pr.Annotations[porchv1alpha2.AnnotationRenderRequest] = "v2"
 	pr.Status.ObservedPrrResourceVersion = "v1"
-	result, err := r.reconcilePackageMetadata(t.Context(), pr, repository.RepositoryKey{})
+	result, err := r.reconcilePackageMetadata(t.Context(), pr, key.RepositoryKey{})
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -1073,7 +1073,7 @@ func TestReconcilePackageMetadataSkipsWhenSourceRenderPending(t *testing.T) {
 	pr := newTestPR(withLifecycle(porchv1alpha2.PackageRevisionLifecycleDraft), withMetadata(map[string]string{"k": "v"}, nil))
 	pr.Status.CreationSource = "init"
 	// No Rendered=True condition — source render still pending
-	result, err := r.reconcilePackageMetadata(t.Context(), pr, repository.RepositoryKey{})
+	result, err := r.reconcilePackageMetadata(t.Context(), pr, key.RepositoryKey{})
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -1084,7 +1084,7 @@ func TestReconcilePackageMetadataAppliesAndTriggersNewPackage(t *testing.T) {
 	mockContent := mockrepository.NewMockPackageContent(t)
 	mockDraft := &fakeDraftSlim{}
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 	resources := map[string]string{
 		"Kptfile": "apiVersion: kpt.dev/v1\nkind: Kptfile\nmetadata:\n  name: test-pkg\n",
 	}
@@ -1109,7 +1109,7 @@ func TestReconcilePackageMetadataAppliesAndTriggersRerender(t *testing.T) {
 	mockContent := mockrepository.NewMockPackageContent(t)
 	mockDraft := &fakeDraftSlim{}
 
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 	resources := map[string]string{
 		"Kptfile": "apiVersion: kpt.dev/v1\nkind: Kptfile\nmetadata:\n  name: test-pkg\n",
 	}
@@ -1137,7 +1137,7 @@ func TestReconcilePackageMetadataAppliesAndTriggersRerender(t *testing.T) {
 
 func TestApplyAndWriteMetadataUpdateResourcesError(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	badDraft := &fakeDraftSlim{updateErr: assert.AnError}
 	mockContentCache.EXPECT().CreateDraftFromExisting(mock.Anything, repoKey, "test-pkg", "v1").Return(badDraft, nil)
@@ -1154,7 +1154,7 @@ func TestApplyAndWriteMetadataUpdateResourcesError(t *testing.T) {
 
 func TestApplyAndWriteMetadataCloseDraftError(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockDraft := &fakeDraftSlim{}
 	mockContentCache.EXPECT().CreateDraftFromExisting(mock.Anything, repoKey, "test-pkg", "v1").Return(mockDraft, nil)
@@ -1172,7 +1172,7 @@ func TestApplyAndWriteMetadataCloseDraftError(t *testing.T) {
 
 func TestApplyAndWriteMetadataSuccessReturnsTrue(t *testing.T) {
 	mockContentCache := mockrepository.NewMockContentCache(t)
-	repoKey := repository.RepositoryKey{Name: "test-repo", Namespace: "default"}
+	repoKey := key.RepositoryKey{Name: "test-repo", Namespace: "default"}
 
 	mockDraft := &fakeDraftSlim{}
 	mockContentCache.EXPECT().CreateDraftFromExisting(mock.Anything, repoKey, "test-pkg", "v1").Return(mockDraft, nil)

@@ -17,15 +17,15 @@ package dbcache
 import (
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (t *DbTestSuite) TestRepoDBWriteRead() {
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace:         "my-ns",
 			Name:              "my-repo",
 			Path:              "my-path",
@@ -68,7 +68,7 @@ func (t *DbTestSuite) TestRepoDBSchema() {
 	err := repoWriteToDB(t.Context(), &dbRepo)
 	t.Require().ErrorContains(err, "violates check constraint")
 
-	dbRepo.repoKey = repository.RepositoryKey{
+	dbRepo.repoKey = key.RepositoryKey{
 		Namespace: "my-namespace",
 	}
 

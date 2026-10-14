@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -149,7 +149,7 @@ func TestGetPackageResourcesForUpgradeSourcePath(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	pr := &porchv1alpha2.PackageRevision{
@@ -179,7 +179,7 @@ func TestGetPackageResourcesForUpgradeSubpackagePath(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	pr := &porchv1alpha2.PackageRevision{
@@ -216,7 +216,7 @@ func TestGetPackageResourcesForUpgradeSubpackageDirFromOperationNotCurrentPR(t *
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	currentPR := &porchv1alpha2.PackageRevision{
@@ -252,7 +252,7 @@ func TestGetPackageResourcesForUpgradeSubpackageNotFound(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	pr := &porchv1alpha2.PackageRevision{
@@ -277,7 +277,7 @@ func TestGetPackageResourcesForUpgradeSubpackageMissingKptfile(t *testing.T) {
 	}, nil)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	pr := &porchv1alpha2.PackageRevision{
@@ -313,7 +313,7 @@ func TestGetPackageContentAndResourcesGetResourcesError(t *testing.T) {
 	mockContent.EXPECT().GetResourceContents(ctx).Return(nil, assert.AnError)
 
 	mockCache := mockrepository.NewMockContentCache(t)
-	mockCache.EXPECT().GetPackageContent(ctx, repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
+	mockCache.EXPECT().GetPackageContent(ctx, key.RepositoryKey{Namespace: "default", Name: "my-repo"}, "my-pkg", "v1").Return(mockContent, nil)
 
 	r := &PackageRevisionReconciler{ContentCache: mockCache}
 	pr := &porchv1alpha2.PackageRevision{

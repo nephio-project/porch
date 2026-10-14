@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kptdev/porch/api/porch/key"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/externalrepo/fake"
 	"github.com/kptdev/porch/pkg/externalrepo/git"
@@ -81,14 +82,14 @@ func CheckRepositoryConnection(ctx context.Context, repo *configapi.Repository, 
 
 }
 
-func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryKey, error) {
+func RepositoryKey(repositorySpec *configapi.Repository) (key.RepositoryKey, error) {
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
 		ociSpec := repositorySpec.Spec.Oci
 		if ociSpec == nil {
-			return repository.RepositoryKey{}, fmt.Errorf("oci not configured")
+			return key.RepositoryKey{}, fmt.Errorf("oci not configured")
 		}
-		return repository.RepositoryKey{
+		return key.RepositoryKey{
 			Namespace:         repositorySpec.Namespace,
 			Name:              repositorySpec.Name,
 			Path:              "oci://" + ociSpec.Registry,
@@ -98,12 +99,12 @@ func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryK
 	case configapi.RepositoryTypeGit:
 		gitSpec := repositorySpec.Spec.Git
 		if gitSpec == nil {
-			return repository.RepositoryKey{}, errors.New("git property is required")
+			return key.RepositoryKey{}, errors.New("git property is required")
 		}
 		if gitSpec.Repo == "" {
-			return repository.RepositoryKey{}, errors.New("git.repo property is required")
+			return key.RepositoryKey{}, errors.New("git.repo property is required")
 		}
-		return repository.RepositoryKey{
+		return key.RepositoryKey{
 			Namespace:         repositorySpec.Namespace,
 			Name:              repositorySpec.Name,
 			Path:              strings.Trim(gitSpec.Directory, "/"),
@@ -112,12 +113,12 @@ func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryK
 
 	default:
 		if ExternalRepoInUnitTestMode {
-			return repository.RepositoryKey{
+			return key.RepositoryKey{
 				Namespace: repositorySpec.Namespace,
 				Name:      repositorySpec.Name,
 			}, nil
 		} else {
-			return repository.RepositoryKey{}, fmt.Errorf("repository type %q not supported", repositoryType)
+			return key.RepositoryKey{}, fmt.Errorf("repository type %q not supported", repositoryType)
 		}
 	}
 }

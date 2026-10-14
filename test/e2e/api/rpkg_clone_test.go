@@ -17,9 +17,9 @@ package api
 import (
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
-	suiteutils "github.com/kptdev/porch/test/e2e/suiteutils"
+	"github.com/kptdev/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,9 +40,9 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	placeholderUpstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	placeholderUpstreamPr := t.MustFindPackageRevision(&list, key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
 			},
 			Package: basensPackage,
@@ -50,9 +50,9 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 		WorkspaceName: "main",
 		Revision:      -1})
 
-	realUpstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	realUpstreamPr := t.MustFindPackageRevision(&list, key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
 			},
 			Package: basensPackage},
@@ -124,8 +124,8 @@ func (t *PorchSuite) TestPackageUpgrade() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 1})
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 2})
+	basensV1 := t.MustFindPackageRevision(&list, key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 1})
+	basensV2 := t.MustFindPackageRevision(&list, key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 2})
 
 	// Create PackageRevision from upstream repo
 	pr := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace)
@@ -203,7 +203,7 @@ data:
 	// Check its package size
 	t.validatePackageResourcesSize(upgradePr)
 
-	basensMain := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: -1})
+	basensMain := t.MustFindPackageRevision(&list, key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: -1})
 	upgradePrTwo := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace+"-main-upgrade")
 
 	upgradePrTwo.Spec.Tasks = []porchapi.Task{{

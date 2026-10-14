@@ -23,6 +23,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/pkg/repository"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,7 +65,7 @@ func (r *PackageRevisionReconciler) getPackageResources(ctx context.Context, pr 
 // for a package revision. Use this when you need the content for more than just
 // resources (e.g. to call GetLock).
 func (r *PackageRevisionReconciler) getPackageContentAndResources(ctx context.Context, pr *porchv1alpha2.PackageRevision) (repository.PackageContent, map[string]string, error) {
-	repoKey := repository.RepositoryKey{Namespace: pr.Namespace, Name: pr.Spec.RepositoryName}
+	repoKey := key.RepositoryKey{Namespace: pr.Namespace, Name: pr.Spec.RepositoryName}
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
 		return nil, nil, err

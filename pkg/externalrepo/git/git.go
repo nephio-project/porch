@@ -35,8 +35,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	apiutil "github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/internal/telemetry"
 	"github.com/kptdev/porch/pkg/errors"
 	externalrepotypes "github.com/kptdev/porch/pkg/externalrepo/types"
@@ -188,13 +190,13 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch = branchName(spec.Branch)
 	}
 
-	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
+	if err := apiutil.ValidateDirectoryName(string(branch), false); err != nil {
 		globalDirectoryPool.releaseSharedRepository(dir, name)
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, branch name %q invalid", spec.Repo, branch)
 	}
 
 	repository := &gitRepository{
-		key: repository.RepositoryKey{
+		key: key.RepositoryKey{
 			Name:              name,
 			Namespace:         namespace,
 			Path:              strings.Trim(spec.Directory, "/"),
@@ -251,7 +253,7 @@ func makeUserInfoProvider(spec *configapi.GitRepository, def repository.UserInfo
 }
 
 type gitRepository struct {
-	key                repository.RepositoryKey
+	key                key.RepositoryKey
 	secret             string           // Name of the k8s Secret resource containing credentials
 	branch             branchName       // The main branch from repository registration (defaults to 'main' if unspecified)
 	sharedDir          *sharedDirectory // For thread-safe access to git repository - Holds *git.Repository
@@ -288,7 +290,7 @@ func (r *gitRepository) KubeObjectName() string {
 	return r.Key().Name
 }
 
-func (r *gitRepository) Key() repository.RepositoryKey {
+func (r *gitRepository) Key() key.RepositoryKey {
 	return r.key
 }
 
@@ -462,8 +464,8 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
+	pkgKey := key.FromFullPathname(r.Key(), obj.Spec.PackageName)
+	if err := apiutil.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 	klog.InfoS("[Git] Creating in-memory draft object started for PackageRevision", pctx.LogMetadataFrom(ctx)...)
@@ -489,7 +491,7 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 		return nil, err
 	}
 
-	draftKey := repository.PackageRevisionKey{
+	draftKey := key.PackageRevisionKey{
 		PkgKey:        pkgKey,
 		WorkspaceName: obj.Spec.WorkspaceName,
 	}
@@ -1302,7 +1304,7 @@ func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git
 	message, err := annotateCommitMessage(fmt.Sprintf(commitMessageApproveTemplate, d.Key().PkgKey.ToFullPathname(), d.Key().Revision), &gitAnnotation{
 		PackagePath:   d.Key().PkgKey.ToFullPathname(),
 		WorkspaceName: d.Key().WorkspaceName,
-		Revision:      repository.Revision2Str(d.Key().Revision),
+		Revision:      apiutil.Revision2Str(d.Key().Revision),
 	})
 	if err != nil {
 		return plumbing.ZeroHash, plumbing.ZeroHash, fmt.Errorf("failed annotation commit message for package %s: %w", d.Key().PkgKey.ToFullPathname(), err)
@@ -1320,7 +1322,7 @@ func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git
 	return hash, treeHash, nil
 }
 
-func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, repo *git.Repository, branch plumbing.ReferenceName, prKey repository.PackageRevisionKey) (plumbing.Hash, error) {
+func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, repo *git.Repository, branch plumbing.ReferenceName, prKey key.PackageRevisionKey) (plumbing.Hash, error) {
 	var zero plumbing.Hash
 	// find the branch
 	ref, err := repo.Reference(branch, true)
@@ -1391,7 +1393,7 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 		case "deletion":
 			data := op.data.(map[string]any)
 			branch := data["branch"].(plumbing.ReferenceName)
-			prKey := data["prKey"].(repository.PackageRevisionKey)
+			prKey := data["prKey"].(key.PackageRevisionKey)
 
 			commitHash, err := r.createPackageDeleteCommitInRepo(ctx, repo, branch, prKey)
 			if err != nil {
@@ -1506,7 +1508,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	return fmt.Errorf("push failed after %d attempts", maxRetries)
 }
 
-func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key repository.PackageRevisionKey) ([]porchapi.Task, error) {
+func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key key.PackageRevisionKey) ([]porchapi.Task, error) {
 	var tasks []porchapi.Task
 	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var logOptions = git.LogOptions{
@@ -1661,7 +1663,7 @@ func (r *gitRepository) getResources(hash plumbing.Hash) (map[string]string, err
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil and an error.
-func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key repository.PackageKey) (*object.Commit, error) {
+func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key key.PackageKey) (*object.Commit, error) {
 	var result *object.Commit
 	err := r.sharedDir.withLock(func(repo *git.Repository) error {
 		var logOptions = git.LogOptions{
@@ -1821,7 +1823,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		annotation := &gitAnnotation{
 			PackagePath:   draft.Key().PkgKey.ToFullPathname(),
 			WorkspaceName: draft.Key().WorkspaceName,
-			Revision:      repository.Revision2Str(draft.Key().Revision),
+			Revision:      apiutil.Revision2Str(draft.Key().Revision),
 			Task:          change,
 		}
 		message := formatCommitMessage(porchapi.TaskTypeNone)
@@ -1950,7 +1952,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	// for backwards compatibility with packages that existed before porch supported
 	// descriptions, we populate the workspaceName as the revision number if it is empty
 	if d.prKey.WorkspaceName == "" {
-		d.prKey.WorkspaceName = "v" + repository.Revision2Str(d.Key().Revision)
+		d.prKey.WorkspaceName = "v" + apiutil.Revision2Str(d.Key().Revision)
 	}
 
 	var commitHash plumbing.Hash

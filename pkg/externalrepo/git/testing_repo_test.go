@@ -22,6 +22,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
 	gitserver "github.com/kptdev/porch/test/git/pkg"
 )
@@ -172,7 +173,7 @@ func filterToString(filter repository.ListPackageRevisionFilter) string {
 	return fmt.Sprintf("%s, [%s]", filter.Key, fmt.Sprint(filter.Lifecycles))
 }
 
-func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, key repository.PackageRevisionKey) {
+func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, key key.PackageRevisionKey) {
 	t.Helper()
 
 	for _, r := range revisions {
@@ -182,7 +183,7 @@ func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, k
 	}
 }
 
-func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey repository.PackageRevisionKey) {
+func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey key.PackageRevisionKey) {
 	t.Helper()
 
 	list, err := git.ListPackageRevisions(context.Background(), repository.ListPackageRevisionFilter{})
@@ -193,7 +194,7 @@ func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey re
 	findPackageRevision(t, list, repository.ListPackageRevisionFilter{Key: prKey})
 }
 
-func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {
+func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name key.PackageRevisionKey) {
 	t.Helper()
 
 	list, err := git.ListPackageRevisions(context.Background(), repository.ListPackageRevisionFilter{})

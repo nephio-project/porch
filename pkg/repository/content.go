@@ -19,13 +19,14 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 )
 
 // PackageContent provides version-neutral read access to package revision
 // state and content.
 type PackageContent interface {
-	Key() PackageRevisionKey
+	Key() key.PackageRevisionKey
 	Lifecycle(ctx context.Context) string
 	GetResourceContents(ctx context.Context) (map[string]string, error)
 	GetKptfile(ctx context.Context) (kptfilev1.KptFile, error)
@@ -37,7 +38,7 @@ type PackageContent interface {
 // PackageRevisionDraftSlim is a version-neutral draft interface using plain
 // strings instead of v1alpha1 types.
 type PackageRevisionDraftSlim interface {
-	Key() PackageRevisionKey
+	Key() key.PackageRevisionKey
 	UpdateResources(ctx context.Context, resources map[string]string, commitMsg string) error
 	UpdateLifecycle(ctx context.Context, lifecycle string) error
 }
@@ -46,12 +47,12 @@ type PackageRevisionDraftSlim interface {
 // shared cache. It encapsulates git-internal state lookup so the controller
 // only passes plain strings.
 type ContentCache interface {
-	GetPackageContent(ctx context.Context, repoKey RepositoryKey, pkg, workspace string) (PackageContent, error)
-	UpdateLifecycle(ctx context.Context, repoKey RepositoryKey, pkg, workspace, desired string) (PackageContent, error)
-	CreateNewDraft(ctx context.Context, repoKey RepositoryKey, pkgName, workspace, lifecycle string) (PackageRevisionDraftSlim, error)
-	CreateDraftFromExisting(ctx context.Context, repoKey RepositoryKey, pkgName, workspace string) (PackageRevisionDraftSlim, error)
-	CloseDraft(ctx context.Context, repoKey RepositoryKey, draft PackageRevisionDraftSlim, version int) error
-	DeletePackage(ctx context.Context, repoKey RepositoryKey, pkg, workspace string) error
+	GetPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (PackageContent, error)
+	UpdateLifecycle(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace, desired string) (PackageContent, error)
+	CreateNewDraft(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace, lifecycle string) (PackageRevisionDraftSlim, error)
+	CreateDraftFromExisting(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace string) (PackageRevisionDraftSlim, error)
+	CloseDraft(ctx context.Context, repoKey key.RepositoryKey, draft PackageRevisionDraftSlim, version int) error
+	DeletePackage(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) error
 }
 
 // ExternalPackageFetcher fetches package content from sources outside the registered repo cache.
