@@ -16,7 +16,9 @@ package git
 
 import (
 	"context"
+	"maps"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -192,6 +194,50 @@ func (g GitSuite) TestGetFilteredResourcesReturnsMatchingFiles(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{kptfilev1.KptFileName: wantKptfile}, got.Spec.Resources)
+}
+
+func (g GitSuite) TestGetFilteredResourcesPathOnlyReturnsAllKeysWithEmptyValues(t *testing.T) {
+	ctx, pkgRev := g.openSimpleEmptyPackage(t)
+
+	all, err := pkgRev.GetResources(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, all.Spec.Resources[kptfilev1.KptFileName], "precondition: Kptfile should have content when not path-only")
+
+	got, err := pkgRev.GetFilteredResources(ctx, selector.PRRGet{PathOnly: true})
+
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	// Same set of keys as a full read, but every value is empty.
+	require.ElementsMatch(t, slices.Collect(maps.Keys(all.Spec.Resources)), slices.Collect(maps.Keys(got.Spec.Resources)))
+	require.Contains(t, got.Spec.Resources, kptfilev1.KptFileName)
+	require.Contains(t, got.Spec.Resources, readmeFile)
+	for name, content := range got.Spec.Resources {
+		require.Emptyf(t, content, "path-only resource %q should have empty content", name)
+	}
+}
+
+func (g GitSuite) TestGetFilteredResourcesPathOnlyWithFileFilterReturnsEmptyValues(t *testing.T) {
+	ctx, pkgRev := g.openSimpleEmptyPackage(t)
+
+	got, err := pkgRev.GetFilteredResources(ctx, selector.PRRGet{
+		FilePaths: []string{kptfilev1.KptFileName},
+		PathOnly:  true,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{kptfilev1.KptFileName: ""}, got.Spec.Resources)
+}
+
+func (g GitSuite) TestGetFilteredResourcesPathOnlyReturnsErrorForUnknownFile(t *testing.T) {
+	ctx, pkgRev := g.openSimpleEmptyPackage(t)
+
+	got, err := pkgRev.GetFilteredResources(ctx, selector.PRRGet{
+		FilePaths: []string{missingPackageFile},
+		PathOnly:  true,
+	})
+
+	require.Nil(t, got)
+	require.ErrorContains(t, err, "failed to load package resources")
 }
 
 func (g GitSuite) TestGetFilteredResourcesReturnsErrorForUnknownFile(t *testing.T) {
