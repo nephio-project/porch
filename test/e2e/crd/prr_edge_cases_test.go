@@ -15,6 +15,8 @@
 package crd
 
 import (
+	"maps"
+	"slices"
 	"time"
 
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
@@ -29,6 +31,120 @@ var _ = Describe("PRR Edge Cases", Ordered, Label("content"), func() {
 
 	BeforeAll(func() {
 		env = sharedEnv()
+	})
+
+	It("should return resource paths in ResourcePaths and nil Resources when path-only is set", func() {
+		By("creating a draft and pushing files")
+		pr := newPackageRevision(env.Namespace, env.RepoName, "path-only", "v1", withInit("path only test"))
+		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
+		waitForReady(env.Ctx, pr)
+
+		updatePRRResources(env.Ctx, env.Namespace, pr.Name, map[string]string{
+			"deploy.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: deploy\n",
+			"config.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n",
+		})
+		waitForRendered(env.Ctx, pr)
+
+		By("fetching with path-only query parameter")
+		prr := &porchapi.PackageRevisionResources{}
+		Expect(k8sClient.Get(env.Ctx, client.ObjectKey{
+			Namespace: env.Namespace,
+			Name:      pr.Name + "?path-only",
+		}, prr)).To(Succeed())
+
+		By("verifying ResourcePaths are present and Resources is nil")
+		Expect(prr.Spec.Resources).To(BeNil())
+		Expect(prr.Spec.ResourcePaths).To(ContainElements("deploy.yaml", "config.yaml", "Kptfile"))
+
+		By("verifying a normal GET still returns full content")
+		prrFull := &porchapi.PackageRevisionResources{}
+		Expect(k8sClient.Get(env.Ctx, client.ObjectKey{
+			Namespace: env.Namespace,
+			Name:      pr.Name,
+		}, prrFull)).To(Succeed())
+		Expect(prrFull.Spec.Resources["deploy.yaml"]).NotTo(BeEmpty())
+	})
+
+	It("should return both ResourcePaths and Resources when no query parameters are set", func() {
+		By("creating a draft and pushing files")
+		pr := newPackageRevision(env.Namespace, env.RepoName, "no-query", "v1", withInit("no query test"))
+		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
+		waitForReady(env.Ctx, pr)
+
+		updatePRRResources(env.Ctx, env.Namespace, pr.Name, map[string]string{
+			"deploy.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: deploy\n",
+			"config.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n",
+		})
+		waitForRendered(env.Ctx, pr)
+
+		By("fetching with no query parameters")
+		prr := &porchapi.PackageRevisionResources{}
+		Expect(k8sClient.Get(env.Ctx, client.ObjectKey{
+			Namespace: env.Namespace,
+			Name:      pr.Name,
+		}, prr)).To(Succeed())
+
+		By("verifying both ResourcePaths and Resources are populated for all files")
+		Expect(prr.Spec.ResourcePaths).To(ContainElements("deploy.yaml", "config.yaml", "Kptfile"))
+		Expect(prr.Spec.Resources).To(HaveKey("deploy.yaml"))
+		Expect(prr.Spec.Resources).To(HaveKey("config.yaml"))
+		Expect(prr.Spec.Resources).To(HaveKey("Kptfile"))
+		Expect(prr.Spec.Resources["deploy.yaml"]).NotTo(BeEmpty())
+		Expect(prr.Spec.Resources["config.yaml"]).NotTo(BeEmpty())
+
+		By("verifying the two views agree on the key set")
+		Expect(prr.Spec.ResourcePaths).To(ConsistOf(slices.Collect(maps.Keys(prr.Spec.Resources))))
+	})
+
+	It("should filter both ResourcePaths and Resources when a file filter is set without path-only", func() {
+		By("creating a draft and pushing files")
+		pr := newPackageRevision(env.Namespace, env.RepoName, "file-filter", "v1", withInit("file filter test"))
+		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
+		waitForReady(env.Ctx, pr)
+
+		updatePRRResources(env.Ctx, env.Namespace, pr.Name, map[string]string{
+			"deploy.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: deploy\n",
+			"config.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n",
+		})
+		waitForRendered(env.Ctx, pr)
+
+		By("fetching with a file filter query parameter")
+		prr := &porchapi.PackageRevisionResources{}
+		Expect(k8sClient.Get(env.Ctx, client.ObjectKey{
+			Namespace: env.Namespace,
+			Name:      pr.Name + "?file=deploy.yaml",
+		}, prr)).To(Succeed())
+
+		By("verifying only the filtered file is returned, with content")
+		Expect(prr.Spec.ResourcePaths).To(ConsistOf("deploy.yaml"))
+		Expect(prr.Spec.Resources).To(HaveLen(1))
+		Expect(prr.Spec.Resources["deploy.yaml"]).NotTo(BeEmpty())
+		Expect(prr.Spec.Resources).NotTo(HaveKey("config.yaml"))
+		Expect(prr.Spec.Resources).NotTo(HaveKey("Kptfile"))
+	})
+
+	It("should filter ResourcePaths and return empty Resources when both file filter and path-only are set", func() {
+		By("creating a draft and pushing files")
+		pr := newPackageRevision(env.Namespace, env.RepoName, "file-filter-path-only", "v1", withInit("file filter path only test"))
+		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
+		waitForReady(env.Ctx, pr)
+
+		updatePRRResources(env.Ctx, env.Namespace, pr.Name, map[string]string{
+			"deploy.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: deploy\n",
+			"config.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n",
+		})
+		waitForRendered(env.Ctx, pr)
+
+		By("fetching with both file filter and path-only query parameters")
+		prr := &porchapi.PackageRevisionResources{}
+		Expect(k8sClient.Get(env.Ctx, client.ObjectKey{
+			Namespace: env.Namespace,
+			Name:      pr.Name + "?file=deploy.yaml&path-only",
+		}, prr)).To(Succeed())
+
+		By("verifying only the filtered path is returned and Resources is nil")
+		Expect(prr.Spec.Resources).To(BeNil())
+		Expect(prr.Spec.ResourcePaths).To(ConsistOf("deploy.yaml"))
 	})
 
 	It("should delete a file by removing it from the resources map", func() {

@@ -34,7 +34,7 @@ type dbSQLInterface interface {
 	Exec(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Query(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
-	ScanTwoTextColumns(ctx context.Context, query string, args []any, scan func(col1, col2 string) error) error
+	ScanTextColumns(ctx context.Context, query string, args []any, n int, scan func(cols []string) error) error
 }
 
 var _ dbSQLInterface = &dbSQL{}
@@ -83,7 +83,7 @@ func (ds *dbSQL) QueryRow(ctx context.Context, query string, args ...any) *sql.R
 	}
 }
 
-func (ds *dbSQL) ScanTwoTextColumns(ctx context.Context, query string, args []any, scan func(col1, col2 string) error) error {
+func (ds *dbSQL) ScanTextColumns(ctx context.Context, query string, args []any, n int, scan func(cols []string) error) error {
 	if ds.db == nil {
 		return fmt.Errorf("cannot query database, database is not initialized")
 	}
@@ -106,12 +106,17 @@ func (ds *dbSQL) ScanTwoTextColumns(ctx context.Context, query string, args []an
 		}
 		defer rows.Close()
 
+		cols := make([]string, n)
+		ptrs := make([]any, n)
+		for i := range cols {
+			ptrs[i] = &cols[i]
+		}
+
 		for rows.Next() {
-			var col1, col2 string
-			if err := rows.Scan(&col1, &col2); err != nil {
+			if err := rows.Scan(ptrs...); err != nil {
 				return err
 			}
-			if err := scan(col1, col2); err != nil {
+			if err := scan(cols); err != nil {
 				return err
 			}
 		}
