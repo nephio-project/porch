@@ -21,8 +21,10 @@ import (
 	"slices"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	apiutil "github.com/kptdev/porch/api/util"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/scheduler"
@@ -142,7 +144,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
+	pkgKey := key.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
 	klog.InfoS("[CaD Engine] Validating and preparing package creation for PackageRevision",
 		pctx.LogMetadataFrom(ctx)...)
 	defer func() {
@@ -150,14 +152,14 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 			pctx.LogMetadataFrom(ctx)...)
 	}()
 
-	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
+	if err := apiutil.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	sameRepoFilter := repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: newPr.Spec.RepositoryName,
 				},
 			},

@@ -19,7 +19,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
+	"github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -33,7 +35,7 @@ var (
 	PrFilterFieldMappings = map[porchapi.PkgRevFieldSelector]prFilterFieldMappingFunc{
 		porchapi.PkgRevSelectorName: func(f *repository.ListPackageRevisionFilter, name string) error {
 			var err error
-			if filterKey, err := repository.PkgRevK8sName2Key("", name); err == nil {
+			if filterKey, err := key.PkgRevK8sName2Key("", name); err == nil {
 				f.Key = filterKey
 			}
 			return err
@@ -43,7 +45,7 @@ var (
 			return nil
 		},
 		porchapi.PkgRevSelectorRevision: func(f *repository.ListPackageRevisionFilter, strRevision string) error {
-			f.Key.Revision = repository.Revision2Int(strRevision)
+			f.Key.Revision = util.Revision2Int(strRevision)
 			return nil
 		},
 		porchapi.PkgRevSelectorPackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) error {
@@ -136,7 +138,7 @@ func parsePackageFieldSelector(fieldSelector fields.Selector, namespace string) 
 
 		switch requirement.Field {
 		case "metadata.name":
-			if filterKey, err := repository.PkgK8sName2Key("", requirement.Value); err == nil {
+			if filterKey, err := key.PkgK8sName2Key("", requirement.Value); err == nil {
 				filter.Key = filterKey
 			} else {
 				return repository.ListPackageFilter{}, err
@@ -172,7 +174,7 @@ func parsePackageFieldSelector(fieldSelector fields.Selector, namespace string) 
 func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions, namespace string) (*repository.ListPackageRevisionFilter, error) {
 	filter := &repository.ListPackageRevisionFilter{
 		Label: options.LabelSelector,
-		Key:   repository.PackageRevisionKey{},
+		Key:   key.PackageRevisionKey{},
 	}
 
 	fieldSelector := options.FieldSelector

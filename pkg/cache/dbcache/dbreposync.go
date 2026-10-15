@@ -24,6 +24,7 @@ import (
 	"unicode/utf8"
 
 	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/internal/telemetry"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
@@ -40,7 +41,7 @@ type repositorySync struct {
 	mutex                   stdSync.Mutex
 	syncWg                  stdSync.WaitGroup
 	lastExternalRepoVersion string
-	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
+	lastExternalPRMap       map[key.PackageRevisionKey]repository.PackageRevision
 	lastSyncStats           repositorySyncStats
 	renderScheduler         *scheduler.RenderScheduler
 	asyncRendering          bool
@@ -126,7 +127,7 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 	}, nil
 }
 
-func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
+func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[key.PackageRevisionKey]repository.PackageRevision, error) {
 	deployedFilter := repository.ListPackageRevisionFilter{}
 	if !s.repo.pushDraftsToGit {
 		deployedFilter = repository.ListPackageRevisionFilter{
@@ -146,7 +147,7 @@ func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.Pac
 	return repository.PrSlice2Map(cachedPrList), nil
 }
 
-func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
+func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[key.PackageRevisionKey]repository.PackageRevision, error) {
 	externalRepoVersion, err := s.repo.Version(ctx)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "fetch of external repository %+v version failed", s.repo.Key())
@@ -171,11 +172,11 @@ func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.P
 	return externalPRMap, nil
 }
 
-func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {
+func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[key.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []key.PackageRevisionKey) {
 	_, span := tracer.Start(ctx, "Repository::comparePRMaps", trace.WithAttributes())
 	defer span.End()
 
-	var inLeftOnly, inBoth, inRightOnly []repository.PackageRevisionKey
+	var inLeftOnly, inBoth, inRightOnly []key.PackageRevisionKey
 
 	for leftPrKey := range leftMap {
 		if _, ok := rightMap[leftPrKey]; ok {
@@ -194,7 +195,7 @@ func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap ma
 	return inLeftOnly, inBoth, inRightOnly
 }
 
-func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inExternalOnly []repository.PackageRevisionKey) error {
+func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map[key.PackageRevisionKey]repository.PackageRevision, inExternalOnly []key.PackageRevisionKey) error {
 	for _, extPRKey := range inExternalOnly {
 		extPR := externalPrMap[extPRKey]
 
@@ -279,7 +280,7 @@ func (s *repositorySync) scheduleRenderForUnfinishedDraft(
 	ctx context.Context,
 	repo repository.Repository,
 	extPR repository.PackageRevision,
-	extPRKey repository.PackageRevisionKey,
+	extPRKey key.PackageRevisionKey,
 	lifecycle porchapi.PackageRevisionLifecycle,
 	resources map[string]string,
 ) {
@@ -330,7 +331,7 @@ func hasUnfinishedRender(status kptfileStatus) bool {
 
 // sanitizeResources copies an external package revision's resources, dropping any files whose key or
 // value contains invalid UTF-8 or NUL bytes (which PostgreSQL TEXT columns cannot store).
-func (s *repositorySync) sanitizeResources(prKey repository.PackageRevisionKey, extPRResources *porchapi.PackageRevisionResources) (map[string]string, int64) {
+func (s *repositorySync) sanitizeResources(prKey key.PackageRevisionKey, extPRResources *porchapi.PackageRevisionResources) (map[string]string, int64) {
 	var resources map[string]string
 	var resourcesSize int64
 	if extPRResources == nil || extPRResources.Spec.Resources == nil {
@@ -353,7 +354,7 @@ func (s *repositorySync) sanitizeResources(prKey repository.PackageRevisionKey, 
 	return resources, resourcesSize
 }
 
-func (s *repositorySync) handleInCachedOnly(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly []repository.PackageRevisionKey) error {
+func (s *repositorySync) handleInCachedOnly(ctx context.Context, cachedPrMap map[key.PackageRevisionKey]repository.PackageRevision, inCachedOnly []key.PackageRevisionKey) error {
 	var prsToPush []*dbPackageRevision
 
 	for _, dbPRKey := range inCachedOnly {
@@ -383,7 +384,7 @@ func (s *repositorySync) handleInCachedOnly(ctx context.Context, cachedPrMap map
 	return nil
 }
 
-func (s *repositorySync) deleteCachedOnlyPR(ctx context.Context, dbPRKey repository.PackageRevisionKey, snapshot repository.PackageRevision) error {
+func (s *repositorySync) deleteCachedOnlyPR(ctx context.Context, dbPRKey key.PackageRevisionKey, snapshot repository.PackageRevision) error {
 	pkgKey := dbPRKey.PKey()
 	lockPkgKey(pkgKey)
 	defer unlockPkgKey(pkgKey)
@@ -428,7 +429,7 @@ func (s *repositorySync) deleteCachedOnlyPR(ctx context.Context, dbPRKey reposit
 	return nil
 }
 
-func (s *repositorySync) handleInBoth(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inBoth []repository.PackageRevisionKey) {
+func (s *repositorySync) handleInBoth(ctx context.Context, cachedPrMap map[key.PackageRevisionKey]repository.PackageRevision, inBoth []key.PackageRevisionKey) {
 	ctx, span := tracer.Start(ctx, "Repository::handleInBoth", trace.WithAttributes())
 	defer span.End()
 

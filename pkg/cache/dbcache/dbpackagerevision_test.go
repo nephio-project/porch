@@ -21,6 +21,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
@@ -91,9 +92,9 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 
 	t.Equal("my-ns", dbPR.KubeObjectNamespace())
 	t.Equal("my-repo-name.my-package.my-workspace", dbPR.KubeObjectName())
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace:         namespace,
 				Name:              repoName,
 				PlaceholderWSname: branch,
@@ -170,7 +171,7 @@ info:
 
 	// After publishing, the main revision is automatically created in the DB.
 	// Verify that PackageMetadata (Kptfile labels) persists on it.
-	mainKey := repository.PackageRevisionKey{
+	mainKey := key.PackageRevisionKey{
 		PkgKey:        dbPR.Key().PKey(),
 		Revision:      -1,
 		WorkspaceName: branch,
@@ -188,7 +189,7 @@ info:
 	dbPRdb := dbPR.(*dbPackageRevision)
 	dbPR2 := dbPackageRevision{
 		repo: dbPRdb.repo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPR.Key().PKey(),
 			Revision:      0,
 			WorkspaceName: "my-workspace-2",
@@ -295,7 +296,7 @@ func (t *DbTestSuite) TestPublishedMetadataUnchangedOnSetMeta() {
 	const publishedBy = "approver"
 	pr := dbPackageRevision{
 		repo: dbRepo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "v1",
 			Revision:      1,
@@ -321,7 +322,7 @@ func (t *DbTestSuite) TestPublishedMetadataUnchangedOnSetMeta() {
 
 	draft := dbPackageRevision{
 		repo: dbRepo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws",
 			Revision:      0,
@@ -481,7 +482,7 @@ func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 	// Create and write first package revision to database
 	dbPR1 := dbPackageRevision{
 		repo: dbRepo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "workspace-1",
 			Revision:      1,
@@ -498,7 +499,7 @@ func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 	// Create and write main package revision to make sure len(prSlice) > 0
 	dbPRMain := dbPackageRevision{
 		repo: dbRepo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "main",
 			Revision:      -1,
@@ -520,7 +521,7 @@ func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 	// Create and write second package revision to database (this will be latest)
 	dbPR2 := dbPackageRevision{
 		repo: dbRepo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "workspace-2",
 			Revision:      2,
@@ -673,7 +674,7 @@ status:
 	resources := map[string]string{"Kptfile": kfYAML}
 	status, gates, pkgMeta := extractFromKptfile(resources)
 	pr := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-1",
 			Revision:      1,
@@ -685,7 +686,7 @@ status:
 	t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
 
 	filter := repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: dbRepo.Key()}},
+		Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: dbRepo.Key()}},
 	}
 	results, err := pkgRevListPRsFromDB(t.Context(), filter)
 	t.Require().NoError(err)
@@ -714,7 +715,7 @@ func (t *DbTestSuite) TestBackfillKptfileMeta() {
 
 	// Write a PR with empty kptfileMeta (simulating pre-migration row)
 	pr := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-1",
 			Revision:      1,
@@ -742,7 +743,7 @@ status:
 
 	// Verify kptfile_status is empty in DB
 	filter := repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: dbRepo.Key()}},
+		Key: key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: dbRepo.Key()}},
 	}
 	results, err := pkgRevListPRsFromDB(t.Context(), filter)
 	t.Require().NoError(err)
@@ -782,7 +783,7 @@ func (t *DbTestSuite) TestBackfillUpstreamRefName() {
 
 	// Write a PR with clone task — pkgRevWriteToDB will set upstream_ref_name automatically.
 	pr := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-clone",
 			Revision:      1,
@@ -828,7 +829,7 @@ func (t *DbTestSuite) TestBackfillUpstreamRefName() {
 	// Also test with an upgrade task.
 	newUpstreamName := "upstream-backfill-repo.basepkg.v2"
 	pr2 := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
 			WorkspaceName: "ws-upgrade",
 			Revision:      2,
@@ -885,7 +886,7 @@ func (t *DbTestSuite) TestDBPackageRevisionPublishWithPushDraftsToGit() {
 	// Stand in for the git repository. Using a mock rather than the fake external repo means
 	// every call made to git is asserted, so an unexpected second close fails the test.
 	extRepo := mockrepo.NewMockRepository(t.T())
-	extRepo.EXPECT().Key().Return(repository.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
+	extRepo.EXPECT().Key().Return(key.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
 
 	testRepo.externalRepo = extRepo
 	testRepo.pushDraftsToGit = true
@@ -937,7 +938,7 @@ func (t *DbTestSuite) TestDBPackageRevisionPublishWithPushDraftsToGit() {
 }
 
 func TestUpdateLifecycleUsesAlreadyAssignedRepository(t *testing.T) {
-	dbRepo := &dbRepository{repoKey: repository.RepositoryKey{Name: "repo", Namespace: "ns"}}
+	dbRepo := &dbRepository{repoKey: key.RepositoryKey{Name: "repo", Namespace: "ns"}}
 	pr := &dbPackageRevision{
 		repo:      dbRepo,
 		pkgRevKey: testEnsureRepoPRKey(),
@@ -956,7 +957,7 @@ func TestUpdateLifecycleResolvesRepositoryFromCache(t *testing.T) {
 	cachetypes.CacheInstance = mockCache
 	t.Cleanup(func() { cachetypes.CacheInstance = nil })
 
-	dbRepo := &dbRepository{repoKey: repository.RepositoryKey{Name: "repo", Namespace: "ns"}}
+	dbRepo := &dbRepository{repoKey: key.RepositoryKey{Name: "repo", Namespace: "ns"}}
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(dbRepo)
 	pr := &dbPackageRevision{
 		pkgRevKey: testEnsureRepoPRKey(),
@@ -1012,10 +1013,10 @@ func TestUpdateLifecycleFailsWhenCachedRepositoryHasUnexpectedType(t *testing.T)
 	require.ErrorContains(t, err, "no associated repository")
 }
 
-func testEnsureRepoPRKey() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{Name: "repo", Namespace: "ns"},
+func testEnsureRepoPRKey() key.PackageRevisionKey {
+	return key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{Name: "repo", Namespace: "ns"},
 			Package: "pkg",
 		},
 		WorkspaceName: "ws",

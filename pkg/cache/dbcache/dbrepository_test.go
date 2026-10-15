@@ -18,6 +18,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
@@ -38,7 +39,7 @@ import (
 
 func (t *DbTestSuite) TestDBRepository() {
 	shellRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace: "my-ns",
 			Name:      "my-repo-name",
 		},
@@ -47,7 +48,7 @@ func (t *DbTestSuite) TestDBRepository() {
 	t.Equal("my-ns", shellRepo.KubeObjectNamespace())
 	t.Equal("my-repo-name", shellRepo.KubeObjectName())
 	t.Equal(types.UID("82d3ab92-4a01-5679-8c52-b1c3daf6f016"), shellRepo.UID())
-	t.Equal(repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
+	t.Equal(key.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
 }
 
 func (t *DbTestSuite) TestDBRepositoryPRCrud() {
@@ -211,7 +212,7 @@ func (t *DbTestSuite) TestDBRepositorCorner() {
 	ctx := t.Context()
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace: "my-ns",
 			Name:      "my-repo-name",
 		},
@@ -233,7 +234,7 @@ func (t *DbTestSuite) newPushDraftsToGitTestRepo(namespace, name string, pushDra
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	extRepo := mockrepo.NewMockRepository(t.T())
-	extRepo.EXPECT().Key().Return(repository.RepositoryKey{Namespace: namespace, Name: name}).Maybe()
+	extRepo.EXPECT().Key().Return(key.RepositoryKey{Namespace: namespace, Name: name}).Maybe()
 
 	testRepo.externalRepo = extRepo
 	testRepo.pushDraftsToGit = pushDraftsToGit

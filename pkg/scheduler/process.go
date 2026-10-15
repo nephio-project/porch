@@ -23,6 +23,7 @@ import (
 	kptfileapi "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	kpt "github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/porch/api/porch/key"
 	api "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
@@ -69,8 +70,8 @@ func (rs *RenderScheduler) StopProcessing() {
 			ongoing.cancel()
 		}
 	}
-	rs.scheduled = make(map[repository.PackageRevisionKey]RenderExecutionRequest)
-	rs.ongoing = make(map[repository.PackageRevisionKey]RenderExecutionRequest)
+	rs.scheduled = make(map[key.PackageRevisionKey]RenderExecutionRequest)
+	rs.ongoing = make(map[key.PackageRevisionKey]RenderExecutionRequest)
 	rs.largeWaitlist = nil
 	rs.largeRendersOngoing = 0
 	rs.mu.Unlock()
@@ -118,7 +119,7 @@ func (rs *RenderScheduler) runRenderWorker(workerID int) {
 
 func (rs *RenderScheduler) validateScheduledRender(request *RenderExecutionRequest, workerID int) (
 	ctx context.Context,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 	proceed bool,
 ) {
 	prKey = request.pr.Key()
@@ -175,7 +176,7 @@ func logRenderResult(workerID int, prName string, ctx context.Context, request R
 	}
 }
 
-func (rs *RenderScheduler) releaseOngoingRender(prKey repository.PackageRevisionKey, workerID int, request RenderExecutionRequest) {
+func (rs *RenderScheduler) releaseOngoingRender(prKey key.PackageRevisionKey, workerID int, request RenderExecutionRequest) {
 	rs.mu.Lock()
 	if ongoing, exists := rs.ongoing[prKey]; exists {
 		if ongoing.workerID == workerID {
@@ -217,11 +218,11 @@ func (rs *RenderScheduler) process(request RenderExecutionRequest, workerID int)
 	}
 }
 
-func validateRequest(request RenderExecutionRequest, workerID int) (repository.PackageRevisionKey, string, bool) {
+func validateRequest(request RenderExecutionRequest, workerID int) (key.PackageRevisionKey, string, bool) {
 	if request.pr == nil {
 		klog.Errorf("Worker %d: received render request with nil PackageRevision! retryNum=%d. This indicates a bug in rescheduleRender or ScheduleRender.",
 			workerID, request.retryNum)
-		return repository.PackageRevisionKey{}, "", false
+		return key.PackageRevisionKey{}, "", false
 	}
 
 	prKey := request.pr.Key()
@@ -279,7 +280,7 @@ func (rs *RenderScheduler) handlePRRUpdateFailure(
 	ctx context.Context,
 	request RenderExecutionRequest,
 	workerID int,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 	prr *api.PackageRevisionResources,
 	originalHash uint32,
 	renderedResources map[string]string,
@@ -321,7 +322,7 @@ func (rs *RenderScheduler) tryToUpdatePrrReallyHard(
 	ctx context.Context,
 	prr *api.PackageRevisionResources,
 	originalHash uint32,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 	workerId int,
 ) error {
 	retriable := func(e error) bool {
@@ -386,7 +387,7 @@ func (rs *RenderScheduler) tryToUpdatePrrReallyHard(
 func (rs *RenderScheduler) doRender(
 	ctx context.Context,
 	inputResources map[string]string,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 ) (
 	map[string]string,
 	kptfileapi.RenderStatus,
@@ -425,7 +426,7 @@ func writeInputResourcesToDisk(fs filesys.FileSystem, inputResources map[string]
 	return pkgPath, nil
 }
 
-func (rs *RenderScheduler) runKptRender(ctx context.Context, fs filesys.FileSystem, pkgPath string, prKey repository.PackageRevisionKey) error {
+func (rs *RenderScheduler) runKptRender(ctx context.Context, fs filesys.FileSystem, pkgPath string, prKey key.PackageRevisionKey) error {
 	kptRenderer := kpt.NewRenderer(rs.runnerOptionsFor(prKey))
 	// TODO: instead of _, once kpt returns the same status that gets stored in the Kptfile, use that
 	_, err := kptRenderer.Render(ctx, fs, fn.RenderOptions{
@@ -439,7 +440,7 @@ func readRenderedResources(
 	fs filesys.FileSystem,
 	tempDir string,
 	inputResources map[string]string,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 ) (repository.PackageResources, error) {
 	renderedResources, readErr := ReadResources(fs, tempDir)
 	if readErr != nil {
@@ -458,7 +459,7 @@ func readRenderedResources(
 
 func (rs *RenderScheduler) renderStatusFromRenderedKptfile(
 	inputResources, renderedContents map[string]string,
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 	multiErr error,
 ) (map[string]string, kptfileapi.RenderStatus) {
 	kptfileContents := []byte(renderedContents[kptfileapi.KptFileName])
@@ -496,7 +497,7 @@ func (rs *RenderScheduler) renderStatusFromRenderedKptfile(
 // back). The FS then holds a mix of old and new files, so the input is preserved and the
 // error is reported instead of being published as a successful render.
 func (rs *RenderScheduler) missingRenderStatusResult(
-	prKey repository.PackageRevisionKey,
+	prKey key.PackageRevisionKey,
 	inputResources, renderedContents map[string]string,
 	renderErr error,
 ) (map[string]string, kptfileapi.RenderStatus) {

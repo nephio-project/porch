@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	kptfilesdk "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
+	"github.com/kptdev/porch/api/porch/key"
 	api "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/metrics"
 	"github.com/kptdev/porch/pkg/repository"
@@ -73,8 +74,8 @@ type RenderExecutionRequest struct {
 // RenderScheduler manages asynchronous render operations for package revisions.
 type RenderScheduler struct {
 	workQueue chan RenderExecutionRequest
-	scheduled map[repository.PackageRevisionKey]RenderExecutionRequest
-	ongoing   map[repository.PackageRevisionKey]RenderExecutionRequest
+	scheduled map[key.PackageRevisionKey]RenderExecutionRequest
+	ongoing   map[key.PackageRevisionKey]RenderExecutionRequest
 	mu        sync.Mutex
 
 	largePackageBytes         int64
@@ -119,8 +120,8 @@ func NewRenderScheduler(opts ...RenderSchedulerOption) *RenderScheduler {
 
 	return &RenderScheduler{
 		workQueue:                 make(chan RenderExecutionRequest, options.WorkQueueSize),
-		scheduled:                 make(map[repository.PackageRevisionKey]RenderExecutionRequest),
-		ongoing:                   make(map[repository.PackageRevisionKey]RenderExecutionRequest),
+		scheduled:                 make(map[key.PackageRevisionKey]RenderExecutionRequest),
+		ongoing:                   make(map[key.PackageRevisionKey]RenderExecutionRequest),
 		largePackageBytes:         options.LargePackageThreshold,
 		maxConcurrentLargeRenders: options.MaxConcurrentLargeRenders,
 		renderTmpDir:              options.RenderTmpDir,
@@ -262,7 +263,7 @@ func (rs *RenderScheduler) rescheduleRender(ctx context.Context, prevRequest Ren
 	return nil
 }
 
-func (rs *RenderScheduler) HasParallelRender(prKey repository.PackageRevisionKey, myWorkerID int) bool {
+func (rs *RenderScheduler) HasParallelRender(prKey key.PackageRevisionKey, myWorkerID int) bool {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
@@ -276,7 +277,7 @@ func (rs *RenderScheduler) HasParallelRender(prKey repository.PackageRevisionKey
 	return false
 }
 
-func (rs *RenderScheduler) cancelRenderDueToNewRequest(prKey repository.PackageRevisionKey, prName string, k8sUserName string) {
+func (rs *RenderScheduler) cancelRenderDueToNewRequest(prKey key.PackageRevisionKey, prName string, k8sUserName string) {
 	if ongoing, exists := rs.ongoing[prKey]; exists {
 		klog.Infof("Cancelling ongoing render for %s due to new request from %s", prName, k8sUserName)
 		if ongoing.cancel != nil {

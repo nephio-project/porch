@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	pctx "github.com/kptdev/porch/pkg/util/context"
@@ -33,7 +34,7 @@ func PushPublishedPackageRevision(ctx context.Context, repo repository.Repositor
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	prName := repository.ComposePkgRevObjName(pr.Key())
+	prName := key.ComposePkgRevObjName(pr.Key())
 	if pushDraftsToGit {
 		klog.InfoS("[DBCache] Pushing PackageRevision to repository and to Git for PackageRevision",
 			pctx.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
@@ -66,7 +67,7 @@ func PushPublishedPackageRevision(ctx context.Context, repo repository.Repositor
 
 	if pushDraftsToGit && existingGitBranch {
 		existingPRs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-			Key: repository.PackageRevisionKey{
+			Key: key.PackageRevisionKey{
 				PkgKey:        pr.Key().PkgKey,
 				WorkspaceName: pr.Key().WorkspaceName,
 			},
@@ -113,7 +114,7 @@ func PushPublishedPackageRevision(ctx context.Context, repo repository.Repositor
 	return pushedPRUpstreamLock, nil
 }
 
-func PushDraftPackageRevision(ctx context.Context, repoKey repository.RepositoryKey, pr *dbPackageRevision) {
+func PushDraftPackageRevision(ctx context.Context, repoKey key.RepositoryKey, pr *dbPackageRevision) {
 	prKey := pr.Key()
 	klog.Infof("PushDraftPackageRevision: repo %+v started for %+v", repoKey, prKey)
 
@@ -204,7 +205,7 @@ func PushDraftPackageRevision(ctx context.Context, repoKey repository.Repository
 }
 
 func GetOrCreateGitDraft(ctx context.Context, repo repository.Repository, pr repository.PackageRevision) (draft repository.PackageRevisionDraft, updatedGitPR repository.PackageRevision, err error) {
-	prName := repository.ComposePkgRevObjName(pr.Key())
+	prName := key.ComposePkgRevObjName(pr.Key())
 	klog.InfoS("[DBCache] Getting or creating Git draft for PackageRevision",
 		pctx.LogMetadataFromWithExtras(ctx, "packageRevision", prName)...)
 	defer func() {
@@ -213,7 +214,7 @@ func GetOrCreateGitDraft(ctx context.Context, repo repository.Repository, pr rep
 	}()
 
 	existingPRs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
+		Key: key.PackageRevisionKey{
 			PkgKey:        pr.Key().PkgKey,
 			WorkspaceName: pr.Key().WorkspaceName,
 		},

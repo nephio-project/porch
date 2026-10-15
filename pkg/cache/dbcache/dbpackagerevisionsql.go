@@ -21,6 +21,7 @@ import (
 	"time"
 
 	kptfile "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
@@ -29,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, readResources bool, selector selector.PRRGet) (*dbPackageRevision, error) {
+func pkgRevReadFromDB(ctx context.Context, prk key.PackageRevisionKey, readResources bool, selector selector.PRRGet) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -154,7 +155,7 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 	return pkgRevScanRowsFromDB(ctx, rows)
 }
 
-func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPackageRevision, error) {
+func pkgRevReadPRsFromDB(ctx context.Context, pk key.PackageKey) ([]*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -193,7 +194,7 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 	return pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 }
 
-func pkgRevGetlatestRevFromDB(ctx context.Context, pk repository.PackageKey) (int, error) {
+func pkgRevGetlatestRevFromDB(ctx context.Context, pk key.PackageKey) (int, error) {
 	latestPR, err := pkgRevReadLatestPRFromDB(ctx, pk)
 	if err != nil {
 		return 0, err
@@ -206,7 +207,7 @@ func pkgRevGetlatestRevFromDB(ctx context.Context, pk repository.PackageKey) (in
 	}
 }
 
-func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackageRevision, error) {
+func pkgRevReadLatestPRFromDB(ctx context.Context, pk key.PackageKey) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadLatestPRFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -259,7 +260,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 	}
 }
 
-func pkgRevReadPRListFromDB(ctx context.Context, pk repository.PackageKey, sqlStatement string) ([]*dbPackageRevision, error) {
+func pkgRevReadPRListFromDB(ctx context.Context, pk key.PackageKey, sqlStatement string) ([]*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -343,8 +344,8 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
 			}
 		}
-		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
-		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
+		pkgRev.pkgRevKey.PkgKey.Package = key.K8SName2PkgName(pkgK8SName)
+		pkgRev.pkgRevKey.WorkspaceName = key.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
 		setValueFromJSON(metaAsJSON, &pkgRev.meta)
 		setValueFromJSON(specAsJSON, &pkgRev.spec)
 		setValueFromJSON(extPRID, &pkgRev.extPRID)
@@ -471,7 +472,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	}
 }
 
-func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) error {
+func pkgRevDeleteFromDB(ctx context.Context, prk key.PackageRevisionKey) error {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
@@ -741,7 +742,7 @@ func lastPushedDbUpdatedAsNullTime(pr *dbPackageRevision) sql.NullTime {
 
 // pkgRevSetLastPushedInDB records the pushed ext_pr_id and last_pushed_db_updated for a package
 // revision without touching the `updated`/`updatedby` columns.
-func pkgRevSetLastPushedInDB(ctx context.Context, prk repository.PackageRevisionKey, extPRID kptfile.Locator, expectedUpdated time.Time) (bool, error) {
+func pkgRevSetLastPushedInDB(ctx context.Context, prk key.PackageRevisionKey, extPRID kptfile.Locator, expectedUpdated time.Time) (bool, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevSetLastPushedInDB", trace.WithAttributes())
 	defer span.End()
 

@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/kptdev/kpt/pkg/oci"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
+	"github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
 	"go.opentelemetry.io/otel"
@@ -89,7 +90,7 @@ func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.Imag
 		return 0, fmt.Errorf("error fetching manifest for image: %w", err)
 	}
 
-	return repository.Revision2Int(manifest.Annotations[annotationKeyRevision]), nil
+	return util.Revision2Int(manifest.Annotations[annotationKeyRevision]), nil
 }
 
 func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]porchapi.Task, error) {

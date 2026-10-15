@@ -27,6 +27,7 @@ import (
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/internal/telemetry"
 	"github.com/kptdev/porch/pkg/repository"
@@ -172,7 +173,7 @@ func isPushOnRenderFailure(pr *porchv1alpha2.PackageRevision) bool {
 }
 
 // executeRender performs the render, handles failure/stale, and writes results.
-func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey) (*ctrl.Result, error) {
+func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	start := time.Now()
 	defer telemetry.RecordControllerOperation(telemetry.ResourcePackageRevisionResources, "UPDATE", start)
@@ -247,7 +248,7 @@ func (r *PackageRevisionReconciler) checkRenderStale(ctx context.Context, pr *po
 	return nil, nil
 }
 
-func (r *PackageRevisionReconciler) persistAndSyncKptfile(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey repository.RepositoryKey, resources map[string]string) {
+func (r *PackageRevisionReconciler) persistAndSyncKptfile(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey, resources map[string]string) {
 	if err := r.writeRenderedResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, resources); err != nil {
 		log.FromContext(ctx).Error(err, "failed to write resources")
 		return
@@ -255,7 +256,7 @@ func (r *PackageRevisionReconciler) persistAndSyncKptfile(ctx context.Context, p
 	r.syncKptfileFields(ctx, pr, resources, repoKey)
 }
 
-func (r *PackageRevisionReconciler) syncKptfileFields(ctx context.Context, pr *porchv1alpha2.PackageRevision, renderedResources map[string]string, repoKey repository.RepositoryKey) {
+func (r *PackageRevisionReconciler) syncKptfileFields(ctx context.Context, pr *porchv1alpha2.PackageRevision, renderedResources map[string]string, repoKey key.RepositoryKey) {
 	log := log.FromContext(ctx)
 
 	// Parse Kptfile from rendered resources
@@ -274,7 +275,7 @@ func (r *PackageRevisionReconciler) syncKptfileFields(ctx context.Context, pr *p
 	r.updateKptfileFields(ctx, pr, kf)
 }
 
-func (r *PackageRevisionReconciler) readPackageResources(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace string) (map[string]string, error) {
+func (r *PackageRevisionReconciler) readPackageResources(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (map[string]string, error) {
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pkg, workspace)
 	if err != nil {
 		return nil, fmt.Errorf("get content for render: %w", err)
@@ -286,7 +287,7 @@ func (r *PackageRevisionReconciler) readPackageResources(ctx context.Context, re
 	return resources, nil
 }
 
-func (r *PackageRevisionReconciler) writeRenderedResources(ctx context.Context, repoKey repository.RepositoryKey, pkg, workspace string, resources map[string]string) error {
+func (r *PackageRevisionReconciler) writeRenderedResources(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string, resources map[string]string) error {
 	draft, err := r.ContentCache.CreateDraftFromExisting(ctx, repoKey, pkg, workspace)
 	if err != nil {
 		return fmt.Errorf("create draft for render: %w", err)
@@ -337,7 +338,7 @@ func (r *PackageRevisionReconciler) validateRenderStateBeforePublish(ctx context
 // Resources are durably saved at this point (writeRenderedResources completed).
 // We verify queryability to ensure Ready=True means PRR queries will succeed.
 // This protects the race condition where clients see Ready=True but get "not found".
-func (r *PackageRevisionReconciler) verifyResourcesAvailable(ctx context.Context, repoKey repository.RepositoryKey, pr *porchv1alpha2.PackageRevision) (map[string]string, error) {
+func (r *PackageRevisionReconciler) verifyResourcesAvailable(ctx context.Context, repoKey key.RepositoryKey, pr *porchv1alpha2.PackageRevision) (map[string]string, error) {
 	log := log.FromContext(ctx)
 
 	// Retry loop: resources should be available shortly after being written.

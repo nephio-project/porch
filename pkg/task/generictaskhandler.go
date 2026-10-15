@@ -27,6 +27,7 @@ import (
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	"github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapiv1alpha1 "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
@@ -298,7 +299,7 @@ func (th *genericTaskHandler) applySubpackageTask(
 	}
 }
 
-func (th *genericTaskHandler) renderMutation(namespace string, prKey repository.PackageRevisionKey) mutation {
+func (th *genericTaskHandler) renderMutation(namespace string, prKey key.PackageRevisionKey) mutation {
 	ros := th.runnerOptionsResolver(namespace)
 	ros.LogOptions.PkgNameFormat = fmt.Sprintf("%s.%%s.%s", prKey.PkgKey.RepoKey.Name, prKey.WorkspaceName)
 	return &renderPackageMutation{

@@ -18,6 +18,7 @@ package repomap
 import (
 	"sync"
 
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
 )
 
@@ -25,7 +26,7 @@ type SafeRepoMap struct {
 	syncMap sync.Map
 }
 
-func (s *SafeRepoMap) Load(key repository.RepositoryKey) (repository.Repository, bool) {
+func (s *SafeRepoMap) Load(key key.RepositoryKey) (repository.Repository, bool) {
 	v, ok := s.syncMap.Load(key)
 	if !ok {
 		return nil, false
@@ -33,7 +34,7 @@ func (s *SafeRepoMap) Load(key repository.RepositoryKey) (repository.Repository,
 	return v.(*repoLoader).repo, true
 }
 
-func (s *SafeRepoMap) LoadAndDelete(key repository.RepositoryKey) (repository.Repository, bool) {
+func (s *SafeRepoMap) LoadAndDelete(key key.RepositoryKey) (repository.Repository, bool) {
 	v, ok := s.syncMap.LoadAndDelete(key)
 	if !ok {
 		return nil, false
@@ -58,7 +59,7 @@ type repoLoader struct {
 	err  error
 }
 
-func (s *SafeRepoMap) LoadOrCreate(key repository.RepositoryKey, create func() (repository.Repository, error)) (repository.Repository, error) {
+func (s *SafeRepoMap) LoadOrCreate(key key.RepositoryKey, create func() (repository.Repository, error)) (repository.Repository, error) {
 	loader := &repoLoader{}
 	actual, loaded := s.syncMap.LoadOrStore(key, loader)
 	l := actual.(*repoLoader)

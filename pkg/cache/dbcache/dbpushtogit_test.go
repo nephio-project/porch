@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	mockrepo "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
@@ -140,8 +141,8 @@ func TestPushPublishedPackageRevision_PushDraftsDisabled(t *testing.T) {
 			mockPR := mockrepo.NewMockPackageRevision(t)
 			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
 
-			mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
-			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+			mockRepo.EXPECT().Key().Return(key.RepositoryKey{}).Maybe()
+			mockPR.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 
 			tt.setupMocks(mockRepo, mockPR, mockPRD)
 
@@ -254,8 +255,8 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 			mockGitPR := mockrepo.NewMockPackageRevision(t)
 			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
 
-			mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
-			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+			mockRepo.EXPECT().Key().Return(key.RepositoryKey{}).Maybe()
+			mockPR.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 
 			tt.setupMocks(mockRepo, mockPR, mockGitPR, mockPRD)
 
@@ -344,7 +345,7 @@ func TestGetOrCreateGitDraft(t *testing.T) {
 			mockGitPR := mockrepo.NewMockPackageRevision(t)
 			mockPRD := mockrepo.NewMockPackageRevisionDraft(t)
 
-			mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
+			mockPR.EXPECT().Key().Return(key.PackageRevisionKey{}).Maybe()
 
 			tt.setupMocks(mockRepo, mockPR, mockGitPR, mockPRD)
 

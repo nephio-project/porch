@@ -20,6 +20,7 @@ import (
 	stdSync "sync"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/cache/crcache/meta"
@@ -45,7 +46,7 @@ import (
 var _ repository.Repository = &cachedRepository{}
 
 type cachedRepository struct {
-	key      repository.RepositoryKey
+	key      key.RepositoryKey
 	repoSpec *configapi.Repository
 	repo     repository.Repository
 
@@ -57,15 +58,15 @@ type cachedRepository struct {
 
 	mutex                  stdSync.RWMutex
 	refreshWg              stdSync.WaitGroup
-	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
-	cachedPackages         map[repository.PackageKey]*cachedPackage
+	cachedPackageRevisions map[key.PackageRevisionKey]*cachedPackageRevision
+	cachedPackages         map[key.PackageKey]*cachedPackage
 	refreshRevisionsError  error
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
 }
 
-func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
+func newRepository(repoKey key.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
 	metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
 	r := &cachedRepository{
 		key:                  repoKey,
@@ -85,7 +86,7 @@ func (r *cachedRepository) KubeObjectName() string {
 	return r.Key().Name
 }
 
-func (r *cachedRepository) Key() repository.RepositoryKey {
+func (r *cachedRepository) Key() key.RepositoryKey {
 	return r.key
 }
 
@@ -174,7 +175,7 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 }
 
 // getCachedPackages returns cachedPackages; fetching it if not cached or if forceRefresh.
-func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
+func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[key.PackageKey]*cachedPackage, map[key.PackageRevisionKey]*cachedPackageRevision, error) {
 	r.mutex.RLock()
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
@@ -234,8 +235,8 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	}
 
 	revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		Key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Path:    prd.Key().PkgKey.Path,
 				Package: prd.Key().PkgKey.Package,
 			},
@@ -474,7 +475,7 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 }
 
 // sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
-func (r *cachedRepository) sendLatestPkgUpdateNotification(pkgKey repository.PackageKey) {
+func (r *cachedRepository) sendLatestPkgUpdateNotification(pkgKey key.PackageKey) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	_, span := tracer.Start(ctx, "cachedRepository::sendLatestPkgUpdateNotification", trace.WithAttributes())
@@ -546,7 +547,7 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 // refreshAllCachedPackages updates the cached map for this repository with all the newPackages,
 // it also triggers notifications for all package changes.
 // mutex must be held.
-func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
+func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[key.PackageKey]*cachedPackage, map[key.PackageRevisionKey]*cachedPackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::refreshAllCachedPackages", trace.WithAttributes())
 	defer span.End()
 
@@ -682,7 +683,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	}
 	klog.Infof("repo %+v: addSent %d, modSent %d, delSent for %d old and %d new repo packages", r.Key(), addSent, modSent, len(oldPackageRevisionNames), len(newPackageRevisionNames))
 
-	newPackageRevisionMap := make(map[repository.PackageRevisionKey]*cachedPackageRevision, len(newPackageRevisions))
+	newPackageRevisionMap := make(map[key.PackageRevisionKey]*cachedPackageRevision, len(newPackageRevisions))
 	for _, newPackage := range newPackageRevisions {
 		k := newPackage.Key()
 		pkgRev := &cachedPackageRevision{
@@ -695,7 +696,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 
 	identifyLatestRevisions(ctx, newPackageRevisionMap)
 
-	newPackageMap := make(map[repository.PackageKey]*cachedPackage)
+	newPackageMap := make(map[key.PackageKey]*cachedPackage)
 
 	for _, newPackageRevision := range newPackageRevisionMap {
 		if !newPackageRevision.isLatestRevision {

@@ -28,6 +28,7 @@ import (
 	kptfileapi "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/metrics"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
@@ -49,7 +50,7 @@ func (rs *RenderScheduler) SetRunnerOptions(runnerOptionsResolver func(namespace
 
 // runnerOptionsFor copies the scheduler options and sets the kpt package-name
 // format to repo.%s.workspace. Workers render concurrently, so the shared options stay unchanged.
-func (rs *RenderScheduler) runnerOptionsFor(prKey repository.PackageRevisionKey) runneroptions.RunnerOptions {
+func (rs *RenderScheduler) runnerOptionsFor(prKey key.PackageRevisionKey) runneroptions.RunnerOptions {
 	opts := rs.runnerOptions
 	opts.LogOptions.PkgNameFormat = fmt.Sprintf("%s.%%s.%s", prKey.PkgKey.RepoKey.Name, prKey.WorkspaceName)
 	return opts
@@ -247,7 +248,7 @@ func (rs *RenderScheduler) isLarge(sizeBytes int64) bool {
 	return sizeBytes >= rs.largePackageBytes
 }
 
-func (rs *RenderScheduler) removeLargeWaitlistedPr(prKey repository.PackageRevisionKey) {
+func (rs *RenderScheduler) removeLargeWaitlistedPr(prKey key.PackageRevisionKey) {
 	if len(rs.largeWaitlist) == 0 {
 		return
 	}

@@ -24,6 +24,7 @@ import (
 
 	kptfile "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
@@ -77,7 +78,7 @@ func extractFromKptfile(resources map[string]string) (kptfileStatus, []porchapi.
 
 type dbPackageRevision struct {
 	repo                *dbRepository
-	pkgRevKey           repository.PackageRevisionKey
+	pkgRevKey           key.PackageRevisionKey
 	meta                metav1.ObjectMeta
 	spec                *porchapi.PackageRevisionSpec
 	updated             time.Time
@@ -129,7 +130,7 @@ func (pr *dbPackageRevision) specPackageMetadata() *porchapi.PackageMetadata {
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
-	return repository.ComposePkgRevObjName(pr.Key())
+	return key.ComposePkgRevObjName(pr.Key())
 }
 
 func (pr *dbPackageRevision) KubeObjectNamespace() string {
@@ -140,7 +141,7 @@ func (pr *dbPackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", pr.KubeObjectNamespace(), pr.KubeObjectName())
 }
 
-func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
+func (pr *dbPackageRevision) Key() key.PackageRevisionKey {
 	return pr.pkgRevKey
 }
 
@@ -388,7 +389,7 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 
 	mainPR := &dbPackageRevision{
 		repo: pr.repo,
-		pkgRevKey: repository.PackageRevisionKey{
+		pkgRevKey: key.PackageRevisionKey{
 			PkgKey:        pr.Key().PKey(),
 			Revision:      -1,
 			WorkspaceName: pr.Key().RKey().PlaceholderWSname,

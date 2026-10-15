@@ -28,8 +28,10 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/oci"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	apiutil "github.com/kptdev/porch/api/util"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util"
 	"github.com/kptdev/porch/pkg/util/selector"
@@ -40,7 +42,7 @@ import (
 )
 
 type ociRepository struct {
-	key        repository.RepositoryKey
+	key        key.RepositoryKey
 	spec       configapi.OciRepository
 	deployment bool
 
@@ -57,7 +59,7 @@ func (r *ociRepository) KubeObjectName() string {
 	return r.Key().Name
 }
 
-func (r *ociRepository) Key() repository.RepositoryKey {
+func (r *ociRepository) Key() key.RepositoryKey {
 	return r.key
 }
 
@@ -173,8 +175,8 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 						Image:  child.Name(),
 						Digest: digest,
 					},
-					prKey: repository.PackageRevisionKey{
-						PkgKey: repository.PackageKey{
+					prKey: key.PackageRevisionKey{
+						PkgKey: key.PackageKey{
 							Package: childName,
 						},
 
@@ -227,13 +229,13 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = repository.Revision2Str(revision)
+		workspace = apiutil.Revision2Str(revision)
 	}
 
 	p := &ociPackageRevision{
 		digestName: name,
-		prKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
+		prKey: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
 				Package: packageName,
 			},
 			WorkspaceName: workspace,
@@ -270,7 +272,7 @@ func (p *ociPackageRevision) ToMainPackageRevision(context.Context) repository.P
 }
 
 type ociPackageRevision struct {
-	prKey           repository.PackageRevisionKey
+	prKey           key.PackageRevisionKey
 	digestName      oci.ImageDigestName
 	created         time.Time
 	resourceVersion string
@@ -286,7 +288,7 @@ type ociPackageRevision struct {
 var _ repository.PackageRevision = &ociPackageRevision{}
 
 func (c *ociPackageRevision) KubeObjectName() string {
-	return repository.ComposePkgRevObjName(c.Key())
+	return key.ComposePkgRevObjName(c.Key())
 }
 
 func (c *ociPackageRevision) KubeObjectNamespace() string {
@@ -346,7 +348,7 @@ func (p *ociPackageRevision) ResourceVersion() string {
 	return p.resourceVersion
 }
 
-func (p *ociPackageRevision) Key() repository.PackageRevisionKey {
+func (p *ociPackageRevision) Key() key.PackageRevisionKey {
 	return p.prKey
 }
 

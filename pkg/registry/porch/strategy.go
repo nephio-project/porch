@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/util"
+	apiutil "github.com/kptdev/porch/api/util"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,11 +157,11 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 	}
 
 	// A package name can have a path
-	if pkgNameErr := util.ValidateDirectoryName(obj.Spec.PackageName, true); pkgNameErr != nil {
+	if pkgNameErr := apiutil.ValidateDirectoryName(obj.Spec.PackageName, true); pkgNameErr != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "packageName"), obj.Spec.PackageName, pkgNameErr.Error()))
 	}
 
-	if wsNameErr := util.ValidateK8SName(string(obj.Spec.WorkspaceName)); wsNameErr != nil {
+	if wsNameErr := apiutil.ValidateK8SName(obj.Spec.WorkspaceName); wsNameErr != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "workspaceName"), obj.Spec.WorkspaceName, wsNameErr.Error()))
 	}
 

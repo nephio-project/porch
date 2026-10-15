@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	kptfileapi "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
@@ -29,7 +30,7 @@ import (
 )
 
 type gitPackageRevisionDraft struct {
-	prKey    repository.PackageRevisionKey
+	prKey    key.PackageRevisionKey
 	repo     *gitRepository // repo is repo containing the package
 	metadata metav1.ObjectMeta
 	updated  time.Time
@@ -53,7 +54,7 @@ type gitPackageRevisionDraft struct {
 
 var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
-func (d *gitPackageRevisionDraft) Key() repository.PackageRevisionKey {
+func (d *gitPackageRevisionDraft) Key() key.PackageRevisionKey {
 	return d.prKey
 }
 

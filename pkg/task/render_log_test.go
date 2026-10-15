@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,9 +38,9 @@ func TestRenderLogsPackageNamesFromKptfile(t *testing.T) {
 		oldKlogState.Restore()
 	})
 
-	prKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{Name: "my-repo"},
+	prKey := key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{Name: "my-repo"},
 			Package: "parent-pkg",
 		},
 		WorkspaceName: "my-ws",

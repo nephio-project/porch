@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	unversionedapi "github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/pkg/engine"
@@ -202,7 +203,7 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, fmt.Errorf("namespace must be specified")
 	}
 
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +235,7 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (repository
 		return nil, fmt.Errorf("namespace must be specified")
 	}
 
-	pkgKey, err := repository.PkgK8sName2Key(namespace, name)
+	pkgKey, err := key.PkgK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +347,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		klog.InfoS("[API] Update operation started for PackageRevision", pctx.LogMetadataFrom(ctx)...)
 	}
 
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -472,7 +473,7 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 		}
 	}
 
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}

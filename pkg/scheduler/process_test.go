@@ -13,8 +13,8 @@ import (
 
 	kptfileapi "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepo "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -395,13 +395,13 @@ func TestStopProcessing_CancelsAll(t *testing.T) {
 	rs := NewRenderScheduler(WithWorkQueueSize(10))
 
 	numOperations := 3
-	cancelledUIDs := make(map[repository.PackageRevisionKey]bool)
-	cancelSignals := make(chan repository.PackageRevisionKey, numOperations)
+	cancelledUIDs := make(map[key.PackageRevisionKey]bool)
+	cancelSignals := make(chan key.PackageRevisionKey, numOperations)
 	var mu sync.Mutex
 
 	for i := range numOperations {
 		uid := testPackageRevisionKey("test-repo", "uid", fmt.Sprintf("v%d", i))
-		cancelFunc := func(capturedUID repository.PackageRevisionKey) func() {
+		cancelFunc := func(capturedUID key.PackageRevisionKey) func() {
 			return func() {
 				mu.Lock()
 				cancelledUIDs[capturedUID] = true
@@ -765,7 +765,7 @@ func TestLoadPRR_NotFoundError(t *testing.T) {
 
 func TestValidateRequest_EmptyPackageRevisionName(t *testing.T) {
 	pr := new(mockrepo.MockPackageRevision)
-	pr.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+	pr.On("Key").Return(key.PackageRevisionKey{}).Maybe()
 
 	_, name, ok := validateRequest(RenderExecutionRequest{pr: pr}, 0)
 	assert.False(t, ok)

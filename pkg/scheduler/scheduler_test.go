@@ -11,6 +11,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	kptfilesdk "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,10 +40,10 @@ func (noopTestFunctionRunner) Run(r io.Reader, w io.Writer) error {
 	return err
 }
 
-func testPackageRevisionKey(repoName, packageName, workspace string) repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+func testPackageRevisionKey(repoName, packageName, workspace string) key.PackageRevisionKey {
+	return key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "test-namespace",
 				Name:      repoName,
 			},
@@ -76,11 +77,11 @@ metadata:
 `
 }
 
-func setupMockPRExpectations(pr *mockrepo.MockPackageRevision, key repository.PackageRevisionKey, resourceVersion string, resources map[string]string) {
+func setupMockPRExpectations(pr *mockrepo.MockPackageRevision, key key.PackageRevisionKey, resourceVersion string, resources map[string]string) {
 	setupMockPRExpectationsWithSize(pr, key, resourceVersion, resources, 0)
 }
 
-func setupMockPRExpectationsWithSize(pr *mockrepo.MockPackageRevision, key repository.PackageRevisionKey, resourceVersion string, resources map[string]string, sizeBytes int64) {
+func setupMockPRExpectationsWithSize(pr *mockrepo.MockPackageRevision, key key.PackageRevisionKey, resourceVersion string, resources map[string]string, sizeBytes int64) {
 	pr.On("Key").Return(key).Maybe()
 	pr.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{
 		ObjectMeta: metav1.ObjectMeta{
@@ -104,7 +105,7 @@ func setupMockRepoExpectations(repo *mockrepo.MockRepository, draft *mockrepo.Mo
 	repo.On("ClosePackageRevisionDraftNoResources", mock.Anything, draft, 0).Return(pr, nil).Maybe()
 }
 
-func setupMockPRDraftExpectations(draft *mockrepo.MockPackageRevisionDraft, key repository.PackageRevisionKey, kptfileContent string) {
+func setupMockPRDraftExpectations(draft *mockrepo.MockPackageRevisionDraft, key key.PackageRevisionKey, kptfileContent string) {
 	draft.On("GetKptfileContent", mock.Anything).Return(kptfileContent, nil)
 	draft.On("UpdateKptfileContent", mock.Anything, mock.Anything).Return(nil)
 	draft.On("Key").Return(key)
@@ -116,7 +117,7 @@ func setupMockClient() *mockclient.MockClient {
 	return client
 }
 
-func setupMockClientForResources(key repository.PackageRevisionKey, resources map[string]string) *mockclient.MockClient {
+func setupMockClientForResources(key key.PackageRevisionKey, resources map[string]string) *mockclient.MockClient {
 	store := map[string]map[string]string{
 		key.K8SName(): resources,
 	}
@@ -156,7 +157,7 @@ func setupMockClientForResourceStore(store map[string]map[string]string) *mockcl
 	return client
 }
 
-func setupMockClientUpdateFails(store map[string]map[string]string, key repository.PackageRevisionKey, resources map[string]string) *mockclient.MockClient {
+func setupMockClientUpdateFails(store map[string]map[string]string, key key.PackageRevisionKey, resources map[string]string) *mockclient.MockClient {
 	if store == nil {
 		store = map[string]map[string]string{
 			key.K8SName(): resources,
@@ -239,7 +240,7 @@ func kptfileConditionsFromResources(t *testing.T, resources map[string]string) (
 	return renderFinishedCondition.Status, renderedCondition.Status
 }
 
-func newSizedPackageRevision(key repository.PackageRevisionKey, resourceVersion string, resources map[string]string, sizeBytes int64) *mockrepo.MockPackageRevision {
+func newSizedPackageRevision(key key.PackageRevisionKey, resourceVersion string, resources map[string]string, sizeBytes int64) *mockrepo.MockPackageRevision {
 	pr := new(mockrepo.MockPackageRevision)
 	setupMockPRExpectationsWithSize(pr, key, resourceVersion, resources, sizeBytes)
 	return pr
@@ -364,7 +365,7 @@ func TestRescheduleRender_DefensiveValidation(t *testing.T) {
 	rs.SetRuntime(noopTestFunctionRuntime{})
 
 	pr := new(mockrepo.MockPackageRevision)
-	pr.On("Key").Return(repository.PackageRevisionKey{}).Maybe()
+	pr.On("Key").Return(key.PackageRevisionKey{}).Maybe()
 	pr.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{"Kptfile": minimalKptfile()},

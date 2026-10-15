@@ -21,8 +21,8 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -313,8 +313,8 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
-	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+	expectedPkgRevKeyv1 := key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
 
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
@@ -358,8 +358,8 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
-	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+	expectedPkgRevKeyv1 := key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := key.PackageRevisionKey{PkgKey: key.PackageKey{RepoKey: key.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
 
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
@@ -409,9 +409,9 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	simplePackage := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+	simplePackage := t.MustFindPackageRevision(&list, key.PackageRevisionKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
 			},
 			Package: "basens",
@@ -728,9 +728,9 @@ func (t *PorchSuite) TestPackageMetadataFieldSelectors() {
 
 		t.ListE(&list, client.InNamespace(t.Namespace))
 
-		simplePackage := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
+		simplePackage := t.MustFindPackageRevision(&list, key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{
 					Name: suiteutils.TestBlueprintsRepoName,
 				},
 				Package: "basens",

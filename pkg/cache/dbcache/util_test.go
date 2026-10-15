@@ -19,8 +19,8 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
-	"github.com/kptdev/porch/pkg/repository"
 )
 
 func (t *DbTestSuite) TestUtil() {
@@ -109,7 +109,7 @@ func (t *DbTestSuite) TestLockManagerWaitsOnSameMutex() {
 }
 
 func (t *DbTestSuite) TestLockRepoKey() {
-	repoKey := repository.RepositoryKey{Namespace: "ns", Name: "repo"}
+	repoKey := key.RepositoryKey{Namespace: "ns", Name: "repo"}
 	lockRepoKey(repoKey)
 	t.Len(globalLockManager.locks, 1)
 	unlockRepoKey(repoKey)
@@ -117,8 +117,8 @@ func (t *DbTestSuite) TestLockRepoKey() {
 }
 
 func (t *DbTestSuite) TestLockPkgKey() {
-	pkgKey := repository.PackageKey{
-		RepoKey: repository.RepositoryKey{Namespace: "ns", Name: "repo"},
+	pkgKey := key.PackageKey{
+		RepoKey: key.RepositoryKey{Namespace: "ns", Name: "repo"},
 		Package: "my-pkg",
 	}
 

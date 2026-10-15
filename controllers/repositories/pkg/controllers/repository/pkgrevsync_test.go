@@ -21,6 +21,7 @@ import (
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
+	"github.com/kptdev/porch/api/porch/key"
 	porchv1alpha1 "github.com/kptdev/porch/api/porch/v1alpha1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
@@ -51,9 +52,9 @@ func newTestRepo() *configapi.Repository {
 
 func newFakePkgRev(pkg, workspace string, lifecycle porchv1alpha2.PackageRevisionLifecycle) *fakePackageRevision {
 	return &fakePackageRevision{
-		key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{Namespace: "default", Name: "my-repo"},
+		key: key.PackageRevisionKey{
+			PkgKey: key.PackageKey{
+				RepoKey: key.RepositoryKey{Namespace: "default", Name: "my-repo"},
 				Package: pkg,
 			},
 			WorkspaceName: workspace,
@@ -85,7 +86,7 @@ func mockApplySuccess(t *testing.T, m *mockclient.MockClient) {
 // fakePackageRevision implements repository.PackageRevision and the optional
 // GetCommitInfo/IsLatestRevision interfaces for testing.
 type fakePackageRevision struct {
-	key          repository.PackageRevisionKey
+	key          key.PackageRevisionKey
 	lifecycle    porchv1alpha1.PackageRevisionLifecycle
 	kptfile      kptfilev1.KptFile
 	upstreamLock kptfilev1.Locator
@@ -98,8 +99,8 @@ type fakePackageRevision struct {
 }
 
 func (f *fakePackageRevision) KubeObjectNamespace() string                          { return f.key.RKey().Namespace }
-func (f *fakePackageRevision) KubeObjectName() string                               { return repository.ComposePkgRevObjName(f.key) }
-func (f *fakePackageRevision) Key() repository.PackageRevisionKey                   { return f.key }
+func (f *fakePackageRevision) KubeObjectName() string                               { return key.ComposePkgRevObjName(f.key) }
+func (f *fakePackageRevision) Key() key.PackageRevisionKey                          { return f.key }
 func (f *fakePackageRevision) UID() types.UID                                       { return "" }
 func (f *fakePackageRevision) ResourceVersion() string                              { return "" }
 func (f *fakePackageRevision) GetMeta() metav1.ObjectMeta                           { return f.meta }
@@ -628,8 +629,8 @@ func TestBuildPackageRevisionOmitsNonOwnedFields(t *testing.T) {
 	}
 
 	pkgRev := &fakePackageRevision{}
-	pkgRev.key = repository.PackageRevisionKey{
-		PkgKey:        repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: "my-repo"}, Package: "my-pkg"},
+	pkgRev.key = key.PackageRevisionKey{
+		PkgKey:        key.PackageKey{RepoKey: key.RepositoryKey{Namespace: "default", Name: "my-repo"}, Package: "my-pkg"},
 		WorkspaceName: "v1",
 	}
 	pkgRev.kptfile = kptfilev1.KptFile{

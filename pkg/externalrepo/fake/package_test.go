@@ -18,14 +18,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kptdev/porch/pkg/repository"
+	"github.com/kptdev/porch/api/porch/key"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPackageGetters(t *testing.T) {
 	fakePkg := FakePackage{
-		PkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+		PkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Name:      "my-repo",
 				Namespace: "my-namespace",
 			},

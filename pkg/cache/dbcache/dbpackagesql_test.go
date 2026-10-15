@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
 	"github.com/kptdev/porch/pkg/repository"
@@ -32,7 +33,7 @@ func (t *DbTestSuite) TestPackageDBWriteRead() {
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace:         "my-ns",
 			Name:              "my-repo",
 			Path:              "my-path",
@@ -46,8 +47,8 @@ func (t *DbTestSuite) TestPackageDBWriteRead() {
 	}
 
 	dbPkg := dbPackage{
-		pkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
+		pkgKey: key.PackageKey{
+			RepoKey: key.RepositoryKey{
 				Namespace: "my-ns",
 				Name:      "my-repo",
 			},
@@ -62,7 +63,7 @@ func (t *DbTestSuite) TestPackageDBWriteRead() {
 
 	dbPkgUpdate := dbPackage{
 		repo: &dbRepo,
-		pkgKey: repository.PackageKey{
+		pkgKey: key.PackageKey{
 			RepoKey: dbRepo.Key(),
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
@@ -89,8 +90,8 @@ func (t *DbTestSuite) TestPackageDBSchema() {
 	err := pkgWriteToDB(t.Context(), &dbPkg)
 	t.Require().ErrorContains(err, "violates check constraint")
 
-	dbPkg.pkgKey = repository.PackageKey{
-		RepoKey: repository.RepositoryKey{
+	dbPkg.pkgKey = key.PackageKey{
+		RepoKey: key.RepositoryKey{
 			Namespace: "my-ns",
 		},
 	}
@@ -106,7 +107,7 @@ func (t *DbTestSuite) TestPackageDBSchema() {
 	t.Require().ErrorContains(err, "violates foreign key constraint")
 
 	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
+		repoKey: key.RepositoryKey{
 			Namespace: "my-ns",
 			Name:      "my-repo",
 		},
@@ -356,12 +357,12 @@ func (t *DbTestSuite) assertPackageListsEqual(left []dbPackage, right []*dbPacka
 	t.Len(left, count)
 	t.Len(right, count)
 
-	leftMap := make(map[repository.PackageKey]*dbPackage)
+	leftMap := make(map[key.PackageKey]*dbPackage)
 	for _, leftPkg := range left {
 		leftMap[leftPkg.Key()] = &leftPkg
 	}
 
-	rightMap := make(map[repository.PackageKey]*dbPackage)
+	rightMap := make(map[key.PackageKey]*dbPackage)
 	for _, rightPkg := range right {
 		rightMap[rightPkg.Key()] = rightPkg
 	}

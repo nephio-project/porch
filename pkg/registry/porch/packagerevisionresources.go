@@ -21,6 +21,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/porch/api/porch"
+	"github.com/kptdev/porch/api/porch/key"
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	"github.com/kptdev/porch/api/porchconfig/v1alpha1"
@@ -242,7 +243,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, rawName string, o
 	}
 	klog.InfoS("[API] Update operation started for PackageRevisionResources", pctx.LogMetadataFrom(ctx)...)
 
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -320,7 +321,7 @@ func (r *packageRevisionResources) getRepoPkgRevForResources(ctx context.Context
 		return nil, fmt.Errorf("namespace must be specified")
 	}
 
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
+	prKey, err := key.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}
