@@ -161,7 +161,7 @@ jobs:
 
       - name: SonarQube Scan on PR
         if: github.event.workflow_run.event == 'pull_request' && steps.sonar_settings.outputs.path != ''
-        uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           # Keep PR metadata as JSON data, never as additional scanner arguments.
@@ -183,7 +183,7 @@ jobs:
           github.event.workflow_run.event == 'push' &&
           github.event.workflow_run.head_repository.full_name == github.event.repository.full_name &&
           steps.sonar_settings.outputs.path != ''
-        uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
