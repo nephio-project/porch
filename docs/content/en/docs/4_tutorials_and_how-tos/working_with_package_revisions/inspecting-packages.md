@@ -208,6 +208,8 @@ items:
 
 `PackageRevisionResources` can return a subset of files instead of the whole package. Append `file=<path>` to the resource name. Repeat the parameter for each path. Omit `file` to return every file.
 
+Every GET response also populates `spec.resourcePaths` with the list of file paths returned — it mirrors the keys of `spec.resources`. Use `?path-only` (see below) to get just the paths without content.
+
 Quote the name so the shell does not treat `?` as a glob:
 
 ```bash
@@ -242,7 +244,18 @@ kubectl get packagerevisionresources 'porch-test.my-first-package.v1?path-only' 
   --namespace default -o yaml
 ```
 
-The response `spec.resources` map contains every file path as a key, with each value set to `RESOURCE-VALUE-NOT-RETURNED`.
+The response omits `spec.resources` entirely and instead populates `spec.resourcePaths` with the list of file paths:
+
+```yaml
+spec:
+  packageName: my-first-package
+  repository: porch-test
+  workspaceName: v1
+  resourcePaths:
+  - Kptfile
+  - package-context.yaml
+  - deploy.yaml
+```
 
 `path-only` can be combined with `file` to check which of a set of specific paths exist:
 

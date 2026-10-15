@@ -1656,7 +1656,7 @@ func (r *gitRepository) getResources(hash plumbing.Hash, pathOnly bool) (map[str
 
 func readFileIntoResources(file *object.File, pathOnly bool, resources map[string]string) error {
 	if pathOnly {
-		resources[file.Name] = repository.ResourceValueNotReturned
+		resources[file.Name] = ""
 		return nil
 	}
 	content, err := file.Contents()

@@ -31,7 +31,7 @@ var _ = Describe("PRR Edge Cases", Ordered, Label("content"), func() {
 		env = sharedEnv()
 	})
 
-	It("should return resource keys with placeholder values when path-only is set", func() {
+	It("should return resource paths in ResourcePaths and nil Resources when path-only is set", func() {
 		By("creating a draft and pushing files")
 		pr := newPackageRevision(env.Namespace, env.RepoName, "path-only", "v1", withInit("path only test"))
 		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
@@ -50,13 +50,9 @@ var _ = Describe("PRR Edge Cases", Ordered, Label("content"), func() {
 			Name:      pr.Name + "?path-only",
 		}, prr)).To(Succeed())
 
-		By("verifying keys are present but values are the not-returned placeholder")
-		Expect(prr.Spec.Resources).To(HaveKey("deploy.yaml"))
-		Expect(prr.Spec.Resources).To(HaveKey("config.yaml"))
-		Expect(prr.Spec.Resources).To(HaveKey("Kptfile"))
-		for _, v := range prr.Spec.Resources {
-			Expect(v).To(Equal("RESOURCE-VALUE-NOT-RETURNED"))
-		}
+		By("verifying ResourcePaths are present and Resources is nil")
+		Expect(prr.Spec.Resources).To(BeNil())
+		Expect(prr.Spec.ResourcePaths).To(ContainElements("deploy.yaml", "config.yaml", "Kptfile"))
 
 		By("verifying a normal GET still returns full content")
 		prrFull := &porchapi.PackageRevisionResources{}
@@ -64,7 +60,6 @@ var _ = Describe("PRR Edge Cases", Ordered, Label("content"), func() {
 			Namespace: env.Namespace,
 			Name:      pr.Name,
 		}, prrFull)).To(Succeed())
-		Expect(prrFull.Spec.Resources["deploy.yaml"]).NotTo(Equal("RESOURCE-VALUE-NOT-RETURNED"))
 		Expect(prrFull.Spec.Resources["deploy.yaml"]).NotTo(BeEmpty())
 	})
 

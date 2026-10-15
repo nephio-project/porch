@@ -133,7 +133,7 @@ func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBReturnsKeysWithEmptyValues
 	t.Require().NotNil(resources)
 	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(resources))
 	for _, v := range resources {
-		t.Equal(repository.ResourceValueNotReturned, v)
+		t.Equal("", v)
 	}
 }
 
@@ -147,7 +147,7 @@ func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBWithFileFilterReturnsKeysW
 	})
 
 	t.Require().NoError(err)
-	t.Equal(map[string]string{helloResourceFile: repository.ResourceValueNotReturned}, resources)
+	t.Equal(map[string]string{helloResourceFile: ""}, resources)
 }
 
 func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBFallsBackToStdlibQuery() {
@@ -162,7 +162,7 @@ func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBFallsBackToStdlibQuery() {
 	t.Require().NoError(err)
 	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(resources))
 	for _, v := range resources {
-		t.Equal(repository.ResourceValueNotReturned, v)
+		t.Equal("", v)
 	}
 }
 
@@ -198,7 +198,7 @@ func (t *DbTestSuite) TestPkgRevResourceKeysReadFromDBReturnsScanOneTextColumnEr
 	t.Require().ErrorContains(err, "native one-col scan failed")
 }
 
-func (t *DbTestSuite) TestDBPackageRevisionGetFilteredResourcesPathOnlyReturnsNotReturnedValues() {
+func (t *DbTestSuite) TestDBPackageRevisionGetFilteredResourcesPathOnlyReturnsEmptyValues() {
 	dbPR := t.createResourcesFixture("gfr-pathonly-ns", "gfr-pathonly-repo", "gfr-pathonly-package", "gfr-pathonly-pr")
 	defer t.deleteTestRepo(dbPR.Key().RKey())
 
@@ -208,7 +208,7 @@ func (t *DbTestSuite) TestDBPackageRevisionGetFilteredResourcesPathOnlyReturnsNo
 	t.Require().NotNil(got)
 	t.ElementsMatch([]string{helloResourceFile, goodbyeResourceFile}, mapKeys(got.Spec.Resources))
 	for _, v := range got.Spec.Resources {
-		t.Equal(repository.ResourceValueNotReturned, v)
+		t.Equal("", v)
 	}
 	t.assertPackageRevisionResourcesIdentity(got, dbPR)
 }
