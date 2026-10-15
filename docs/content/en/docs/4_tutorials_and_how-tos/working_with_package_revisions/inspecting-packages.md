@@ -244,7 +244,7 @@ kubectl get packagerevisionresources 'porch-test.my-first-package.v1?path-only' 
   --namespace default -o yaml
 ```
 
-The response omits `spec.resources` entirely and instead populates `spec.resourcePaths` with the list of file paths:
+The response omits `spec.resources` entirely, including only `spec.resourcePaths` with the list of file paths:
 
 ```yaml
 spec:
