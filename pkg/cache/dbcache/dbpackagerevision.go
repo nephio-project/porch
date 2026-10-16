@@ -613,6 +613,24 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	ctx, span := tracer.Start(ctx, "dbPackageRevision::updateLifecycleOnPublishedPR", trace.WithAttributes())
 	defer span.End()
 
+	// A published revision must carry a real revision number (>= 1). Revision -1 is
+	// the valid main-branch placeholder. Revision 0, however, is only legal for
+	// Draft/Proposed (enforced by the DB trigger). A stale in-memory cache object
+	// left over from a failed/partial publish can have lifecycle=Published but
+	// revision=0; saving it as-is trips the trigger. Re-derive the persisted
+	// revision from the DB (the object name is stable regardless of revision) so we
+	// never write revision=0 for a published revision.
+	if pr.pkgRevKey.Revision == 0 {
+		persisted, err := pkgRevReadFromDB(ctx, pr.Key(), false, selector.AllFiles)
+		if err != nil {
+			return pkgerrors.Wrapf(err, "updateLifecycleOnPublishedPR: cannot resolve revision for published package revision %+v with revision 0", pr.Key())
+		}
+		if persisted.pkgRevKey.Revision <= 0 {
+			return pkgerrors.Errorf("updateLifecycleOnPublishedPR: refusing to persist published package revision %+v: resolved revision %d is not a valid published revision", pr.Key(), persisted.pkgRevKey.Revision)
+		}
+		pr.pkgRevKey.Revision = persisted.pkgRevKey.Revision
+	}
+
 	pr.lifecycle = newLifecycle
 
 	_, err := pr.savePackageRevision(ctx, false)

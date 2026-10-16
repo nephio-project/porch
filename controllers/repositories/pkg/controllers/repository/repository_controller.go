@@ -91,7 +91,7 @@ type RepositoryReconciler struct {
 // Reconcile handles Repository reconciliation
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.V(2).Info("Repository reconcile triggered")
+	log.V(3).Info("Repository reconcile triggered")
 
 	ctx = pctx.WithNewRequestID(ctx)
 
@@ -121,7 +121,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Determine what operation is needed
 	decision := r.determineSyncDecision(ctx, repo)
-	log.V(2).Info("Sync decision made", "type", decision.Type, "needed", decision.SyncNecessary, "interval", decision.DelayBeforeNextSync)
+	log.V(3).Info("Sync decision made", "type", decision.Type, "needed", decision.SyncNecessary, "interval", decision.DelayBeforeNextSync)
 
 	// If status was modified (e.g., ObservedRunOnceAt), persist it using SSA
 	if !decision.SyncNecessary {
@@ -133,7 +133,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		// Use exponential backoff if requested (e.g., waiting for sync to complete)
 		if decision.UseExponentialBackoff {
-			log.V(2).Info("Using exponential backoff for requeue")
+			log.V(3).Info("Using exponential backoff for requeue")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
@@ -142,21 +142,87 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			decision.DelayBeforeNextSync = 1 * time.Second
 			log.Info("Requeue interval was zero or negative, using 1s minimum")
 		}
-		log.V(2).Info("No operation needed, requeuing", "after", decision.DelayBeforeNextSync)
+		log.V(3).Info("No operation needed, requeuing", "after", decision.DelayBeforeNextSync)
 		return ctrl.Result{RequeueAfter: decision.DelayBeforeNextSync}, nil
 	}
 
-	if decision.Type == OperationHealthCheck {
+	switch decision.Type {
+	case OperationHealthCheck:
 		return r.performHealthCheckSync(ctx, repo)
+	case OperationOpenOnly:
+		return r.performOpenOnly(ctx, repo)
+	default:
+		return r.performFullSync(ctx, repo)
+	}
+}
+
+// performOpenOnly: health-check and load repo into cache on controller restart.
+// Defers the expensive full git sync to the normal schedule. Prevents "repository
+// not found" errors.
+//
+// The connectivity check and open both perform synchronous git network I/O (remote
+// ref listing + fetch), so they run under syncLimiter — bounded by MaxConcurrentSyncs
+// like performFullSync — to avoid a restart thundering herd on the git backend.
+func (r *RepositoryReconciler) performOpenOnly(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+
+	select {
+	case r.syncLimiter <- struct{}{}:
+		defer func() { <-r.syncLimiter }()
+	default:
+		// A slot frees up quickly once an in-flight open finishes, so retry soon.
+		const retryAfter = time.Second
+		log.V(4).Info("Cold-start open capacity exceeded, will retry",
+			"retryAfter", retryAfter, "maxConcurrentSyncs", r.MaxConcurrentSyncs)
+		return ctrl.Result{RequeueAfter: retryAfter}, nil
 	}
 
-	return r.performFullSync(ctx, repo)
+	// Health check: verify backend is reachable before marking repo opened.
+	if err := r.Cache.CheckRepositoryConnectivity(ctx, repo); err != nil {
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Cold start: repository health check failed", "repoURL", repoURL)
+		retryInterval := r.determineRetryInterval(err)
+		const minRetryInterval = 30 * time.Second
+		if retryInterval < minRetryInterval {
+			retryInterval = minRetryInterval
+		}
+		nextSyncTime := time.Now().Add(retryInterval)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status after cold-start health check failure")
+		}
+		return ctrl.Result{RequeueAfter: retryInterval}, nil
+	}
+
+	// Open repo into cache (no full git sync/diff).
+	if _, err := r.Cache.OpenRepository(ctx, repo); err != nil {
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Cold start: failed to open repository in the cache", "repoURL", repoURL)
+		retryInterval := r.determineRetryInterval(err)
+		nextSyncTime := time.Now().Add(retryInterval)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status after open-only failure")
+		}
+		return ctrl.Result{RequeueAfter: retryInterval}, nil
+	}
+
+	// Mark cold start handled; defer full sync to normal schedule.
+	r.coldStartRepos.Store(repo.Namespace+"/"+repo.Name, true)
+	log.V(2).Info("Cold start: repository opened in the cache; full sync deferred")
+
+	// Refresh Ready=True, preserve sync timestamps.
+	nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+		log.Error(statusErr, "Failed to update repository status after cold-start open")
+	}
+
+	// Requeue on health-check cadence.
+	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
 // performHealthCheckSync executes synchronous health check
 func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.V(2).Info("Starting repository health check")
+	log.V(3).Info("Starting repository health check")
 
 	// Check if repo was previously in error state
 	wasInError := false
@@ -197,7 +263,7 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 	}
 
 	// Normal health check passed
-	log.V(2).Info("Repository health check completed successfully")
+	log.V(3).Info("Repository health check completed successfully")
 	nextFullSync := r.calculateNextFullSyncTime(repo)
 	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
 		log.Error(statusErr, "Failed to update repository status after successful health check")
@@ -250,7 +316,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 	default:
 		// Too many syncs running
 		retryAfter := 30 * time.Second
-		log.V(0).Info("Sync capacity exceeded, will retry",
+		log.V(2).Info("Sync capacity exceeded, will retry",
 			"retryAfter", retryAfter,
 			"maxConcurrentSyncs", r.MaxConcurrentSyncs)
 		statusErr := fmt.Errorf("sync capacity exceeded, retrying after %v", retryAfter)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/pkg/repository"
-	"github.com/stretchr/testify/mock"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockContentCache creates a new instance of MockContentCache. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -72,7 +72,7 @@ type MockContentCache_CloseDraft_Call struct {
 
 // CloseDraft is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - draft repository.PackageRevisionDraftSlim
 //   - version int
 func (_e *MockContentCache_Expecter) CloseDraft(ctx any, repoKey any, draft any, version any) *MockContentCache_CloseDraft_Call {
@@ -152,7 +152,7 @@ type MockContentCache_CreateDraftFromExisting_Call struct {
 
 // CreateDraftFromExisting is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - pkgName string
 //   - workspace string
 func (_e *MockContentCache_Expecter) CreateDraftFromExisting(ctx any, repoKey any, pkgName any, workspace any) *MockContentCache_CreateDraftFromExisting_Call {
@@ -232,7 +232,7 @@ type MockContentCache_CreateNewDraft_Call struct {
 
 // CreateNewDraft is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - pkgName string
 //   - workspace string
 //   - lifecycle string
@@ -307,7 +307,7 @@ type MockContentCache_DeletePackage_Call struct {
 
 // DeletePackage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - pkg string
 //   - workspace string
 func (_e *MockContentCache_Expecter) DeletePackage(ctx any, repoKey any, pkg any, workspace any) *MockContentCache_DeletePackage_Call {
@@ -352,6 +352,86 @@ func (_c *MockContentCache_DeletePackage_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// GetMainPackageContent provides a mock function for the type MockContentCache
+func (_mock *MockContentCache) GetMainPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error) {
+	ret := _mock.Called(ctx, repoKey, pkg, workspace)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMainPackageContent")
+	}
+
+	var r0 repository.PackageContent
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) (repository.PackageContent, error)); ok {
+		return returnFunc(ctx, repoKey, pkg, workspace)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, key.RepositoryKey, string, string) repository.PackageContent); ok {
+		r0 = returnFunc(ctx, repoKey, pkg, workspace)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(repository.PackageContent)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, key.RepositoryKey, string, string) error); ok {
+		r1 = returnFunc(ctx, repoKey, pkg, workspace)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockContentCache_GetMainPackageContent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMainPackageContent'
+type MockContentCache_GetMainPackageContent_Call struct {
+	*mock.Call
+}
+
+// GetMainPackageContent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - repoKey key.RepositoryKey
+//   - pkg string
+//   - workspace string
+func (_e *MockContentCache_Expecter) GetMainPackageContent(ctx any, repoKey any, pkg any, workspace any) *MockContentCache_GetMainPackageContent_Call {
+	return &MockContentCache_GetMainPackageContent_Call{Call: _e.mock.On("GetMainPackageContent", ctx, repoKey, pkg, workspace)}
+}
+
+func (_c *MockContentCache_GetMainPackageContent_Call) Run(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string)) *MockContentCache_GetMainPackageContent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 key.RepositoryKey
+		if args[1] != nil {
+			arg1 = args[1].(key.RepositoryKey)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContentCache_GetMainPackageContent_Call) Return(packageContent repository.PackageContent, err error) *MockContentCache_GetMainPackageContent_Call {
+	_c.Call.Return(packageContent, err)
+	return _c
+}
+
+func (_c *MockContentCache_GetMainPackageContent_Call) RunAndReturn(run func(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error)) *MockContentCache_GetMainPackageContent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetPackageContent provides a mock function for the type MockContentCache
 func (_mock *MockContentCache) GetPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg string, workspace string) (repository.PackageContent, error) {
 	ret := _mock.Called(ctx, repoKey, pkg, workspace)
@@ -387,7 +467,7 @@ type MockContentCache_GetPackageContent_Call struct {
 
 // GetPackageContent is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - pkg string
 //   - workspace string
 func (_e *MockContentCache_Expecter) GetPackageContent(ctx any, repoKey any, pkg any, workspace any) *MockContentCache_GetPackageContent_Call {
@@ -467,7 +547,7 @@ type MockContentCache_UpdateLifecycle_Call struct {
 
 // UpdateLifecycle is a helper method to define mock.On call
 //   - ctx context.Context
-//   - repoKey repository.RepositoryKey
+//   - repoKey key.RepositoryKey
 //   - pkg string
 //   - workspace string
 //   - desired string
