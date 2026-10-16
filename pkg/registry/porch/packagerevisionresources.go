@@ -17,6 +17,8 @@ package porch
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	kptfilev1 "github.com/kptdev/kpt/api/kptfile/v1"
@@ -155,6 +157,11 @@ func (r *packageRevisionResources) Get(ctx context.Context, rawName string, _ *m
 	// explicitly set this to always false on Get()
 	// so that it needs to be set to true explicitly by the client before Update()
 	apiPkgResources.Spec.DisableRender = false
+	apiPkgResources.Spec.ResourcePaths = slices.Collect(maps.Keys(apiPkgResources.Spec.Resources))
+
+	if resourceSelector.PathOnly {
+		apiPkgResources.Spec.Resources = nil
+	}
 
 	klog.V(3).InfoS("Get PackageRevisionResources completed", pctx.LogMetadataFrom(ctx)...)
 

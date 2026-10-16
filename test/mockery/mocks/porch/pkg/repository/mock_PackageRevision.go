@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kptdev/kpt/api/kptfile/v1"
+	v1 "github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/porch/api/porch/key"
 	"github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
@@ -24,10 +24,19 @@ func NewMockPackageRevision(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockPackageRevision {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockPackageRevision{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -134,7 +143,7 @@ type MockPackageRevision_GetFilteredResources_Call struct {
 // GetFilteredResources is a helper method to define mock.On call
 //   - ctx context.Context
 //   - resourceSelector selector.PRRGet
-func (_e *MockPackageRevision_Expecter) GetFilteredResources(ctx interface{}, resourceSelector interface{}) *MockPackageRevision_GetFilteredResources_Call {
+func (_e *MockPackageRevision_Expecter) GetFilteredResources(ctx any, resourceSelector any) *MockPackageRevision_GetFilteredResources_Call {
 	return &MockPackageRevision_GetFilteredResources_Call{Call: _e.mock.On("GetFilteredResources", ctx, resourceSelector)}
 }
 
@@ -199,7 +208,7 @@ type MockPackageRevision_GetKptfile_Call struct {
 
 // GetKptfile is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) GetKptfile(ctx interface{}) *MockPackageRevision_GetKptfile_Call {
+func (_e *MockPackageRevision_Expecter) GetKptfile(ctx any) *MockPackageRevision_GetKptfile_Call {
 	return &MockPackageRevision_GetKptfile_Call{Call: _e.mock.On("GetKptfile", ctx)}
 }
 
@@ -265,7 +274,7 @@ type MockPackageRevision_GetLock_Call struct {
 
 // GetLock is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) GetLock(ctx interface{}) *MockPackageRevision_GetLock_Call {
+func (_e *MockPackageRevision_Expecter) GetLock(ctx any) *MockPackageRevision_GetLock_Call {
 	return &MockPackageRevision_GetLock_Call{Call: _e.mock.On("GetLock", ctx)}
 }
 
@@ -372,7 +381,7 @@ type MockPackageRevision_GetPackageRevision_Call struct {
 // GetPackageRevision is a helper method to define mock.On call
 //   - ctx context.Context
 //   - readFromSource bool
-func (_e *MockPackageRevision_Expecter) GetPackageRevision(ctx interface{}, readFromSource interface{}) *MockPackageRevision_GetPackageRevision_Call {
+func (_e *MockPackageRevision_Expecter) GetPackageRevision(ctx any, readFromSource interface{}) *MockPackageRevision_GetPackageRevision_Call {
 	return &MockPackageRevision_GetPackageRevision_Call{Call: _e.mock.On("GetPackageRevision", ctx, readFromSource)}
 }
 
@@ -439,7 +448,7 @@ type MockPackageRevision_GetResources_Call struct {
 
 // GetResources is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) GetResources(ctx interface{}) *MockPackageRevision_GetResources_Call {
+func (_e *MockPackageRevision_Expecter) GetResources(ctx any) *MockPackageRevision_GetResources_Call {
 	return &MockPackageRevision_GetResources_Call{Call: _e.mock.On("GetResources", ctx)}
 }
 
@@ -505,7 +514,7 @@ type MockPackageRevision_GetUpstreamLock_Call struct {
 
 // GetUpstreamLock is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) GetUpstreamLock(ctx interface{}) *MockPackageRevision_GetUpstreamLock_Call {
+func (_e *MockPackageRevision_Expecter) GetUpstreamLock(ctx any) *MockPackageRevision_GetUpstreamLock_Call {
 	return &MockPackageRevision_GetUpstreamLock_Call{Call: _e.mock.On("GetUpstreamLock", ctx)}
 }
 
@@ -732,7 +741,7 @@ type MockPackageRevision_Lifecycle_Call struct {
 
 // Lifecycle is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) Lifecycle(ctx interface{}) *MockPackageRevision_Lifecycle_Call {
+func (_e *MockPackageRevision_Expecter) Lifecycle(ctx any) *MockPackageRevision_Lifecycle_Call {
 	return &MockPackageRevision_Lifecycle_Call{Call: _e.mock.On("Lifecycle", ctx)}
 }
 
@@ -828,7 +837,7 @@ type MockPackageRevision_SetMeta_Call struct {
 // SetMeta is a helper method to define mock.On call
 //   - ctx context.Context
 //   - meta v10.ObjectMeta
-func (_e *MockPackageRevision_Expecter) SetMeta(ctx interface{}, meta interface{}) *MockPackageRevision_SetMeta_Call {
+func (_e *MockPackageRevision_Expecter) SetMeta(ctx any, meta any) *MockPackageRevision_SetMeta_Call {
 	return &MockPackageRevision_SetMeta_Call{Call: _e.mock.On("SetMeta", ctx, meta)}
 }
 
@@ -886,7 +895,7 @@ type MockPackageRevision_ToMainPackageRevision_Call struct {
 
 // ToMainPackageRevision is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPackageRevision_Expecter) ToMainPackageRevision(ctx interface{}) *MockPackageRevision_ToMainPackageRevision_Call {
+func (_e *MockPackageRevision_Expecter) ToMainPackageRevision(ctx any) *MockPackageRevision_ToMainPackageRevision_Call {
 	return &MockPackageRevision_ToMainPackageRevision_Call{Call: _e.mock.On("ToMainPackageRevision", ctx)}
 }
 
@@ -982,7 +991,7 @@ type MockPackageRevision_UpdateLifecycle_Call struct {
 // UpdateLifecycle is a helper method to define mock.On call
 //   - ctx context.Context
 //   - lifecycle v1alpha1.PackageRevisionLifecycle
-func (_e *MockPackageRevision_Expecter) UpdateLifecycle(ctx interface{}, lifecycle interface{}) *MockPackageRevision_UpdateLifecycle_Call {
+func (_e *MockPackageRevision_Expecter) UpdateLifecycle(ctx any, lifecycle any) *MockPackageRevision_UpdateLifecycle_Call {
 	return &MockPackageRevision_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", ctx, lifecycle)}
 }
 

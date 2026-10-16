@@ -146,11 +146,11 @@ jobs:
           kind load docker-image ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
           kind load docker-image ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
       
-      - name: Deploy porch with v1alpha2
-        timeout-minutes: 10
-        run: IMAGE_TAG=${{ needs.build.outputs.image-tag }} SKIP_IMG_BUILD=true make run-in-kind-v1alpha2
-      
       - name: Run OTEL E2E tests with validation
+        timeout-minutes: 30
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          SKIP_IMG_BUILD: "true"
         run: |
           make test-e2e-otel
       
