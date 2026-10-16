@@ -13,7 +13,7 @@ import (
 	"github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/util/selector"
-	"github.com/stretchr/testify/mock"
+	mock "github.com/stretchr/testify/mock"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )

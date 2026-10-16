@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	defaultMaxConcurrentReconciles    = 100
-	defaultMaxConcurrentSyncs         = 50
+	defaultMaxConcurrentReconciles    = 200
+	defaultMaxConcurrentSyncs         = 100
 	defaultHealthCheckFrequency       = 5 * time.Minute
 	defaultFullSyncFrequency          = 1 * time.Hour
 	defaultSyncStaleTimeout           = 20 * time.Minute

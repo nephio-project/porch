@@ -198,6 +198,28 @@ func TestUpdateLatestRevisionLabels(t *testing.T) {
 			expectPatches:  0,
 			expectedLatest: "pr-v1",
 		},
+		{
+			// A published sibling whose revision number isn't observed yet
+			// (Status.Revision == 0) must be SKIPPED, not block the whole
+			// recompute. The observed revision still wins and gets labeled; no
+			// error/requeue (which previously livelocked and blocked deletes).
+			name: "unobserved published sibling is skipped, observed one wins",
+			items: []porchv1alpha2.PackageRevision{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "pr-v1", Labels: map[string]string{porchv1alpha2.LatestPackageRevisionKey: "false"}},
+					Spec:       porchv1alpha2.PackageRevisionSpec{Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished},
+					Status:     porchv1alpha2.PackageRevisionStatus{Revision: 1},
+				},
+				{
+					// Published but revision not yet observed — skipped.
+					ObjectMeta: metav1.ObjectMeta{Name: "pr-v2", Labels: map[string]string{porchv1alpha2.LatestPackageRevisionKey: "false"}},
+					Spec:       porchv1alpha2.PackageRevisionSpec{Lifecycle: porchv1alpha2.PackageRevisionLifecyclePublished},
+					Status:     porchv1alpha2.PackageRevisionStatus{Revision: 0},
+				},
+			},
+			expectPatches:  1, // only pr-v1 false→true; pr-v2 skipped
+			expectedLatest: "pr-v1",
+		},
 	}
 
 	for _, tt := range tests {
@@ -297,8 +319,13 @@ func TestEnsureLatestRevisionLabelPatchError(t *testing.T) {
 		},
 	}
 
-	// Should not panic, just log the error.
-	r.ensureLatestRevisionLabel(t.Context(), pr)
+	// The error is returned so the caller can requeue and retry the backfill.
+	err := r.ensureLatestRevisionLabel(t.Context(), pr)
+	assert.Error(t, err)
+	// The in-memory mutation is reverted so callers observe the real persisted state
+	// (no label), rather than a label that was never written.
+	_, present := pr.Labels[porchv1alpha2.LatestPackageRevisionKey]
+	assert.False(t, present, "label must be reverted in-memory when the patch fails")
 }
 
 func TestUpdateLatestRevisionLabelsPatchError(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/pkg/util/datasize"
@@ -20,6 +21,7 @@ func TestInitDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxConcurrentRenders, r.MaxConcurrentRenders)
 	assert.Equal(t, defaultRepoOperationRetryAttempts, r.RepoOperationRetryAttempts)
 	assert.Equal(t, defaultMaxGRPCMessageSize, r.MaxGRPCMessageSize)
+	assert.Equal(t, defaultTransientErrorRetryDeadline, r.TransientErrorRetryDeadline)
 }
 
 func TestBindFlags(t *testing.T) {
@@ -33,6 +35,7 @@ func TestBindFlags(t *testing.T) {
 		"--pr-max-concurrent-renders=5",
 		"--pr-repo-operation-retry-attempts=7",
 		"--pr-max-grpc-message-size=10485760",
+		"--pr-transient-error-retry-deadline=30s",
 	})
 	require.NoError(t, err)
 
@@ -40,6 +43,7 @@ func TestBindFlags(t *testing.T) {
 	assert.Equal(t, 5, r.MaxConcurrentRenders)
 	assert.Equal(t, 7, r.RepoOperationRetryAttempts)
 	assert.Equal(t, 10485760, r.MaxGRPCMessageSize)
+	assert.Equal(t, 30*time.Second, r.TransientErrorRetryDeadline)
 }
 
 func TestBindFlagsMaxGRPCMessageSize(t *testing.T) {
@@ -81,6 +85,7 @@ func TestBindFlagsDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxConcurrentRenders, r.MaxConcurrentRenders)
 	assert.Equal(t, defaultRepoOperationRetryAttempts, r.RepoOperationRetryAttempts)
 	assert.Equal(t, defaultMaxGRPCMessageSize, r.MaxGRPCMessageSize)
+	assert.Equal(t, defaultTransientErrorRetryDeadline, r.TransientErrorRetryDeadline)
 }
 
 func TestInit_NilCache(t *testing.T) {

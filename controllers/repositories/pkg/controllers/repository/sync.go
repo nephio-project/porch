@@ -35,6 +35,7 @@ type OperationType int
 const (
 	OperationHealthCheck OperationType = iota // Lightweight connectivity check
 	OperationFullSync                         // Complete data synchronization
+	OperationOpenOnly                         // Load the repo into the cache without a git sync (cold start)
 )
 
 // SyncDecision represents what type of operation is needed
@@ -169,15 +170,25 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, UseExponentialBackoff: true}
 	}
 
-	// After a controller restart the git cache is cold but LastFullSyncTime
-	// may still be recent (persisted in etcd by the previous pod). Force a
-	// full sync for each repo on the first reconcile to re-warm the cache.
-	// Note: with many repos (1000+), the syncLimiter bounds concurrency
-	// (MaxConcurrentSyncs) so repos sync in batches, not all at once.
+	// First reconcile after a controller (re)start for a repo that was ALREADY
+	// synced in a previous process AND has no pending work: open it into the cache
+	// (no git sync) to avoid a thundering-herd full re-sync of every repo on
+	// restart. The full sync is deferred to the normal schedule (isFullSyncDue
+	// staggers it).
+	//
+	// Cold-start open-only is only correct for a clean, previously-synced repo:
+	//   - LastFullSyncTime != nil: it was synced before (not a brand-new repo that
+	//     still needs its initial sync to load packages).
+	//   - !hasSpecChanged && !isOneTimeSyncDue: it has no pending update to apply.
+	//     A spec change or due one-time sync that lands on the first post-restart
+	//     reconcile must still sync, so we fall through to the switch below.
 	repoKey := repo.Namespace + "/" + repo.Name
-	if _, synced := r.coldStartRepos.Load(repoKey); !synced {
-		log.FromContext(ctx).Info("Cold start: forcing full sync to re-warm cache")
-		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
+	if _, seen := r.coldStartRepos.Load(repoKey); !seen &&
+		repo.Status.LastFullSyncTime != nil &&
+		!r.hasSpecChanged(repo) &&
+		!r.isOneTimeSyncDue(repo) {
+		log.FromContext(ctx).V(4).Info("Cold start: opening repository in the cache without a git sync")
+		return SyncDecision{Type: OperationOpenOnly, SyncNecessary: true, DelayBeforeNextSync: 0}
 	}
 
 	switch {
@@ -290,13 +301,13 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		}
 		next := schedule.Next(lastFullSync)
 		isDue := time.Now().After(next)
-		log.FromContext(context.Background()).V(2).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
+		log.FromContext(context.Background()).V(3).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
 		return isDue
 	}
 
 	timeSinceLastSync := time.Since(lastFullSync)
 	isDue := timeSinceLastSync >= r.FullSyncFrequency
-	log.FromContext(context.Background()).V(2).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
+	log.FromContext(context.Background()).V(3).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
 	return isDue
 }
 

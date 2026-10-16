@@ -14,7 +14,7 @@
 
 # Mock generation tools
 
-MOCKERY_VERSION=3.7.0
+MOCKERY_VERSION=3.8.1
 
 ##@ Mocking
 
