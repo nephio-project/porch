@@ -60,56 +60,105 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk key.PackageRevisionKey, 
 
 	klog.V(5).Infof("pkgRevResourcesReadFromDB: reading package revision resource %+v", prk)
 
-	var resources map[string]string
-	if selector.IsAllFiles() {
-		resources = make(map[string]string)
-	} else {
-		resources = make(map[string]string, len(selector.FilePaths))
+	if selector.PathOnly {
+		return pkgRevResourceKeysReadFromDB(ctx, prk, selector)
 	}
+	return pkgRevResourceContentsReadFromDB(ctx, prk, selector)
+}
 
-	query, args := pkgRevResourcesQuerySQL(prk, selector)
-	klog.V(6).Infof("pkgRevResourcesReadFromDB: running query %q on package revision %+v", query, prk)
+func pkgRevResourceKeysReadFromDB(ctx context.Context, prk key.PackageRevisionKey, sel selector.PRRGet) (map[string]string, error) {
+	resources := make(map[string]string, len(sel.FilePaths))
+	query, args := pkgRevResourcesQuerySQL(prk, sel)
+	klog.V(6).Infof("pkgRevResourceKeysReadFromDB: running query %q on package revision %+v", query, prk)
 
-	err := GetDB().db.ScanTwoTextColumns(ctx, query, args, func(resKey, resVal string) error {
-		resources[resKey] = resVal
+	err := GetDB().db.ScanTextColumns(ctx, query, args, 1, func(cols []string) error {
+		resources[cols[0]] = ""
 		return nil
 	})
 	if err == nil {
-		klog.V(5).Infof("pkgRevResourcesReadFromDB: query succeeded for %q", prk)
+		klog.V(5).Infof("pkgRevResourceKeysReadFromDB: query succeeded for %q", prk)
 		return resources, nil
 	}
 	if !errors.Is(err, ErrPgxQueryUnsupported) {
-		klog.Warningf("pkgRevResourcesReadFromDB: query failed for %+v: %q", prk, err)
+		klog.Warningf("pkgRevResourceKeysReadFromDB: query failed for %+v: %q", prk, err)
 		return nil, err
 	}
 
-	rows, err := pkgRevResourcesDbQuery(ctx, prk, selector)
+	rows, err := pkgRevResourcesDbQuery(ctx, prk, sel)
 	if err != nil {
-		klog.Warningf("pkgRevResourcesReadFromDB: query failed for %+v: %q", prk, err)
+		klog.Warningf("pkgRevResourceKeysReadFromDB: query failed for %+v: %q", prk, err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	klog.V(5).Infof("pkgRevResourcesReadFromDB: query succeeded for %q", prk)
+	for rows.Next() {
+		var resKey string
+		if err := rows.Scan(&resKey); err != nil {
+			return nil, err
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		resources[resKey] = ""
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	klog.V(5).Infof("pkgRevResourceKeysReadFromDB: query succeeded for %q", prk)
+	return resources, nil
+}
+
+func pkgRevResourceContentsReadFromDB(ctx context.Context, prk key.PackageRevisionKey, sel selector.PRRGet) (map[string]string, error) {
+	var resources map[string]string
+	if sel.IsAllFiles() {
+		resources = make(map[string]string)
+	} else {
+		resources = make(map[string]string, len(sel.FilePaths))
+	}
+	query, args := pkgRevResourcesQuerySQL(prk, sel)
+	klog.V(6).Infof("pkgRevResourceContentsReadFromDB: running query %q on package revision %+v", query, prk)
+
+	err := GetDB().db.ScanTextColumns(ctx, query, args, 2, func(cols []string) error {
+		resources[cols[0]] = cols[1]
+		return nil
+	})
+	if err == nil {
+		klog.V(5).Infof("pkgRevResourceContentsReadFromDB: query succeeded for %q", prk)
+		return resources, nil
+	}
+	if !errors.Is(err, ErrPgxQueryUnsupported) {
+		klog.Warningf("pkgRevResourceContentsReadFromDB: query failed for %+v: %q", prk, err)
+		return nil, err
+	}
+
+	rows, err := pkgRevResourcesDbQuery(ctx, prk, sel)
+	if err != nil {
+		klog.Warningf("pkgRevResourceContentsReadFromDB: query failed for %+v: %q", prk, err)
+		return nil, err
+	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var resKey, resVal string
-
 		if err := rows.Scan(&resKey, &resVal); err != nil {
 			return nil, err
 		}
 		resources[resKey] = resVal
 	}
-
+	klog.V(5).Infof("pkgRevResourceContentsReadFromDB: query succeeded for %q", prk)
 	return resources, nil
 }
 
 func pkgRevResourcesQuerySQL(prk key.PackageRevisionKey, selector selector.PRRGet) (string, []any) {
+	cols := "resource_key, resource_value"
+	if selector.PathOnly {
+		cols = "resource_key"
+	}
 	if selector.IsAllFiles() {
-		return `SELECT resource_key, resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`,
+		return fmt.Sprintf(`SELECT %s FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`, cols),
 			[]any{prk.K8SNS(), prk.K8SName()}
 	}
-	return `SELECT resource_key, resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=ANY($3)`,
+	return fmt.Sprintf(`SELECT %s FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=ANY($3)`, cols),
 		[]any{prk.K8SNS(), prk.K8SName(), selector.FilePaths}
 }
 

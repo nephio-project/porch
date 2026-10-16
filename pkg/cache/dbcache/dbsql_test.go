@@ -14,7 +14,10 @@
 
 package dbcache
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 func (t *DbTestSuite) TestDBSQL() {
 	dbSQL := dbSQL{}
@@ -31,4 +34,49 @@ func (t *DbTestSuite) TestDBSQL() {
 
 	nilRow := dbSQL.QueryRow(ctx, "")
 	t.Nil(nilRow)
+}
+
+func (t *DbTestSuite) TestScanTextColumnsNilDB() {
+	ds := dbSQL{}
+	err := ds.ScanTextColumns(context.Background(), "", nil, 1, func([]string) error { return nil })
+	t.Require().ErrorContains(err, "cannot query database, database is not initialized")
+}
+
+
+func (t *DbTestSuite) TestScanTextColumnsOneColumn() {
+	ds := GetDB().db.(*dbSQL)
+
+	var got []string
+	err := ds.ScanTextColumns(t.Context(), `SELECT 'hello'`, nil, 1, func(cols []string) error {
+		got = append(got, cols[0])
+		return nil
+	})
+	t.Require().NoError(err)
+	t.Equal([]string{"hello"}, got)
+}
+
+func (t *DbTestSuite) TestScanTextColumnsTwoColumns() {
+	ds := GetDB().db.(*dbSQL)
+
+	type row struct{ a, b string }
+	var got []row
+	err := ds.ScanTextColumns(t.Context(), `SELECT 'key', 'value'`, nil, 2, func(cols []string) error {
+		got = append(got, row{cols[0], cols[1]})
+		return nil
+	})
+	t.Require().NoError(err)
+	t.Equal([]row{{"key", "value"}}, got)
+}
+
+func (t *DbTestSuite) TestScanTextColumnsScanCallbackErrorHaltsIteration() {
+	ds := GetDB().db.(*dbSQL)
+
+	sentinel := errors.New("stop")
+	calls := 0
+	err := ds.ScanTextColumns(t.Context(), `SELECT unnest(ARRAY['a','b','c'])`, nil, 1, func([]string) error {
+		calls++
+		return sentinel
+	})
+	t.Require().ErrorIs(err, sentinel)
+	t.Equal(1, calls)
 }

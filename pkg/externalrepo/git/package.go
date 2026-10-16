@@ -131,7 +131,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 }
 
 func (p *gitPackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
-	resources, err := p.repo.getResources(p.tree)
+	resources, err := p.repo.getResources(p.tree, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
