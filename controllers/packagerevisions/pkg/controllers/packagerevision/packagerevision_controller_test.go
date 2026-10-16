@@ -1286,20 +1286,32 @@ func TestReconcileLifecycleTransitionRenderFailed(t *testing.T) {
 				setupMockContentDefaults(updatedContent)
 				mockCache.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything, "my-pkg", "ws-1", string(tt.desired)).Return(updatedContent, nil)
 				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				if tt.desired == porchv1alpha2.PackageRevisionLifecyclePublished {
+					// Publishing also updates the main PackageRevision, which is covered by
+					// TestReconcilePublishCreatesMainPackageRevision. Failing it here is
+					// non-fatal and keeps this test on the render guard.
+					mockCache.EXPECT().GetMainPackageContent(mock.Anything, mock.Anything, "my-pkg", "ws-1").
+						Return(nil, errors.New("not under test")).Once()
+				}
 			}
 
 			r := newTestReconciler(mockClient, mockCache)
 			result, err := r.Reconcile(ctx, req)
 
 			assert.NoError(t, err)
-			if tt.wantBlocked {
+			if tt.wantBlocked || tt.desired == porchv1alpha2.PackageRevisionLifecyclePublished {
 				assert.Equal(t, ctrl.Result{Requeue: true}, result)
+			} else {
+				assert.Equal(t, ctrl.Result{}, result)
 			}
 		})
 	}
 }
 
-func TestReconcileLifecycleTransitionFailure(t *testing.T) {
+// TestReconcilePublishCreatesMainPackageRevision verifies that when a workspace
+// is published, the controller creates/updates the "main" branch PackageRevision
+// CR directly — independent of repository sync — mirroring v1alpha1.
+func TestReconcilePublishCreatesMainPackageRevision(t *testing.T) {
 	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
 
@@ -1519,6 +1531,53 @@ func TestCreateMainPackageRevisionRefreshesWhenPublished(t *testing.T) {
 		assert.Equal(t, -1, statusApplied.Status.Revision)
 		assert.Empty(t, statusApplied.Spec.Lifecycle)
 	}
+}
+
+func TestReconcileLifecycleTransitionFailure(t *testing.T) {
+	ctx := t.Context()
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-pr", Namespace: "default"}}
+
+	pr := &porchv1alpha2.PackageRevision{
+		ObjectMeta: readyObjectMeta("test-pr", "default", "my-repo"),
+		Spec: porchv1alpha2.PackageRevisionSpec{
+			PackageName:    "my-pkg",
+			RepositoryName: "my-repo",
+			WorkspaceName:  "ws-1",
+			Lifecycle:      porchv1alpha2.PackageRevisionLifecycleProposed,
+		},
+	}
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().Get(mock.Anything, req.NamespacedName, mock.AnythingOfType("*v1alpha2.PackageRevision")).
+		Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+			*obj.(*porchv1alpha2.PackageRevision) = *pr
+		}).Return(nil)
+
+	mockContent := mockrepository.NewMockPackageContent(t)
+	mockContent.EXPECT().Lifecycle(mock.Anything).Return("Draft")
+
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockCache.EXPECT().GetPackageContent(mock.Anything, mock.Anything, "my-pkg", "ws-1").Return(mockContent, nil)
+	mockCache.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything, "my-pkg", "ws-1", "Proposed").Return(nil, errors.New("git push failed"))
+
+	mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+	mockStatusWriter.EXPECT().Patch(mock.Anything, mock.AnythingOfType("*v1alpha2.PackageRevision"), mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) {
+			pr := obj.(*porchv1alpha2.PackageRevision)
+			assert.Len(t, pr.Status.Conditions, 1)
+			assert.Equal(t, porchv1alpha2.ConditionReady, pr.Status.Conditions[0].Type)
+			assert.Equal(t, metav1.ConditionFalse, pr.Status.Conditions[0].Status)
+			assert.Equal(t, porchv1alpha2.ReasonFailed, pr.Status.Conditions[0].Reason)
+			assert.Contains(t, pr.Status.Conditions[0].Message, "git push failed")
+		}).Return(nil)
+	mockClient.EXPECT().Status().Return(mockStatusWriter)
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	// Non-transient failure: recorded as terminal Failed in status, no requeue.
+	assert.NoError(t, err)
+	assert.Equal(t, ctrl.Result{}, result)
 }
 
 func TestReconcileLifecycleTransitionTransientFailure(t *testing.T) {
