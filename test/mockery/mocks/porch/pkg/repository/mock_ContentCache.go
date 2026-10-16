@@ -390,7 +390,7 @@ type MockContentCache_GetMainPackageContent_Call struct {
 //   - repoKey key.RepositoryKey
 //   - pkg string
 //   - workspace string
-func (_e *MockContentCache_Expecter) GetMainPackageContent(ctx interface{}, repoKey interface{}, pkg interface{}, workspace interface{}) *MockContentCache_GetMainPackageContent_Call {
+func (_e *MockContentCache_Expecter) GetMainPackageContent(ctx any, repoKey any, pkg any, workspace any) *MockContentCache_GetMainPackageContent_Call {
 	return &MockContentCache_GetMainPackageContent_Call{Call: _e.mock.On("GetMainPackageContent", ctx, repoKey, pkg, workspace)}
 }
 

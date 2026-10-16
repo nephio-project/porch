@@ -243,8 +243,8 @@ func (r *PackageRevisionReconciler) requeueOrFailRender(ctx context.Context, pr 
 			"op", op, "deadline", r.TransientErrorRetryDeadline)
 		return nil
 	}
-	// Preserve first-Pending timestamp across retries for deadline calculation.
-	cond := readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, err.Error())
+	// Preserve the first transient-retry timestamp across retries for deadline calculation.
+	cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
 	if t := pendingSince(pr); !t.IsZero() {
 		cond.LastTransitionTime = metav1.NewTime(t)
 	}

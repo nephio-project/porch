@@ -161,8 +161,9 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 			return ctrl.Result{}, nil
 		}
 		// Transient (e.g. cache not yet populated after a restart): requeue to
-		// self-heal, but escalate to terminal Failed once Pending past the deadline.
-		cond := readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, err.Error())
+		// self-heal, but escalate to terminal Failed once the transient-retry
+		// streak passes the deadline.
+		cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
 		pendingSince := pendingSince(pr)
 		elapsedPending := time.Since(pendingSince)
 		if pendingExpired(pr, r.TransientErrorRetryDeadline) {
@@ -230,7 +231,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		// requeue until they recover or the deadline is hit; genuine failures are
 		// terminal and stop requeuing.
 		if repository.IsTransientError(err) && !pendingExpired(pr, r.TransientErrorRetryDeadline) {
-			cond := readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, err.Error())
+			cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
 			if t := pendingSince(pr); !t.IsZero() {
 				cond.LastTransitionTime = metav1.NewTime(t)
 			}
@@ -412,8 +413,8 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 			return nil, r.setFailedConditionsAndLog(ctx, pr, operationType,
 				pkgerrors.Wrap(err, "completion status not confirmed"))
 		}
-		// Preserve the first-Pending time so the deadline measures elapsed failure time.
-		cond := readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending,
+		// Preserve the first transient-retry time so the deadline measures elapsed failure time.
+		cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal,
 			"awaiting completion-status confirmation")
 		if t := pendingSince(pr); !t.IsZero() {
 			cond.LastTransitionTime = metav1.NewTime(t)

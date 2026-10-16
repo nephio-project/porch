@@ -1523,8 +1523,9 @@ func TestReconcileLifecycleTransitionTransientFailure(t *testing.T) {
 			assert.Len(t, pr.Status.Conditions, 1)
 			assert.Equal(t, porchv1alpha2.ConditionReady, pr.Status.Conditions[0].Type)
 			assert.Equal(t, metav1.ConditionFalse, pr.Status.Conditions[0].Status)
-			// Transient failures stay Pending (not terminal Failed) during recovery.
-			assert.Equal(t, porchv1alpha2.ReasonPending, pr.Status.Conditions[0].Reason)
+			// Transient failures stay in the transient-retry state (not terminal
+			// Failed) during recovery.
+			assert.Equal(t, transientRetryReasonInternal, pr.Status.Conditions[0].Reason)
 		}).Return(nil)
 	mockClient.EXPECT().Status().Return(mockStatusWriter)
 
@@ -1634,9 +1635,10 @@ func TestReconcileGetPackageContentFailure(t *testing.T) {
 			pr := obj.(*porchv1alpha2.PackageRevision)
 			assert.Len(t, pr.Status.Conditions, 1)
 			assert.Equal(t, metav1.ConditionFalse, pr.Status.Conditions[0].Status)
-			// Transient (e.g. repository cache not ready yet) → Pending, not Failed,
-			// since the reconcile requeues to retry rather than giving up.
-			assert.Equal(t, porchv1alpha2.ReasonPending, pr.Status.Conditions[0].Reason)
+			// Transient (e.g. repository cache not ready yet) → transient-retry
+			// state, not Failed, since the reconcile requeues to retry rather than
+			// giving up.
+			assert.Equal(t, transientRetryReasonInternal, pr.Status.Conditions[0].Reason)
 		}).Return(nil)
 	mockClient.EXPECT().Status().Return(mockStatusWriter)
 
@@ -1669,9 +1671,9 @@ func TestReconcileGetPackageContentFailureEscalates(t *testing.T) {
 			Conditions: []metav1.Condition{{
 				Type:    porchv1alpha2.ConditionReady,
 				Status:  metav1.ConditionFalse,
-				Reason:  porchv1alpha2.ReasonPending,
+				Reason:  transientRetryReasonInternal,
 				Message: "repository not found",
-				// First became Pending well before the deadline.
+				// First entered the transient-retry state well before the deadline.
 				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * defaultTransientErrorRetryDeadline)),
 			}},
 		},
@@ -2430,11 +2432,11 @@ func TestReconcileRenderReadContentTransientExpired(t *testing.T) {
 	}
 
 	pr := renderTestPR("", "", "", "init", metav1.ConditionUnknown)
-	// Seed a Ready=False/Pending streak that started well before the deadline.
+	// Seed a transient-retry streak that started well before the deadline.
 	pr.Status.Conditions = append(pr.Status.Conditions, metav1.Condition{
 		Type:               porchv1alpha2.ConditionReady,
 		Status:             metav1.ConditionFalse,
-		Reason:             porchv1alpha2.ReasonPending,
+		Reason:             transientRetryReasonInternal,
 		LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * defaultTransientErrorRetryDeadline)),
 	})
 	result, err := r.reconcileRender(ctx, pr, testRepoKey)
@@ -3544,11 +3546,11 @@ func TestReconcileSubpackageOperationStatusNotConfirmedMarksFailedPastDeadline(t
 		},
 		Status: porchv1alpha2.PackageRevisionStatus{
 			CreationSource: "init",
-			// Pending streak started well before the deadline → escalate to Failed.
+			// Transient-retry streak started well before the deadline → escalate to Failed.
 			Conditions: []metav1.Condition{{
 				Type:               porchv1alpha2.ConditionReady,
 				Status:             metav1.ConditionFalse,
-				Reason:             porchv1alpha2.ReasonPending,
+				Reason:             transientRetryReasonInternal,
 				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * defaultTransientErrorRetryDeadline)),
 			}},
 		},

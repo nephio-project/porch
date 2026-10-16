@@ -70,6 +70,13 @@ func (r *PackageRevisionReconciler) ensureLatestRevisionLabel(ctx context.Contex
 // the caller can tell whether the in-hand pr is the winner (e.g. only the latest
 // should refresh the main CR). Returns an error so the caller can requeue when a
 // stale cached read would otherwise strand a wrong label.
+//
+// TODO: race condition - concurrent publishes of sibling revisions can
+// transiently mislabel (two reconciles compute latestName from independent
+// cached List reads and may briefly leave 0 or 2 revisions latest=true). It is
+// self-correcting: the next reconcile with a fully-observed list converges to
+// the single correct winner. Fix if the window matters: optimistic concurrency
+// on the patch (resourceVersion precondition), or a per-package mutex.
 func (r *PackageRevisionReconciler) updateLatestRevisionLabels(ctx context.Context, pr *porchv1alpha2.PackageRevision) (string, error) {
 	log := log.FromContext(ctx)
 

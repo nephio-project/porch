@@ -49,6 +49,12 @@ const (
 	// statusReadbackDeadline bounds the total readback wait; a persistent miss
 	// returns an error so the caller requeues instead of blocking the worker.
 	statusReadbackDeadline = 2 * time.Second
+
+	// transientRetryReasonInternal is the Ready-condition reason set only while
+	// requeuing on a transient error. pendingSince keys the retry deadline off it
+	// so the streak isn't contaminated by other Pending states (render guard,
+	// "awaiting render"). Internal controller value, not public API vocabulary.
+	transientRetryReasonInternal = "TransientRetry"
 )
 
 // updateStatusWithRetry persists completion markers (CreationSource,
@@ -271,14 +277,17 @@ func renderedCondition(generation int64, status metav1.ConditionStatus, reason, 
 }
 
 // pendingSince returns the time the Ready condition first entered the
-// False/Pending state, based on its LastTransitionTime. It returns the zero
-// time if the current Ready condition is not False/Pending (i.e. the pending
-// streak, if any, has not started or was reset by a different status).
+// transient-retry state, based on its LastTransitionTime. It returns the zero
+// time unless the current Ready condition is False with reason
+// transientRetryReasonInternal — i.e. the streak is scoped specifically to
+// transient-error retries. Any other Ready state (success, terminal Failed, or a
+// different Pending reason such as the render-guard block) yields the zero time,
+// so an unrelated Pending state can't contaminate the transient-retry deadline.
 func pendingSince(pr *porchv1alpha2.PackageRevision) time.Time {
 	for i := range pr.Status.Conditions {
 		c := &pr.Status.Conditions[i]
 		if c.Type == porchv1alpha2.ConditionReady {
-			if c.Status == metav1.ConditionFalse && c.Reason == porchv1alpha2.ReasonPending {
+			if c.Status == metav1.ConditionFalse && c.Reason == transientRetryReasonInternal {
 				return c.LastTransitionTime.Time
 			}
 			return time.Time{}
@@ -287,9 +296,10 @@ func pendingSince(pr *porchv1alpha2.PackageRevision) time.Time {
 	return time.Time{}
 }
 
-// pendingExpired reports whether the Ready condition has been continuously
-// False/Pending for at least the given deadline. Used to escalate a transient
-// retry state to a terminal failure instead of requeuing forever.
+// pendingExpired reports whether the Ready condition has been continuously in
+// the transient-retry state (reason transientRetryReasonInternal) for at least
+// the given deadline. Used to escalate a transient retry streak to a terminal
+// failure instead of requeuing forever.
 func pendingExpired(pr *porchv1alpha2.PackageRevision, deadline time.Duration) bool {
 	since := pendingSince(pr)
 	if since.IsZero() {
