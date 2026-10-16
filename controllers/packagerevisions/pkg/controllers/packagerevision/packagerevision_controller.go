@@ -514,7 +514,6 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 		renderedCondition(pr.Generation, metav1.ConditionUnknown, porchv1alpha2.ReasonPending, "awaiting render")); err != nil {
 		log.Error(err, "failed to set Rendered=Unknown marker after draft close; render will be retried via requeue", "name", pr.Name)
 	}
-	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "CREATE", time.Now())
 
 	// RequeueAfter (not a bare Requeue) so render is reliably retried: with
 	// observedGeneration == generation no watch event will wake a dropped requeue,
