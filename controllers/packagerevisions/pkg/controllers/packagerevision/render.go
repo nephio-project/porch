@@ -190,6 +190,10 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 
 	resources, err := r.readPackageResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
+		// Transient cache/git errors: requeue and retry. Non-transient errors are terminal.
+		if result := r.requeueOrFailRender(ctx, pr, err, "read resources for render"); result != nil {
+			return result, nil
+		}
 		r.setRenderFailed(ctx, pr, err)
 		return nil, saveErr(err)
 	}
@@ -223,6 +227,10 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 	}
 
 	if err := r.writeRenderedResources(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, result.resources); err != nil {
+		// Transient write errors: requeue and retry. Render already succeeded.
+		if result := r.requeueOrFailRender(ctx, pr, err, "write rendered resources"); result != nil {
+			return result, nil
+		}
 		r.setRenderFailed(ctx, pr, err)
 		return nil, saveErr(err)
 	}
@@ -230,6 +238,31 @@ func (r *PackageRevisionReconciler) executeRender(ctx context.Context, pr *porch
 	r.syncKptfileFields(ctx, pr, result.resources, repoKey)
 	log.Info("render complete")
 	return nil, saveErr(nil)
+}
+
+// requeueOrFailRender: if error is transient and within deadline, requeue to retry.
+// Otherwise, return nil (treat as terminal failure). Prevents infinite retries by
+// escalating persistent transient errors to terminal failures after deadline.
+func (r *PackageRevisionReconciler) requeueOrFailRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, err error, op string) *ctrl.Result {
+	log := log.FromContext(ctx)
+	if !repository.IsTransientError(err) {
+		return nil
+	}
+	if pendingExpired(pr, r.TransientErrorRetryDeadline) {
+		log.Error(err, "transient error persisted past deadline; failing",
+			"op", op, "deadline", r.TransientErrorRetryDeadline)
+		return nil
+	}
+	// Preserve the first transient-retry timestamp across retries for deadline calculation.
+	cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
+	if t := pendingSince(pr); !t.IsZero() {
+		cond.LastTransitionTime = metav1.NewTime(t)
+	}
+	r.updateStatus(ctx, pr, nil, "", "", cond)
+	_ = r.updateRenderStatus(ctx, pr, pr.Status.RenderingPrrResourceVersion, "",
+		renderedCondition(pr.Generation, metav1.ConditionUnknown, porchv1alpha2.ReasonPending, "awaiting content"))
+	log.V(3).Info("transient error; requeuing", "op", op, "error", err.Error())
+	return &ctrl.Result{RequeueAfter: reconciledRetryInterval}
 }
 
 func (r *PackageRevisionReconciler) renderWithConcurrencyLimit(ctx context.Context, resources map[string]string) (*renderResult, *ctrl.Result, error) {

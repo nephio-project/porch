@@ -48,6 +48,10 @@ type PackageRevisionDraftSlim interface {
 // only passes plain strings.
 type ContentCache interface {
 	GetPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (PackageContent, error)
+	// GetMainPackageContent returns the "main" branch placeholder content (Revision -1)
+	// derived from a published revision, letting the controller manage the main CR
+	// on publish without depending on repository sync.
+	GetMainPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (PackageContent, error)
 	UpdateLifecycle(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace, desired string) (PackageContent, error)
 	CreateNewDraft(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace, lifecycle string) (PackageRevisionDraftSlim, error)
 	CreateDraftFromExisting(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace string) (PackageRevisionDraftSlim, error)

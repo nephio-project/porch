@@ -58,9 +58,11 @@ const (
 	praTelemetryName = telemetry.ResourcePackageRevisionApproval
 )
 
-// PackageRevisionReconciler reconciles v1alpha2 PackageRevision CRDs.
-// It handles lifecycle transitions (draft/proposed/published) by executing
-// git operations via the shared cache.
+// reconciledRetryInterval: requeue interval for transient failures (content cache, status writes, label backfills).
+const reconciledRetryInterval = 100 * time.Millisecond
+
+// PackageRevisionReconciler reconciles v1alpha2 PackageRevision CRDs, driving
+// lifecycle transitions via the shared cache.
 type PackageRevisionReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
@@ -74,8 +76,12 @@ type PackageRevisionReconciler struct {
 	RenderRequeueDelay         time.Duration
 	RepoOperationRetryAttempts int
 	MaxGRPCMessageSize         int
-	renderLimiter              chan struct{} // bounds concurrent fn-runner calls
-	apiReader                  client.Reader // bypasses informer cache for direct etcd reads
+	// TransientErrorRetryDeadline bounds how long a transient failure (content cache,
+	// lifecycle, render read) may keep requeuing before escalating to a terminal
+	// Failed condition. Measured from when the PackageRevision first went Pending.
+	TransientErrorRetryDeadline time.Duration
+	renderLimiter               chan struct{} // bounds concurrent fn-runner calls
+	apiReader                   client.Reader // bypasses informer cache for direct etcd reads
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -90,6 +96,12 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Ensure the repository label is always correct — self-healing invariant.
 	if err := r.ensureRepositoryLabel(ctx, &pr); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Backfill the latest-revision label if missing — self-healing (adds default
+	// "false" only; never overwrites the "true" winner).
+	if err := r.ensureLatestRevisionLabel(ctx, &pr); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -123,10 +135,7 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return resultOrDefault(result), nil
 	}
 
-	// Re-read to pick up spec changes (e.g. lifecycle transitions) that
-	// occurred while render was in-flight. The validating webhook and controller
-	// guard now block lifecycle transitions during render, but re-reading ensures
-	// we have fresh state before the guard validates render completion.
+	// Re-read to pick up spec changes that occurred while render was in-flight.
 	if err := r.Get(ctx, req.NamespacedName, &pr); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -134,11 +143,8 @@ func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return r.reconcileLifecycle(ctx, &pr, repoKey)
 }
 
-// reconcileFinalizer ensures the finalizer and ownerReference are present,
-// and handles deletion gating.
-// Published packages require DeletionProposed before deletion, unless the
-// owner Repository has been deleted (GC cascade).
-// Returns (nil, nil) when reconciliation should continue.
+// reconcileFinalizer ensures the finalizer/ownerReference and handles deletion
+// gating. Returns (nil, nil) when reconciliation should continue.
 func (r *PackageRevisionReconciler) reconcileFinalizer(ctx context.Context, pr *porchv1alpha2.PackageRevision) (*ctrl.Result, error) {
 	if !pr.DeletionTimestamp.IsZero() {
 		return r.handleDeletion(ctx, pr)
@@ -172,13 +178,59 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		return content, porchv1alpha2.PackageRevisionLifecycle(content.Lifecycle(ctx)), nil
 	}()
 	if err != nil {
-		return ctrl.Result{}, nil
+		// Non-transient errors (e.g. a malformed package key) are terminal: fail
+		// immediately rather than requeuing Pending for the whole deadline.
+		if !repository.IsTransientError(err) {
+			log.Error(err, "failed to get package content", "name", pr.Name)
+			r.updateStatus(ctx, pr, nil, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
+			return ctrl.Result{}, nil
+		}
+		// Transient (e.g. cache not yet populated after a restart): requeue to
+		// self-heal, but escalate to terminal Failed once the transient-retry
+		// streak passes the deadline.
+		cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
+		pendingSince := pendingSince(pr)
+		elapsedPending := time.Since(pendingSince)
+		if pendingExpired(pr, r.TransientErrorRetryDeadline) {
+			log.Error(err, "failed to get package content; giving up after deadline",
+				"deadline", r.TransientErrorRetryDeadline, "elapsed", elapsedPending, "name", pr.Name)
+			cond.Reason = porchv1alpha2.ReasonFailed
+			r.updateStatus(ctx, pr, nil, "", "", cond)
+			return ctrl.Result{}, nil
+		}
+		// Preserve the first-Pending time so the deadline measures elapsed failure time.
+		if !pendingSince.IsZero() {
+			cond.LastTransitionTime = metav1.NewTime(pendingSince)
+		}
+		remainingDeadline := r.TransientErrorRetryDeadline - elapsedPending
+		log.Error(err, "failed to get package content; requeuing",
+			"name", pr.Name, "elapsedPending", elapsedPending, "remainingDeadline", remainingDeadline,
+			"retryAfter", reconciledRetryInterval)
+		r.updateStatus(ctx, pr, nil, "", "", cond)
+		return ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
 	}
 
 	if currentLifecycle == desiredLifecycle {
 		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
-		if porchv1alpha2.LifecycleIsPublished(desiredLifecycle) {
-			r.updateLatestRevisionLabels(ctx, pr)
+		// The main placeholder (Revision -1) must not drive latest labeling or the
+		// main CR — only numbered published revisions do.
+		if porchv1alpha2.LifecycleIsPublished(desiredLifecycle) && pr.Status.Revision != -1 {
+			// Requeue so a stale/stranded latest-revision label converges.
+			latestName, err := r.updateLatestRevisionLabels(ctx, pr)
+			if err != nil {
+				log.V(2).Info("latest-revision update deferred; requeuing", "name", pr.Name, "reason", err.Error())
+				return ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
+			}
+			// Only the latest published revision refreshes the main CR. Every
+			// numbered revision reaches this branch when its lifecycle already
+			// matches, so refreshing from a non-latest one (e.g. v1 after v2) would
+			// overwrite main's HEAD-tracking status with stale metadata.
+			if pr.Name == latestName {
+				if err := r.createMainPackageRevision(ctx, pr, repoKey); err != nil {
+					log.Error(err, "failed to create/update main PackageRevision", "name", pr.Name)
+					return ctrl.Result{Requeue: true}, nil
+				}
+			}
 		}
 		return ctrl.Result{}, nil
 	}
@@ -187,7 +239,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	if desiredLifecycle == porchv1alpha2.PackageRevisionLifecyclePublished ||
 		desiredLifecycle == porchv1alpha2.PackageRevisionLifecycleProposed {
 		if err := r.validateRenderStateBeforePublish(ctx, pr); err != nil {
-			log.Info("lifecycle transition blocked by render guard", "reason", err.Error())
+			log.Info("lifecycle transition blocked by render guard", "name", pr.Name, "reason", err.Error())
 			r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -218,16 +270,31 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, string(desiredLifecycle))
 
 	if err != nil {
-		log.Error(err, "lifecycle transition failed")
+		// Transient git/cache failures (e.g. connection reset) stay Pending and
+		// requeue until they recover or the deadline is hit; genuine failures are
+		// terminal and stop requeuing.
+		if repository.IsTransientError(err) && !pendingExpired(pr, r.TransientErrorRetryDeadline) {
+			cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal, err.Error())
+			if t := pendingSince(pr); !t.IsZero() {
+				cond.LastTransitionTime = metav1.NewTime(t)
+			}
+			log.Error(err, "lifecycle transition failed; requeuing", "name", pr.Name, "retryAfter", reconciledRetryInterval)
+			r.updateStatus(ctx, pr, nil, "", "", cond)
+			return ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
+		}
+		log.Error(err, "lifecycle transition failed", "name", pr.Name)
 		r.updateStatus(ctx, pr, nil, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
 
 	if porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(desiredLifecycle)) {
-		// Requeue so the informer cache indexes the new status.revision
-		// before updateLatestRevisionLabels runs its List query.
+		// Create the main CR on publish (non-fatal; the requeue retries).
+		if err := r.createMainPackageRevision(ctx, pr, repoKey); err != nil {
+			log.Error(err, "failed to create/update main PackageRevision", "name", pr.Name)
+		}
+		// Requeue so the cache indexes the new status.revision before latest labeling.
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -242,9 +309,6 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 }
 
 // reconcileSource handles one-time package creation from spec.source.
-// Returns (nil, nil) if no source needs to be applied.
-// Returns (result, nil) if source was applied and status was updated.
-// Returns (nil, err) on failure.
 func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	op := telemetry.Operations.Create
 	key := telemetry.ParsePkgRevK8sName2Key(pr.Namespace, pr.Name)
@@ -271,8 +335,7 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 		return nil, nil
 	}
 
-	// Reject source execution on repos missing the v1alpha2-migration annotation,
-	// before applySource so no source work runs. Backstops the webhook if bypassed.
+	// Reject source on non-migrated repos before any work; backstops the webhook.
 	err = r.verifyRepoMigrated(ctx, repoKey)
 	if err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, "", err)
@@ -298,10 +361,7 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 	return r.finalizeDraftAndUpdateStatus(ctx, pr, repoKey, draft, resources, sourceOperationType, "")
 }
 
-// reconcileSubpackageOperation handles one-time package creation from spec.source.
-// Returns (nil, nil) if no source needs to be applied.
-// Returns (result, nil) if source was applied and status was updated.
-// Returns (nil, err) on failure.
+// reconcileSubpackageOperation handles a one-time subpackage operation from spec.
 func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	op := telemetry.Operations.Update
 	key := telemetry.ParsePkgRevK8sName2Key(pr.Namespace, pr.Name)
@@ -384,12 +444,11 @@ func (r *PackageRevisionReconciler) verifyRepoMigrated(ctx context.Context, repo
 	return nil
 }
 
-// finalizeDraftAndUpdateStatus completes the draft operation by updating resources,
-// closing the draft, and updating the package revision status.
-// The status patch (which records CreationSource / LastSubpackageOperationHash) is
-// retried: if it fails the function returns an error so the work-queue retries the
-// whole reconcile rather than requeueing with stale completion state, which would
-// cause a replay of the already-committed git mutation.
+// finalizeDraftAndUpdateStatus updates resources, closes the draft, and persists
+// status. If the completion marker can't be confirmed, it requeues (bounded by
+// transientErrorRetryDeadline) rather than replaying the already-committed git
+// mutation with stale completion state, escalating to a terminal failure only once
+// the deadline elapses.
 func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 	ctx context.Context,
 	pr *porchv1alpha2.PackageRevision,
@@ -415,7 +474,7 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 	// Read back the created package to get lock info for status.
 	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
-		log.Error(err, "failed to read back package content after source execution")
+		log.Error(err, "failed to read back package content after source execution", "name", pr.Name)
 	}
 
 	// Persist completion markers (CreationSource / LastSubpackageOperationHash) with
@@ -424,26 +483,51 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 	// cause a requeue with stale state.
 	if err := r.updateStatusWithRetry(ctx, pr, content, creationSource, subpackageOperationHash,
 		readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, "awaiting render")); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to persist completion status after draft close")
+		// The git mutation already committed but the idempotency marker
+		// (CreationSource / hash) couldn't be confirmed within the in-reconcile
+		// readback window. Under load the SSA patch often DID land and only the
+		// cached read lagged, so this is a transient condition — requeue to
+		// re-confirm (reconcileSource/reconcileSubpackageOperation is idempotent and
+		// skips once the marker is visible) rather than failing a good operation.
+		// Only escalate to a terminal failure once the Pending streak exceeds
+		// transientErrorRetryDeadline, matching the content-lookup/lifecycle paths.
+		if pendingExpired(pr, r.TransientErrorRetryDeadline) {
+			log.Error(err, "completion-status confirmation still failing past deadline; marking failed",
+				"name", pr.Name, "operation", operationType, "deadline", r.TransientErrorRetryDeadline)
+			return nil, r.setFailedConditionsAndLog(ctx, pr, operationType,
+				pkgerrors.Wrap(err, "completion status not confirmed"))
+		}
+		// Preserve the first transient-retry time so the deadline measures elapsed failure time.
+		cond := readyCondition(pr.Generation, metav1.ConditionFalse, transientRetryReasonInternal,
+			"awaiting completion-status confirmation")
+		if t := pendingSince(pr); !t.IsZero() {
+			cond.LastTransitionTime = metav1.NewTime(t)
+		}
+		r.updateStatus(ctx, pr, nil, creationSource, subpackageOperationHash, cond)
+		log.V(4).Info("completion-status confirmation deferred; requeuing",
+			"name", pr.Name, "operation", operationType, "retryAfter", reconciledRetryInterval)
+		return &ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
 	}
-	// Set Rendered=Unknown via the render field manager.
-	r.updateRenderStatus(ctx, pr, "", "",
-		renderedCondition(pr.Generation, metav1.ConditionUnknown, porchv1alpha2.ReasonPending, "awaiting render"))
-	r.ensureLatestRevisionLabel(ctx, pr)
+	// Best-effort Rendered=Unknown marker: a dropped marker doesn't block recovery
+	// since the source trigger still fires and the requeue below retries render.
+	if err := r.updateRenderStatus(ctx, pr, "", "",
+		renderedCondition(pr.Generation, metav1.ConditionUnknown, porchv1alpha2.ReasonPending, "awaiting render")); err != nil {
+		log.Error(err, "failed to set Rendered=Unknown marker after draft close; render will be retried via requeue", "name", pr.Name)
+	}
+	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "CREATE", time.Now())
 
-	result := ctrl.Result{Requeue: true}
+	// RequeueAfter (not a bare Requeue) so render is reliably retried: with
+	// observedGeneration == generation no watch event will wake a dropped requeue,
+	// which would leave the draft stuck "awaiting render". The follow-up is idempotent.
+	result := ctrl.Result{RequeueAfter: reconciledRetryInterval}
+	// Requeue to run render. Absence of "render started" log indicates stuck draft.
+	log.V(3).Info("source operation completed, draft closed; awaiting render",
+		"name", pr.Name, "operation", operationType, "requeueAfter", reconciledRetryInterval)
 	return &result, nil
 }
 
-// reconcileRender checks if rendering is needed and renders if so.
-// Two triggers:
-//   - Annotation porch.kpt.dev/render-request differs from status.observedPrrResourceVersion (push path)
-//   - Source was executed but Rendered != True (source execution path)
-//
-// Returns (nil, nil) if no render is needed.
-// TODO: Consider centralising all ctrl.Result creation in packagerevision_controller.go
-// so requeue decisions are visible in one place. Sub-functions would return signals
-// and the controller translates them into ctrl.Result.
+// reconcileRender renders when the render-request annotation changed or source was
+// executed but Rendered != True. Returns (nil, nil) if no render is needed.
 func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) (*ctrl.Result, error) {
 	if r.Renderer == nil {
 		return nil, nil
@@ -456,8 +540,12 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 	}
 
 	log := log.FromContext(ctx)
-	log.Info("render requested", "requested", requested)
-	r.updateRenderStatus(ctx, pr, requested, "",
+	// "render started" pairs with "awaiting render": a draft that logs the latter but
+	// never the former had its requeue dropped — the stuck-draft signature.
+	log.V(3).Info("render started", "name", pr.Name,
+		"annotationTrigger", annotationTrigger, "sourceTrigger", sourceTrigger, "requested", requested)
+	// Best-effort "rendering" marker; non-fatal since render writes the terminal condition.
+	_ = r.updateRenderStatus(ctx, pr, requested, "",
 		renderedCondition(pr.Generation, metav1.ConditionUnknown, porchv1alpha2.ReasonPending, "rendering"),
 	)
 
@@ -473,14 +561,27 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 
 	_, err = r.verifyResourcesAvailable(ctx, repoKey, pr)
 	if err != nil {
-		log.Error(err, "resources not available after render - render verification failed")
+		// Verification reads through the content cache, so a transient
+		// propagation/backend failure after a successful write must be retried via
+		// the bounded helper, not treated as a terminal render failure.
+		if result := r.requeueOrFailRender(ctx, pr, err, "verify resources after render"); result != nil {
+			return result, nil
+		}
+		log.Error(err, "resources not available after render - render verification failed", "name", pr.Name)
 		r.setRenderFailed(ctx, pr, err)
 		return nil, err
 	}
 
-	r.updateRenderStatus(ctx, pr, "", observed,
+	if err := r.updateRenderStatus(ctx, pr, "", observed,
 		renderedCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonRendered, ""),
-	)
+	); err != nil {
+		// Render succeeded but the terminal Rendered=True failed to persist; requeue
+		// to retry, else it stays stuck at Rendered=Unknown with no watch event.
+		log.Error(err, "failed to persist Rendered=True condition after render completion; requeuing to retry",
+			"name", pr.Name, "retryAfter", reconciledRetryInterval)
+		return &ctrl.Result{RequeueAfter: reconciledRetryInterval}, nil
+	}
+	log.V(3).Info("render completed successfully", "name", pr.Name)
 	return nil, nil
 }
 
