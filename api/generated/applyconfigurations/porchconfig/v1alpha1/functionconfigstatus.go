@@ -21,8 +21,6 @@ package v1alpha1
 type FunctionConfigStatusApplyConfiguration struct {
 	// ApiServerObservedGeneration indicates which generation of the config the porch server has applied to the build-in runtime
 	ApiServerObservedGeneration *int64 `json:"apiServerObservedGeneration,omitempty"`
-	// FunctionRunnerObservedGeneration indicates which generation of the config the function-runner has applied to the executable and pod evaluator
-	FunctionRunnerObservedGeneration *int64 `json:"functionRunnerObservedGeneration,omitempty"`
 	// ControllerObservedGeneration indicates which generation of the config the porch controller has applied to its builtin runtime
 	ControllerObservedGeneration *int64 `json:"controllerObservedGeneration,omitempty"`
 	// Contains an error message if one occurred whilst trying to apply the FunctionConfig
@@ -40,14 +38,6 @@ func FunctionConfigStatus() *FunctionConfigStatusApplyConfiguration {
 // If called multiple times, the ApiServerObservedGeneration field is set to the value of the last call.
 func (b *FunctionConfigStatusApplyConfiguration) WithApiServerObservedGeneration(value int64) *FunctionConfigStatusApplyConfiguration {
 	b.ApiServerObservedGeneration = &value
-	return b
-}
-
-// WithFunctionRunnerObservedGeneration sets the FunctionRunnerObservedGeneration field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the FunctionRunnerObservedGeneration field is set to the value of the last call.
-func (b *FunctionConfigStatusApplyConfiguration) WithFunctionRunnerObservedGeneration(value int64) *FunctionConfigStatusApplyConfiguration {
-	b.FunctionRunnerObservedGeneration = &value
 	return b
 }
 

@@ -198,9 +198,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: deployment
       type:
         scalar: boolean
-    - name: lastSubpackageOperation
+    - name: lastSubpackageOperationHash
       type:
-        namedType: com.github.kptdev.porch.api.porch.v1alpha2.SubpackageOperation
+        scalar: string
     - name: observedGeneration
       type:
         scalar: numeric

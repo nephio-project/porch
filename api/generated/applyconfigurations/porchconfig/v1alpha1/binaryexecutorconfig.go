@@ -19,7 +19,8 @@ package v1alpha1
 // BinaryExecutorConfigApplyConfiguration represents a declarative configuration of the BinaryExecutorConfig type for use
 // with apply.
 type BinaryExecutorConfigApplyConfiguration struct {
-	// Image tags which can be substituted with the specified KRM function binary.
+	// Tags is a list of semver constraint strings (e.g. ">= v0.4.0 < v0.5.0") that determine
+	// which image versions can be substituted with the specified KRM function binary.
 	Tags []string `json:"tags,omitempty"`
 	// Path defines the absolute file path of the binary or the relative file path to the default `functions` directory
 	Path *string `json:"path,omitempty"`

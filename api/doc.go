@@ -16,4 +16,7 @@
 
 package apis
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.22.0 object:headerFile="../scripts/boilerplate.go.txt",year=$YEAR_GEN applyconfiguration:headerFile="../scripts/boilerplate.go.txt",externalApplyConfigurations=github.com/kptdev/kpt/api/kptfile/v1.Function@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1;github.com/kptdev/kpt/api/kptfile/v1.Selector@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1;github.com/kptdev/kpt/api/kptfile/v1.ResourceReference@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1 crd:crdVersions=v1,headerFile="../scripts/boilerplate.yaml.txt",year=$YEAR_GEN output:crd:artifacts:config=./generated/crds paths={./porchconfig/...,./porch/v1alpha2/...}
+// we use v0.21.0 because `json:",inline"` just does not work with newer versions
+// see https://github.com/kubernetes-sigs/controller-tools/pull/1449
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.21.0 object:headerFile="../scripts/boilerplate.go.txt",year=$YEAR_GEN applyconfiguration:headerFile="../scripts/boilerplate.go.txt",externalApplyConfigurations=github.com/kptdev/kpt/api/kptfile/v1.Function@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1;github.com/kptdev/kpt/api/kptfile/v1.Selector@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1;github.com/kptdev/kpt/api/kptfile/v1.ResourceReference@github.com/kptdev/kpt/api/generated/applyconfigurations/kptfile/v1 crd:crdVersions=v1,headerFile="../scripts/boilerplate.yaml.txt",year=$YEAR_GEN output:crd:artifacts:config=./generated/crds paths={./porchconfig/...,./porch/v1alpha2/...}
+// TODO: should we drop internal/* and utils.go like in kpt?

@@ -19,7 +19,8 @@ package v1alpha1
 // GoExecutorConfigApplyConfiguration represents a declarative configuration of the GoExecutorConfig type for use
 // with apply.
 type GoExecutorConfigApplyConfiguration struct {
-	// Image tags which can be substituted with a go function call.
+	// Tags is a list of semver constraint strings (e.g. ">= v0.4.0 < v0.5.0") that determine
+	// which image versions can be substituted with a go function call.
 	Tags []string `json:"tags,omitempty"`
 	// ID defines how the function is registered in the internal go executor of Porch.
 	// If empty, `.spec.image` will be used instead.

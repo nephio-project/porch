@@ -127,6 +127,14 @@ func (b *FunctionTemplateApplyConfiguration) WithExclusions(values ...*v1.Select
 	return b
 }
 
+// WithCelCondition sets the CelCondition field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CelCondition field is set to the value of the last call.
+func (b *FunctionTemplateApplyConfiguration) WithCelCondition(value string) *FunctionTemplateApplyConfiguration {
+	b.FunctionApplyConfiguration.CelCondition = &value
+	return b
+}
+
 // WithConfigMapExprs adds the given value to the ConfigMapExprs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the ConfigMapExprs field.

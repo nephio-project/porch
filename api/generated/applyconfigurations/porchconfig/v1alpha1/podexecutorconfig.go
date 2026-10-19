@@ -23,8 +23,9 @@ import (
 // PodExecutorConfigApplyConfiguration represents a declarative configuration of the PodExecutorConfig type for use
 // with apply.
 type PodExecutorConfigApplyConfiguration struct {
-	// Image tags which the pod executor configuration will be applied to.
-	// If tags is empty, the configuration will apply to all pods created for the image. TODO: this is not implemented
+	// Tags is a list of semver constraint strings (e.g. ">= v0.4.0 < v0.5.0") that determine
+	// which image versions this pod executor configuration applies to.
+	// An empty list matches no versions. The special value "*" matches all image versions.
 	Tags                    []string                             `json:"tags,omitempty"`
 	TimeToLive              *v1.Duration                         `json:"timeToLive,omitempty"`
 	MaxParallelExecutions   *int                                 `json:"maxParallelExecutions,omitempty"`

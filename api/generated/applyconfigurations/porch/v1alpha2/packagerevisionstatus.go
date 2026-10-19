@@ -51,9 +51,14 @@ type PackageRevisionStatusApplyConfiguration struct {
 	// Possible values: "init", "clone", "copy", "upgrade".
 	// This is a read-only field populated by the system.
 	CreationSource *string `json:"creationSource,omitempty"`
-	// LastSubpackageOperation holds the last operation that was carried out on an independent subpackage
-	// in the package. It is used to prevent re-execution of the same operation.
-	LastSubpackageOperation *SubpackageOperationApplyConfiguration `json:"lastSubpackageOperation,omitempty"`
+	// LastSubpackageOperationHash holds a hash of the last successfully executed subpackage
+	// operation. It is used to prevent re-execution of the same operation.
+	// The hash covers spec.subpackageOperation as stored in the CR. If upstreamRef points
+	// to a draft PackageRevision whose content is later mutated without changing its name,
+	// the hash will be identical and the operation will be silently skipped. To force
+	// re-execution, change any field in spec.subpackageOperation (e.g. update upstreamRef
+	// to point to a new revision).
+	LastSubpackageOperationHash *string `json:"lastSubpackageOperationHash,omitempty"`
 	// PackageConditions from Kptfile. Set by KRM functions, used for ReadinessGates.
 	PackageConditions []PackageConditionApplyConfiguration `json:"packageConditions,omitempty"`
 	// Conditions for controller state (e.g., Ready, Rendered).
@@ -148,11 +153,11 @@ func (b *PackageRevisionStatusApplyConfiguration) WithCreationSource(value strin
 	return b
 }
 
-// WithLastSubpackageOperation sets the LastSubpackageOperation field in the declarative configuration to the given value
+// WithLastSubpackageOperationHash sets the LastSubpackageOperationHash field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the LastSubpackageOperation field is set to the value of the last call.
-func (b *PackageRevisionStatusApplyConfiguration) WithLastSubpackageOperation(value *SubpackageOperationApplyConfiguration) *PackageRevisionStatusApplyConfiguration {
-	b.LastSubpackageOperation = value
+// If called multiple times, the LastSubpackageOperationHash field is set to the value of the last call.
+func (b *PackageRevisionStatusApplyConfiguration) WithLastSubpackageOperationHash(value string) *PackageRevisionStatusApplyConfiguration {
+	b.LastSubpackageOperationHash = &value
 	return b
 }
 
