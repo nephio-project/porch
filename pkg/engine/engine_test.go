@@ -1012,14 +1012,14 @@ func TestUpdatePackageRevisionLifecycleTransitions(t *testing.T) {
 			oldLifecycle:  "invalid",
 			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			expectError:   true,
-			errorContains: "invalid original lifecycle value",
+			errorContains: "is not a valid original lifecycle stage",
 		},
 		{
 			name:          "invalid new lifecycle",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			newLifecycle:  "invalid",
 			expectError:   true,
-			errorContains: "invalid desired lifecycle value",
+			errorContains: "lifecycle transition is invalid",
 		},
 		{
 			name:         "published to published - metadata only update",

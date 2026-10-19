@@ -232,10 +232,10 @@ func TestValidateLifecycleTransition(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "Draft to Published - invalid",
+			name:    "Draft to Published - valid",
 			from:    v1alpha2.PackageRevisionLifecycleDraft,
 			to:      v1alpha2.PackageRevisionLifecyclePublished,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "Proposed to Published - valid",

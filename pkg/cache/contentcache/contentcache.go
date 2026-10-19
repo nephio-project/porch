@@ -124,8 +124,9 @@ func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey key.Reposito
 		return &packageContentWrapper{inner: pkgRev}, nil
 	}
 
-	// Proposed → Published: use UpdateLifecycle which handles revision increment and git push.
-	if currentLC == porchv1alpha2.PackageRevisionLifecycleProposed && desiredLC == porchv1alpha2.PackageRevisionLifecyclePublished {
+	// Draft or Proposed → Published: use UpdateLifecycle which handles revision increment and git push.
+	if (currentLC == porchv1alpha2.PackageRevisionLifecycleDraft || currentLC == porchv1alpha2.PackageRevisionLifecycleProposed) &&
+		desiredLC == porchv1alpha2.PackageRevisionLifecyclePublished {
 		if err := pkgRev.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycle(desiredLC)); err != nil {
 			return nil, err
 		}
@@ -218,11 +219,42 @@ func (c *contentCache) findPackageRevision(ctx context.Context, repoKey key.Repo
 		return nil, err
 	}
 
+	var matches []repository.PackageRevision
 	for _, rev := range revisions {
-		key := rev.Key()
-		if key.WorkspaceName == workspace && key.PkgKey.Package == leafName && key.PkgKey.Path == pkgPath {
-			return rev, nil
+		k := rev.Key()
+		if k.WorkspaceName == workspace && k.PkgKey.Package == leafName && k.PkgKey.Path == pkgPath {
+			matches = append(matches, rev)
 		}
 	}
-	return nil, fmt.Errorf("package revision %s/%s not found in repository %s", pkg, workspace, repoKey)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("package revision %s/%s not found in repository %s", pkg, workspace, repoKey)
+	}
+	return selectPackageRevisionForWorkspace(matches), nil
+}
+
+// selectPackageRevisionForWorkspace picks the package revision row that represents the
+// workspace's current content. After publish, both a Published revision and a new Draft
+// placeholder (revision 0) exist; prefer the Published revision so lifecycle reconciliation
+// observes the published state instead of re-entering publish on the placeholder draft.
+func selectPackageRevisionForWorkspace(revisions []repository.PackageRevision) repository.PackageRevision {
+	var published repository.PackageRevision
+	highestPublishedRev := -1
+	for _, rev := range revisions {
+		if !porchapi.LifecycleIsPublished(rev.Lifecycle(context.Background())) {
+			continue
+		}
+		if rev.Key().Revision > highestPublishedRev {
+			highestPublishedRev = rev.Key().Revision
+			published = rev
+		}
+	}
+	if published != nil {
+		return published
+	}
+	for _, rev := range revisions {
+		if rev.Key().Revision == 0 {
+			return rev
+		}
+	}
+	return revisions[0]
 }

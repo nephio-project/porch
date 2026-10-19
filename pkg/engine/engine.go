@@ -45,6 +45,13 @@ const (
 	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
+var validLcChanges = map[porchapi.PackageRevisionLifecycle][]porchapi.PackageRevisionLifecycle{
+	porchapi.PackageRevisionLifecycleDraft:            {porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished},
+	porchapi.PackageRevisionLifecycleProposed:         {porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecyclePublished},
+	porchapi.PackageRevisionLifecyclePublished:        {porchapi.PackageRevisionLifecycleDeletionProposed},
+	porchapi.PackageRevisionLifecycleDeletionProposed: {porchapi.PackageRevisionLifecyclePublished},
+}
+
 type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
 	ObjectCache() WatcherManager
@@ -331,6 +338,12 @@ func (cad *cadEngine) UpdatePackageRevision(
 		return repoPkgRev, nil
 	}
 
+	if oldObj.Spec.Lifecycle != newObj.Spec.Lifecycle {
+		if err := validateLifecycleChange(oldObj, newObj); err != nil {
+			return nil, err
+		}
+	}
+
 	// Validate package lifecycle. Can only update a draft.
 	switch lifecycle := oldObj.Spec.Lifecycle; lifecycle {
 
@@ -409,6 +422,18 @@ func (cad *cadEngine) UpdatePackageRevision(
 	klog.Infof("engine: sent %d for updated PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 
 	return repoPkgRev, nil
+}
+
+func validateLifecycleChange(oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision) error {
+	if validNew, ok := validLcChanges[oldObj.Spec.Lifecycle]; ok {
+		if !slices.Contains(validNew, newObj.Spec.Lifecycle) {
+			return pkgerrors.Errorf("%q -> %q lifecycle transition is invalid", oldObj.Spec.Lifecycle, newObj.Spec.Lifecycle)
+		}
+	} else {
+		return pkgerrors.Errorf("%q is not a valid original lifecycle stage", oldObj.Spec.Lifecycle)
+	}
+
+	return nil
 }
 
 func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *porchapi.PackageRevision) error {

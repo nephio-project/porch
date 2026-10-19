@@ -110,6 +110,15 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 
 	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
 
+	case porchapi.PackageRevisionLifecycleDraft:
+		if newRevision.Spec.Lifecycle != porchapi.PackageRevisionLifecycleProposed && newRevision.Spec.Lifecycle != porchapi.PackageRevisionLifecyclePublished {
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
+				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Proposed' or 'Published'", lifecycle)))
+		}
+
+	case porchapi.PackageRevisionLifecycleProposed:
+		// valid
+
 	case porchapi.PackageRevisionLifecyclePublished:
 		if newRevision.Spec.Lifecycle != porchapi.PackageRevisionLifecycleDeletionProposed {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
@@ -122,12 +131,8 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Published'", lifecycle)))
 		}
 
-	case porchapi.PackageRevisionLifecycleProposed:
-		// valid
-
 	default:
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-			fmt.Sprintf("cannot approve package with %s lifecycle value; only Proposed packages can be approved", lifecycle)))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, "invalid lifecycle value"))
 	}
 
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {

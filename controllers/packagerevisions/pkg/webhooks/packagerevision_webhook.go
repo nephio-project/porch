@@ -364,7 +364,7 @@ func subpackageOperationChanged(old, new *v1alpha2.SubpackageOperation) bool {
 // validateLifecycleTransition checks if the lifecycle transition is allowed.
 func (v *PackageRevisionValidator) validateLifecycleTransition(from, to v1alpha2.PackageRevisionLifecycle) error {
 	allowedTransitions := map[v1alpha2.PackageRevisionLifecycle][]v1alpha2.PackageRevisionLifecycle{
-		v1alpha2.PackageRevisionLifecycleDraft:            {v1alpha2.PackageRevisionLifecycleProposed},
+		v1alpha2.PackageRevisionLifecycleDraft:            {v1alpha2.PackageRevisionLifecycleProposed, v1alpha2.PackageRevisionLifecyclePublished},
 		v1alpha2.PackageRevisionLifecycleProposed:         {v1alpha2.PackageRevisionLifecyclePublished, v1alpha2.PackageRevisionLifecycleDraft},
 		v1alpha2.PackageRevisionLifecyclePublished:        {v1alpha2.PackageRevisionLifecycleDeletionProposed},
 		v1alpha2.PackageRevisionLifecycleDeletionProposed: {v1alpha2.PackageRevisionLifecyclePublished},

@@ -139,6 +139,16 @@ func TestUpdateLifecycle_DraftCycle_ProposedToPublished(t *testing.T) {
 	assert.NotNil(t, content)
 }
 
+func TestUpdateLifecycle_DraftToPublished(t *testing.T) {
+	cc, _, _, mockPkgRev := setupCacheWithPkgRev(t, porchapi.PackageRevisionLifecycleDraft)
+
+	mockPkgRev.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil)
+
+	content, err := cc.UpdateLifecycle(context.Background(), testRepoKey, testPkg, testWS, "Published")
+	assert.NoError(t, err)
+	assert.NotNil(t, content)
+}
+
 func TestUpdateLifecycle_InvalidCurrentLifecycle(t *testing.T) {
 	mockCache := mockcachetypes.NewMockCache(t)
 	mockRepo := mockrepository.NewMockRepository(t)

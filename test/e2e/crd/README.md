@@ -88,7 +88,7 @@ All `Describe` blocks are `Ordered`, so specs within each block run sequentially
 | Clone | `clone_test.go` | `lifecycle` | Clone from upstream, git URL, bearer token, CA bundle (pending), upgrades |
 | Copy | `copy_test.go` | `lifecycle` | Copy packages between workspaces |
 | Init | `init_test.go` | `lifecycle` | Package initialization |
-| Lifecycle | `lifecycle_test.go` | `lifecycle` | Draft → Proposed → Published transitions, deletion, revision labels |
+| Lifecycle | `lifecycle_test.go` | `lifecycle` | Draft → Published (direct), Draft → Proposed → Published, deletion, revision labels |
 | Push | `push_test.go` | `content` | PRR resource updates, render pipelines, published rejection |
 | Render | `render_test.go` | `content` | Render failures, recovery, stale detection, push-on-render-failure |
 | PRR Edge Cases | `prr_edge_cases_test.go` | `content` | File deletion, bad Kptfile handling |

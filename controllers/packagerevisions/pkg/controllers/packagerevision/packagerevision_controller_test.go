@@ -1022,6 +1022,7 @@ func TestReconcileLifecycleTransition(t *testing.T) {
 		desired porchv1alpha2.PackageRevisionLifecycle
 	}{
 		{"Draft to Proposed", "Draft", porchv1alpha2.PackageRevisionLifecycleProposed},
+		{"Draft to Published", "Draft", porchv1alpha2.PackageRevisionLifecyclePublished},
 		{"Proposed to Draft", "Proposed", porchv1alpha2.PackageRevisionLifecycleDraft},
 		{"Proposed to Published", "Proposed", porchv1alpha2.PackageRevisionLifecyclePublished},
 		{"Published to DeletionProposed", "Published", porchv1alpha2.PackageRevisionLifecycleDeletionProposed},

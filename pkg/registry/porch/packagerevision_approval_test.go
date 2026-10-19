@@ -56,8 +56,8 @@ func TestApprovalUpdateStrategy(t *testing.T) {
 		},
 		{
 			old:     porchapi.PackageRevisionLifecycleDraft,
-			valid:   []porchapi.PackageRevisionLifecycle{},
-			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecycleDeletionProposed},
 		},
 		{
 			old:     porchapi.PackageRevisionLifecyclePublished,
