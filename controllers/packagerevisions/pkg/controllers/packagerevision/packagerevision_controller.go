@@ -28,6 +28,7 @@ import (
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/internal/telemetry"
+	"github.com/kptdev/porch/pkg/lifecycle"
 	"github.com/kptdev/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,8 +76,10 @@ type PackageRevisionReconciler struct {
 	// lifecycle, render read) may keep requeuing before escalating to a terminal
 	// Failed condition. Measured from when the PackageRevision first went Pending.
 	TransientErrorRetryDeadline time.Duration
-	renderLimiter               chan struct{} // bounds concurrent fn-runner calls
-	apiReader                   client.Reader // bypasses informer cache for direct etcd reads
+
+	LifecyclePolicy lifecycle.Options
+	renderLimiter   chan struct{} // bounds concurrent fn-runner calls
+	apiReader       client.Reader // bypasses informer cache for direct etcd reads
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -220,6 +223,12 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 			r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending, err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		}
+	}
+
+	if err := lifecycle.ValidateTransition(r.LifecyclePolicy, current, desired); err != nil {
+		log.Info("lifecycle transition rejected by policy", "name", pr.Name, "current", current, "desired", desired, "reason", err.Error())
+		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
+		return ctrl.Result{}, nil
 	}
 
 	log.Info("lifecycle transition", "name", pr.Name, "current", current, "desired", desired)

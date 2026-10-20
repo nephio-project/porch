@@ -20,6 +20,7 @@ import (
 
 	porchv1alpha2 "github.com/kptdev/porch/api/porch/v1alpha2"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
+	"github.com/kptdev/porch/pkg/lifecycle"
 	mockclient "github.com/kptdev/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockrepository "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 )
@@ -69,6 +70,7 @@ func newTestReconciler(mockClient *mockclient.MockClient, cache *mockrepository.
 		Client:                      mockClient,
 		ContentCache:                cache,
 		TransientErrorRetryDeadline: defaultTransientErrorRetryDeadline,
+		LifecyclePolicy:             lifecycle.Options{AllowDirectPublicationFromDraft: true},
 	}
 }
 

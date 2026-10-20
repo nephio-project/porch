@@ -32,6 +32,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
+	"github.com/kptdev/porch/pkg/lifecycle"
 	"github.com/kptdev/porch/pkg/task"
 	mockrepo "github.com/kptdev/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
@@ -84,8 +85,9 @@ func newTestFixture(t *testing.T) *testFixture {
 	})).Return(mockRepo, nil).Once()
 
 	engine := &cadEngine{
-		cache:       mockCache,
-		taskHandler: mockTaskHandler,
+		cache:           mockCache,
+		taskHandler:     mockTaskHandler,
+		lifecyclePolicy: lifecycle.Options{AllowDirectPublicationFromDraft: true},
 	}
 
 	return &testFixture{
@@ -901,6 +903,15 @@ func TestUpdatePackageRevision(t *testing.T) {
 			errorContains: "cannot update package with failed render",
 		},
 		{
+			name:          "failure - Draft to Published when direct publish disabled",
+			oldLifecycle:  porchapi.PackageRevisionLifecycleDraft,
+			newLifecycle:  porchapi.PackageRevisionLifecyclePublished,
+			oldRV:         "1",
+			newRV:         "1",
+			expectError:   true,
+			errorContains: "direct publication from Draft is disabled",
+		},
+		{
 			name:          "failure - render error blocks Proposed→Published even with push annotation",
 			oldLifecycle:  porchapi.PackageRevisionLifecycleProposed,
 			newLifecycle:  porchapi.PackageRevisionLifecyclePublished,
@@ -940,8 +951,10 @@ func TestUpdatePackageRevision(t *testing.T) {
 				Spec: porchapi.PackageRevisionSpec{Lifecycle: tt.newLifecycle},
 			}
 
+			allowDirect := tt.name != "failure - Draft to Published when direct publish disabled"
+			lcPolicy := lifecycle.Options{AllowDirectPublicationFromDraft: allowDirect}
 			needsDraft := tt.newRV != "" && tt.oldRV == tt.newRV
-			if needsDraft {
+			if needsDraft && lifecycle.TransitionAllowed(lcPolicy, string(tt.oldLifecycle), string(tt.newLifecycle)) {
 				if tt.openRepoErr != nil {
 					mockCache.On("OpenRepository", mock.Anything, repositoryObj).Return((*mockrepo.MockRepository)(nil), tt.openRepoErr)
 				} else {
@@ -970,12 +983,15 @@ func TestUpdatePackageRevision(t *testing.T) {
 						}
 					}
 				}
+			} else if needsDraft {
+				mockCache.On("OpenRepository", mock.Anything, repositoryObj).Return(mockRepo, nil)
 			}
 
 			engine := &cadEngine{
-				cache:          mockCache,
-				taskHandler:    mockTaskHandler,
-				watcherManager: &watcherManager{},
+				cache:           mockCache,
+				taskHandler:     mockTaskHandler,
+				watcherManager:  &watcherManager{},
+				lifecyclePolicy: lcPolicy,
 			}
 
 			rev, err := engine.UpdatePackageRevision(
@@ -1012,7 +1028,7 @@ func TestUpdatePackageRevisionLifecycleTransitions(t *testing.T) {
 			oldLifecycle:  "invalid",
 			newLifecycle:  porchapi.PackageRevisionLifecycleDraft,
 			expectError:   true,
-			errorContains: "is not a valid original lifecycle stage",
+			errorContains: "lifecycle transition is invalid",
 		},
 		{
 			name:          "invalid new lifecycle",
@@ -1085,8 +1101,9 @@ func TestUpdatePackageRevisionLifecycleTransitions(t *testing.T) {
 			}
 
 			engine := &cadEngine{
-				cache:          mockCache,
-				watcherManager: &watcherManager{},
+				cache:           mockCache,
+				watcherManager:  &watcherManager{},
+				lifecyclePolicy: lifecycle.Options{AllowDirectPublicationFromDraft: true},
 			}
 
 			rev, err := engine.UpdatePackageRevision(

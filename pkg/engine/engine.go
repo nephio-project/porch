@@ -25,6 +25,7 @@ import (
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	apiutil "github.com/kptdev/porch/api/util"
 	cachetypes "github.com/kptdev/porch/pkg/cache/types"
+	"github.com/kptdev/porch/pkg/lifecycle"
 	"github.com/kptdev/porch/pkg/repository"
 	"github.com/kptdev/porch/pkg/task"
 	"github.com/kptdev/porch/pkg/util"
@@ -44,13 +45,6 @@ var tracer = otel.Tracer("engine")
 const (
 	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
-
-var validLcChanges = map[porchapi.PackageRevisionLifecycle][]porchapi.PackageRevisionLifecycle{
-	porchapi.PackageRevisionLifecycleDraft:            {porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished},
-	porchapi.PackageRevisionLifecycleProposed:         {porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecyclePublished},
-	porchapi.PackageRevisionLifecyclePublished:        {porchapi.PackageRevisionLifecycleDeletionProposed},
-	porchapi.PackageRevisionLifecycleDeletionProposed: {porchapi.PackageRevisionLifecyclePublished},
-}
 
 type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
@@ -84,6 +78,8 @@ func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
 
 type cadEngine struct {
 	cache cachetypes.Cache
+
+	lifecyclePolicy lifecycle.Options
 
 	userInfoProvider repository.UserInfoProvider
 	watcherManager   *watcherManager
@@ -339,7 +335,7 @@ func (cad *cadEngine) UpdatePackageRevision(
 	}
 
 	if oldObj.Spec.Lifecycle != newObj.Spec.Lifecycle {
-		if err := validateLifecycleChange(oldObj, newObj); err != nil {
+		if err := cad.validateLifecycleChange(oldObj, newObj); err != nil {
 			return nil, err
 		}
 	}
@@ -424,15 +420,10 @@ func (cad *cadEngine) UpdatePackageRevision(
 	return repoPkgRev, nil
 }
 
-func validateLifecycleChange(oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision) error {
-	if validNew, ok := validLcChanges[oldObj.Spec.Lifecycle]; ok {
-		if !slices.Contains(validNew, newObj.Spec.Lifecycle) {
-			return pkgerrors.Errorf("%q -> %q lifecycle transition is invalid", oldObj.Spec.Lifecycle, newObj.Spec.Lifecycle)
-		}
-	} else {
-		return pkgerrors.Errorf("%q is not a valid original lifecycle stage", oldObj.Spec.Lifecycle)
+func (cad *cadEngine) validateLifecycleChange(oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision) error {
+	if err := lifecycle.ValidateTransition(cad.lifecyclePolicy, string(oldObj.Spec.Lifecycle), string(newObj.Spec.Lifecycle)); err != nil {
+		return pkgerrors.Wrap(err, "lifecycle transition is invalid")
 	}
-
 	return nil
 }
 
