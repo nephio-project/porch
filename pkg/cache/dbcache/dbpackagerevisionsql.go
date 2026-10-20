@@ -240,9 +240,14 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk key.PackageKey) (*dbPackag
 		 INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
 		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.latest=TRUE
+			AND package_revisions.revision > 0
 		ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
 	`
 
+	// Exclude the main-branch placeholder (revision -1): the "latest revision" used
+	// to derive the next published revision number must only consider numbered
+	// revisions. Otherwise publishPR computes latestRev(-1)+1 = 0 and persists a
+	// Published revision with revision 0, which the DB trigger rejects (P0001).
 	latestPRList, err := pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 	if err != nil {
 		return nil, err

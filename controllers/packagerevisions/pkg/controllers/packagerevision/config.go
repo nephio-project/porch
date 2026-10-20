@@ -32,11 +32,12 @@ import (
 )
 
 const (
-	defaultMaxConcurrentReconciles    = 50
-	defaultMaxConcurrentRenders       = 20
-	defaultRenderRequeueDelay         = 2 * time.Second
-	defaultRepoOperationRetryAttempts = 3
-	defaultMaxGRPCMessageSize         = 6 * datasize.MB
+	defaultMaxConcurrentReconciles     = 50
+	defaultMaxConcurrentRenders        = 20
+	defaultRenderRequeueDelay          = 2 * time.Second
+	defaultRepoOperationRetryAttempts  = 3
+	defaultMaxGRPCMessageSize          = 6 * datasize.MB
+	defaultTransientErrorRetryDeadline = 1 * time.Minute
 )
 
 func (r *PackageRevisionReconciler) InitDefaults() {
@@ -45,6 +46,7 @@ func (r *PackageRevisionReconciler) InitDefaults() {
 	r.RenderRequeueDelay = defaultRenderRequeueDelay
 	r.RepoOperationRetryAttempts = defaultRepoOperationRetryAttempts
 	r.MaxGRPCMessageSize = defaultMaxGRPCMessageSize
+	r.TransientErrorRetryDeadline = defaultTransientErrorRetryDeadline
 }
 
 func (r *PackageRevisionReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
@@ -53,6 +55,7 @@ func (r *PackageRevisionReconciler) BindFlags(prefix string, flags *flag.FlagSet
 	flags.DurationVar(&r.RenderRequeueDelay, prefix+"render-requeue-delay", defaultRenderRequeueDelay, "Delay before requeuing when render concurrency limit is reached")
 	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
 	flags.Var(datasize.NewValue(&r.MaxGRPCMessageSize, defaultMaxGRPCMessageSize), prefix+"max-grpc-message-size", "Maximum gRPC message size for fn-runner communication, for example 6MB or a number of bytes")
+	flags.DurationVar(&r.TransientErrorRetryDeadline, prefix+"transient-error-retry-deadline", defaultTransientErrorRetryDeadline, "Time a transient failure may keep requeuing before escalating to a terminal failure")
 }
 
 // Init wires runtime dependencies (credential resolvers, renderer)
@@ -65,6 +68,7 @@ func (r *PackageRevisionReconciler) Init(mgr ctrl.Manager) error {
 		"renderRequeueDelay", r.RenderRequeueDelay,
 		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts,
 		"maxGRPCMessageSize", r.MaxGRPCMessageSize,
+		"transientErrorRetryDeadline", r.TransientErrorRetryDeadline,
 	)
 
 	coreClient := mgr.GetClient()

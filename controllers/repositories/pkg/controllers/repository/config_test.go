@@ -37,8 +37,8 @@ func TestInitDefaults(t *testing.T) {
 	r := &RepositoryReconciler{}
 	r.InitDefaults()
 
-	assert.Equal(t, 100, r.MaxConcurrentReconciles)
-	assert.Equal(t, 50, r.MaxConcurrentSyncs)
+	assert.Equal(t, 200, r.MaxConcurrentReconciles)
+	assert.Equal(t, 100, r.MaxConcurrentSyncs)
 }
 
 func TestBindFlags(t *testing.T) {
@@ -256,7 +256,7 @@ func TestValidateConfig(t *testing.T) {
 			expected: &RepositoryReconciler{
 				HealthCheckFrequency:       5 * time.Minute,
 				FullSyncFrequency:          1 * time.Hour,
-				MaxConcurrentReconciles:    100,
+				MaxConcurrentReconciles:    200,
 				MaxConcurrentSyncs:         50,
 				SyncStaleTimeout:           20 * time.Minute,
 				RepoOperationRetryAttempts: 3,
@@ -276,7 +276,7 @@ func TestValidateConfig(t *testing.T) {
 				HealthCheckFrequency:       5 * time.Minute,
 				FullSyncFrequency:          1 * time.Hour,
 				MaxConcurrentReconciles:    100,
-				MaxConcurrentSyncs:         50,
+				MaxConcurrentSyncs:         100,
 				SyncStaleTimeout:           20 * time.Minute,
 				RepoOperationRetryAttempts: 3,
 			},
@@ -313,8 +313,8 @@ func TestValidateConfig(t *testing.T) {
 			expected: &RepositoryReconciler{
 				HealthCheckFrequency:       5 * time.Minute,
 				FullSyncFrequency:          1 * time.Hour,
-				MaxConcurrentReconciles:    100,
-				MaxConcurrentSyncs:         50,
+				MaxConcurrentReconciles:    200,
+				MaxConcurrentSyncs:         100,
 				SyncStaleTimeout:           20 * time.Minute,
 				RepoOperationRetryAttempts: 3,
 			},

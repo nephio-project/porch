@@ -340,6 +340,86 @@ func TestPerformHealthCheckSync(t *testing.T) {
 	}
 }
 
+func TestPerformOpenOnly(t *testing.T) {
+	ctx := t.Context()
+
+	t.Run("health check fails sets error and does not open or mark handled", func(t *testing.T) {
+		repo := createTestRepo("test-repo", "test-ns")
+		mockClient := mockclient.NewMockClient(t)
+		mockCache := cachetypes.NewMockCache(t)
+
+		// Health check fails → must set status (error) and must NOT call OpenRepository.
+		mockCache.EXPECT().CheckRepositoryConnectivity(ctx, repo).Return(errors.New("connection refused"))
+		setupMockStatusWriter(t, mockClient, nil)
+
+		r := newTestReconciler(mockClient, mockCache)
+		result, err := r.performOpenOnly(ctx, repo)
+
+		assert.NoError(t, err)
+		assert.NotZero(t, result.RequeueAfter)
+		// Not marked cold-start-handled, so it retries open-only next time.
+		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
+		assert.False(t, seen, "a failed health check must not mark the repo cold-start handled")
+	})
+
+	t.Run("health check passes opens repo and marks handled", func(t *testing.T) {
+		repo := createTestRepo("test-repo", "test-ns")
+		mockClient := mockclient.NewMockClient(t)
+		mockCache := cachetypes.NewMockCache(t)
+
+		mockCache.EXPECT().CheckRepositoryConnectivity(ctx, repo).Return(nil)
+		mockCache.EXPECT().OpenRepository(ctx, repo).Return(nil, nil)
+		setupMockStatusWriter(t, mockClient, nil)
+
+		r := newTestReconciler(mockClient, mockCache)
+		result, err := r.performOpenOnly(ctx, repo)
+
+		assert.NoError(t, err)
+		assert.NotZero(t, result.RequeueAfter)
+		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
+		assert.True(t, seen, "a successful open-only must mark the repo cold-start handled")
+	})
+
+	t.Run("open fails sets error and does not mark handled", func(t *testing.T) {
+		repo := createTestRepo("test-repo", "test-ns")
+		mockClient := mockclient.NewMockClient(t)
+		mockCache := cachetypes.NewMockCache(t)
+
+		mockCache.EXPECT().CheckRepositoryConnectivity(ctx, repo).Return(nil)
+		mockCache.EXPECT().OpenRepository(ctx, repo).Return(nil, errors.New("open failed"))
+		setupMockStatusWriter(t, mockClient, nil)
+
+		r := newTestReconciler(mockClient, mockCache)
+		result, err := r.performOpenOnly(ctx, repo)
+
+		assert.NoError(t, err)
+		assert.NotZero(t, result.RequeueAfter)
+		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
+		assert.False(t, seen, "a failed open must not mark the repo cold-start handled")
+	})
+
+	t.Run("sync capacity exceeded requeues without opening", func(t *testing.T) {
+		repo := createTestRepo("test-repo", "test-ns")
+		mockClient := mockclient.NewMockClient(t)
+		mockCache := cachetypes.NewMockCache(t)
+
+		// No cache calls expected: the limiter is full so we must requeue before
+		// doing any git network I/O.
+		r := &RepositoryReconciler{Client: mockClient, Cache: mockCache, MaxConcurrentSyncs: 1}
+		r.InitializeSyncLimiter()
+		r.syncLimiter <- struct{}{} // Fill the single slot.
+
+		result, err := r.performOpenOnly(ctx, repo)
+
+		assert.NoError(t, err)
+		// Short fixed requeue since a slot frees quickly.
+		assert.Equal(t, time.Second, result.RequeueAfter)
+		_, seen := r.coldStartRepos.Load(repo.Namespace + "/" + repo.Name)
+		assert.False(t, seen, "capacity-exceeded must not mark the repo cold-start handled")
+		<-r.syncLimiter // Clean up.
+	})
+}
+
 func TestPerformFullSync(t *testing.T) {
 	ctx := t.Context()
 	repo := createTestRepo("test-repo", "test-ns")
