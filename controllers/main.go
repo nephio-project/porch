@@ -204,7 +204,7 @@ func initScheme() (*runtime.Scheme, error) {
 
 func newManager(scheme *runtime.Scheme) (ctrl.Manager, error) {
 	config := textlogger.NewConfig(
-		textlogger.Verbosity(4),
+		textlogger.Verbosity(2),
 		textlogger.Output(os.Stdout),
 	)
 	ctrl.SetLogger(textlogger.NewLogger(config))

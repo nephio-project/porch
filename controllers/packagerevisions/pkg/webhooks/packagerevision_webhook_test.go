@@ -508,6 +508,8 @@ func TestHandlePackageRevisionWebhookDeleteWithReference(t *testing.T) {
 		},
 	}
 
+	// A downstream that clones the target by upstream reference DOES block its
+	// deletion. (Clone-by-upstreamRef mirrors v1alpha1's tracked reference.)
 	dependentPR := &v1alpha2.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{Name: "downstream-pr", Namespace: "default", UID: "uid-downstream"},
 		Spec: v1alpha2.PackageRevisionSpec{
@@ -516,7 +518,9 @@ func TestHandlePackageRevisionWebhookDeleteWithReference(t *testing.T) {
 			WorkspaceName:  "ws",
 			Lifecycle:      v1alpha2.PackageRevisionLifecycleDraft,
 			Source: &v1alpha2.PackageSource{
-				CopyFrom: &v1alpha2.PackageRevisionRef{Name: "upstream-pr"},
+				CloneFrom: &v1alpha2.UpstreamPackage{
+					UpstreamRef: &v1alpha2.PackageRevisionRef{Name: "upstream-pr"},
+				},
 			},
 		},
 	}
@@ -536,6 +540,56 @@ func TestHandlePackageRevisionWebhookDeleteWithReference(t *testing.T) {
 	resp := validator.Handle(context.Background(), req)
 	assert.False(t, resp.Allowed)
 	assert.Contains(t, resp.Result.Message, "referenced")
+}
+
+// TestHandlePackageRevisionWebhookDeleteWithCopyFromDoesNotBlock verifies that a
+// CopyFrom reference does NOT block deletion of the source. A copy produces a new
+// revision of the same package rather than a downstream dependency, and v1alpha1
+// does not track copy references — so v1alpha2 must not either (parity).
+func TestHandlePackageRevisionWebhookDeleteWithCopyFromDoesNotBlock(t *testing.T) {
+	scheme := runtime.NewScheme()
+	v1alpha2.AddToScheme(scheme)
+	configapi.AddToScheme(scheme)
+
+	// The target is Draft so the only thing that could block deletion is a
+	// reference; this isolates the CopyFrom behavior.
+	prToDelete := &v1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "upstream-pr", Namespace: "default", UID: "uid-upstream"},
+		Spec: v1alpha2.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "upstream",
+			WorkspaceName:  "ws",
+			Lifecycle:      v1alpha2.PackageRevisionLifecycleDraft,
+		},
+	}
+
+	copyPR := &v1alpha2.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Name: "copy-pr", Namespace: "default", UID: "uid-copy"},
+		Spec: v1alpha2.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "upstream",
+			WorkspaceName:  "ws2",
+			Lifecycle:      v1alpha2.PackageRevisionLifecycleDraft,
+			Source: &v1alpha2.PackageSource{
+				CopyFrom: &v1alpha2.PackageRevisionRef{Name: "upstream-pr"},
+			},
+		},
+	}
+
+	rawBytes, _ := json.Marshal(prToDelete)
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(copyPR).Build()
+	validator := NewPackageRevisionValidator(client)
+
+	req := admission.Request{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			Operation: admissionv1.Delete,
+			OldObject: runtime.RawExtension{Raw: rawBytes},
+		},
+	}
+
+	resp := validator.Handle(context.Background(), req)
+	assert.True(t, resp.Allowed, "CopyFrom reference must not block deletion of the source")
 }
 
 // TestInitEqual tests PackageInitSpec equality.
@@ -1455,7 +1509,9 @@ func TestHandleDeleteWithReference(t *testing.T) {
 			PackageName:    "downstream",
 			WorkspaceName:  "ws",
 			Source: &v1alpha2.PackageSource{
-				CopyFrom: &v1alpha2.PackageRevisionRef{Name: "upstream-pr"},
+				CloneFrom: &v1alpha2.UpstreamPackage{
+					UpstreamRef: &v1alpha2.PackageRevisionRef{Name: "upstream-pr"},
+				},
 			},
 		},
 	}

@@ -298,3 +298,39 @@ func IsNotFoundError(err error) bool {
 		strings.Contains(errorStr, "no such") ||
 		strings.Contains(errorStr, "404")
 }
+
+// transientErrorPatterns are substrings indicating a retryable infrastructure
+// failure: a not-yet-warm cache (post-restart) or a flaky git/network connection.
+var transientErrorPatterns = []string{
+	// Cache not warm yet (dominant case post-restart / under load).
+	"not found",
+	"does not exist",
+	// git / network transients talking to the SCM backend.
+	"connection refused",
+	"connection reset",
+	"connection lost",
+	"tls handshake timeout",
+	"broken pipe",
+	"i/o timeout",
+	"timeout",
+	"eof",
+	"temporary failure",
+	"no route to host",
+	"server misbehaving",
+}
+
+// IsTransientError reports whether err looks retryable (cache still warming or a
+// git/network transient). "not found" is ambiguous — also a genuinely missing repo
+// — so callers must bound retries with a deadline to avoid requeuing forever.
+func IsTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errorStr := strings.ToLower(err.Error())
+	for _, p := range transientErrorPatterns {
+		if strings.Contains(errorStr, p) {
+			return true
+		}
+	}
+	return false
+}

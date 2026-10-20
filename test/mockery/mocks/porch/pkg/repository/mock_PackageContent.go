@@ -10,7 +10,7 @@ import (
 
 	"github.com/kptdev/kpt/api/kptfile/v1"
 	"github.com/kptdev/porch/api/porch/key"
-	"github.com/stretchr/testify/mock"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockPackageContent creates a new instance of MockPackageContent. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

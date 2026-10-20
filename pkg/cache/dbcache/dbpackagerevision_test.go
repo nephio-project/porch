@@ -879,6 +879,105 @@ func (t *DbTestSuite) TestDBPackageRevisionPublishWithPushDraftsToGit() {
 	t.Require().NoError(testRepo.Close(ctx))
 }
 
+// TestUpdateLifecycleOnPublishedPRReDerivesRevisionWhenZero verifies the guard in
+// updateLifecycleOnPublishedPR: a stale in-memory cache object with
+// lifecycle=Published but revision=0 must NOT be persisted as-is (that trips the
+// DB trigger "revision value of 0 is only allowed on when lifecycle is Draft or
+// Proposed"). Instead the real revision is re-derived from the DB before saving.
+func (t *DbTestSuite) TestUpdateLifecycleOnPublishedPRReDerivesRevisionWhenZero() {
+	ctx := t.Context()
+
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+
+	dbRepo := t.createTestRepo("test-ns", "test-repo-revzero")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(dbRepo).Maybe()
+	dbPkg := t.createTestPkg(dbRepo.Key(), "test-package")
+	dbPkg.repo = dbRepo
+
+	// Seed a legitimately-published revision 1 in the DB.
+	published := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: key.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "v1",
+			Revision:      1,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		latest:    true,
+		resources: map[string]string{},
+	}
+	t.Require().NoError(pkgRevWriteToDB(ctx, &published))
+
+	// Build a STALE in-memory object with the same identity (package + workspace)
+	// but revision 0 and lifecycle Published — the inconsistent state left over
+	// from a failed/partial publish.
+	stale := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: key.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "v1",
+			Revision:      0,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		resources: map[string]string{},
+	}
+
+	// Transition Published -> DeletionProposed on the stale object. Without the
+	// guard this persists revision=0 + Published and the DB trigger rejects it.
+	err := stale.updateLifecycleOnPublishedPR(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
+	t.Require().NoError(err, "guard should re-derive revision from DB and save without tripping the trigger")
+	// The in-memory revision must have been restored to the persisted value.
+	t.Require().Equal(1, stale.pkgRevKey.Revision)
+
+	// Clean up.
+	t.Require().NoError(repoDeleteFromDB(ctx, dbRepo.Key()))
+}
+
+// TestUpdateLifecycleOnPublishedPRErrorsWhenNoPersistedRevision verifies the guard
+// fails fast (rather than writing revision=0) when a Published PR has revision 0
+// and the DB has no matching persisted row to re-derive from.
+func (t *DbTestSuite) TestUpdateLifecycleOnPublishedPRErrorsWhenNoPersistedRevision() {
+	ctx := t.Context()
+
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+
+	dbRepo := t.createTestRepo("test-ns", "test-repo-revzero-missing")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(dbRepo).Maybe()
+	dbPkg := t.createTestPkg(dbRepo.Key(), "test-package")
+	dbPkg.repo = dbRepo
+
+	// Stale object with revision 0, but nothing persisted in the DB for it.
+	stale := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: key.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "v1",
+			Revision:      0,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		resources: map[string]string{},
+	}
+
+	err := stale.updateLifecycleOnPublishedPR(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
+	t.Require().Error(err, "guard must not persist revision=0 for a published revision when it cannot be re-derived")
+
+	t.Require().NoError(repoDeleteFromDB(ctx, dbRepo.Key()))
+}
+
 const (
 	helloResourceFile      = "Hello.txt"
 	helloResourceContent   = "Hello"

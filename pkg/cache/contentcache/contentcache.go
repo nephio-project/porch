@@ -45,6 +45,20 @@ func (c *contentCache) GetPackageContent(ctx context.Context, repoKey key.Reposi
 	return &packageContentWrapper{inner: pkgRev}, nil
 }
 
+func (c *contentCache) GetMainPackageContent(ctx context.Context, repoKey key.RepositoryKey, pkg, workspace string) (repository.PackageContent, error) {
+	pkgRev, err := c.findPackageRevision(ctx, repoKey, pkg, workspace)
+	if err != nil {
+		return nil, err
+	}
+	// Derive the main-branch HEAD placeholder (Revision -1) from the published
+	// revision; no git ops, caller must have published the content first.
+	mainPkgRev := pkgRev.ToMainPackageRevision(ctx)
+	if mainPkgRev == nil {
+		return nil, fmt.Errorf("could not derive main package revision for %s/%s in repository %s", pkg, workspace, repoKey)
+	}
+	return &packageContentWrapper{inner: mainPkgRev}, nil
+}
+
 func (c *contentCache) CreateNewDraft(ctx context.Context, repoKey key.RepositoryKey, pkgName, workspace, lifecycle string) (repository.PackageRevisionDraftSlim, error) {
 	repo, err := c.getRepository(repoKey)
 	if err != nil {

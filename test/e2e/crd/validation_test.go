@@ -439,20 +439,25 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 				k8sClient.Delete(env.Ctx, source) //nolint:errcheck
 			})
 
-			By("creating a copy to a new workspace")
-			dependent := newPackageRevision(env.Namespace, env.RepoName, "pkg", "v2", withCopyFrom(source.Name))
+			By("creating a downstream package that clones the source as upstream")
+			// Use CloneFrom (not CopyFrom): only clone/upgrade links are tracked as
+			// upstream references — mirroring v1alpha1, where a copy is not an
+			// upstream dependency. See webhook isReferencedBy / v1alpha1
+			// FindAllUpstreamReferencesInRepositories.
+			dependent := newPackageRevision(env.Namespace, env.RepoName, "pkg", "v2", withCloneFromRef(source.Name))
 			Expect(k8sClient.Create(env.Ctx, dependent)).To(Succeed())
 			DeferCleanup(func() {
 				k8sClient.Delete(env.Ctx, dependent) //nolint:errcheck
 			})
 
-			By("waiting for copy to be visible with CopyFrom reference")
+			By("waiting for downstream to be visible with CloneFrom reference")
 			Eventually(func(g Gomega) {
 				depFresh := &porchv1alpha2.PackageRevision{}
 				g.Expect(k8sClient.Get(env.Ctx, client.ObjectKeyFromObject(dependent), depFresh)).To(Succeed())
 				g.Expect(depFresh.Spec.Source).NotTo(BeNil())
-				g.Expect(depFresh.Spec.Source.CopyFrom).NotTo(BeNil())
-				g.Expect(depFresh.Spec.Source.CopyFrom.Name).To(Equal(source.Name))
+				g.Expect(depFresh.Spec.Source.CloneFrom).NotTo(BeNil())
+				g.Expect(depFresh.Spec.Source.CloneFrom.UpstreamRef).NotTo(BeNil())
+				g.Expect(depFresh.Spec.Source.CloneFrom.UpstreamRef.Name).To(Equal(source.Name))
 			}).WithTimeout(defaultTimeout).Should(Succeed())
 
 			By("attempting to delete the upstream source package")
