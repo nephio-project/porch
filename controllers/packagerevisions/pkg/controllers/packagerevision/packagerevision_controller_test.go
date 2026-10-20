@@ -1609,6 +1609,26 @@ func TestReconcileRenderNoTrigger(t *testing.T) {
 	assert.Nil(t, result)
 }
 
+func TestReconcileRenderSkipsRefreshWhenLifecycleBehindSpec(t *testing.T) {
+	mockCache := mockrepository.NewMockContentCache(t)
+	mockContent := mockrepository.NewMockPackageContent(t)
+	mockContent.EXPECT().Lifecycle(mock.Anything).Return(string(porchv1alpha2.PackageRevisionLifecycleDraft))
+	mockCache.EXPECT().GetPackageContent(mock.Anything, testRepoKey, "my-pkg", "ws-1").Return(mockContent, nil)
+
+	r := &PackageRevisionReconciler{
+		Renderer:     &mockRenderer{},
+		ContentCache: mockCache,
+	}
+	pr := renderTestPR("", "", "", "init", metav1.ConditionTrue)
+	pr.Generation = 3
+	pr.Spec.Lifecycle = porchv1alpha2.PackageRevisionLifecycleProposed
+	pr.Status.Conditions[0].ObservedGeneration = 2
+
+	result, err := r.reconcileRender(t.Context(), pr, testRepoKey)
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
 func TestReconcileRenderAlreadyRendered(t *testing.T) {
 	r := &PackageRevisionReconciler{Renderer: &mockRenderer{}}
 	pr := renderTestPR("v1", "v1", "", "init", metav1.ConditionTrue)

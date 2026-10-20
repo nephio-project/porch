@@ -116,24 +116,13 @@ func (c *contentCache) UpdateLifecycle(ctx context.Context, repoKey key.Reposito
 		return nil, fmt.Errorf("invalid desired lifecycle value: %q", desiredLC)
 	}
 
-	// Published ↔ DeletionProposed: direct update, no draft needed.
+	// Published ↔ DeletionProposed: direct update on PackageRevision (Git allows this only for published revisions).
 	if porchv1alpha2.LifecycleIsPublished(currentLC) {
 		if err := pkgRev.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycle(desiredLC)); err != nil {
 			return nil, err
 		}
 		return &packageContentWrapper{inner: pkgRev}, nil
 	}
-
-	// Draft or Proposed → Published: use UpdateLifecycle which handles revision increment and git push.
-	if (currentLC == porchv1alpha2.PackageRevisionLifecycleDraft || currentLC == porchv1alpha2.PackageRevisionLifecycleProposed) &&
-		desiredLC == porchv1alpha2.PackageRevisionLifecyclePublished {
-		if err := pkgRev.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycle(desiredLC)); err != nil {
-			return nil, err
-		}
-		return &packageContentWrapper{inner: pkgRev}, nil
-	}
-
-	// Draft ↔ Proposed: draft/close cycle.
 	repo, err := c.getRepository(repoKey)
 	if err != nil {
 		return nil, err

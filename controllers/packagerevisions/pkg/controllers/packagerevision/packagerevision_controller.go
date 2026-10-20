@@ -157,7 +157,11 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
 		if porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(desired)) {
 			r.updateLatestRevisionLabels(ctx, pr)
+			if err := r.Get(ctx, client.ObjectKeyFromObject(pr), pr); err != nil {
+				return ctrl.Result{}, client.IgnoreNotFound(err)
+			}
 		}
+		r.refreshRenderedGeneration(ctx, pr)
 		return ctrl.Result{}, nil
 	}
 
@@ -183,6 +187,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	}
 
 	r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
+	r.refreshRenderedGeneration(ctx, pr)
 
 	if porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(desired)) {
 		// Requeue so the informer cache indexes the new status.revision
@@ -198,6 +203,17 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 		return *result
 	}
 	return ctrl.Result{}
+}
+
+func (r *PackageRevisionReconciler) lifecycleMatchesCache(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) bool {
+	if r.ContentCache == nil {
+		return true
+	}
+	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	if err != nil {
+		return false
+	}
+	return string(content.Lifecycle(ctx)) == string(pr.Spec.Lifecycle)
 }
 
 // reconcileSource handles one-time package creation from spec.source.
@@ -371,7 +387,9 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 
 	requested, annotationTrigger, sourceTrigger := renderTrigger(pr)
 	if !annotationTrigger && !sourceTrigger {
-		r.refreshRenderedGeneration(ctx, pr)
+		if r.lifecycleMatchesCache(ctx, pr, repoKey) {
+			r.refreshRenderedGeneration(ctx, pr)
+		}
 		return nil, nil
 	}
 
