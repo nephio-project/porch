@@ -89,9 +89,8 @@ The pod evaluator uses channels for communication with the pod cache manager:
 the cache manager. The cache manager handles pod creation or reuse, and the evaluator makes a direct gRPC call to the wrapper server in
 the pod.
 
-**Channel characteristics:** The channel is buffered with size 1 to prevent blocking, and communication is one-way: a request is sent
-and a client is received. That send is the synchronization point (the caller blocks until a client is available), and errors propagate
-through the same channel.
+**Channel characteristics:** Each request includes a response channel buffered with size 1 so the cache manager can send a response
+without blocking. The caller sends the request on the request channel, then waits on the response channel for a client or an error.
 
 **Benefits:** Evaluation is decoupled from pod management, and a single goroutine manages the pod cache (no race conditions). The design
 provides natural backpressure when pods are unavailable and a clean separation of concerns.
