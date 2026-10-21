@@ -129,6 +129,12 @@ func (s *Sync) PerformAsyncSync(ctx context.Context, repo *api.Repository) {
 func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Repository) (packageCount int, commitHash string, err error) {
 	log := log.FromContext(ctx)
 
+	// v1alpha2 repos: DBCache routes to PRRRepository wrapper (git-only, PRRStore writes).
+	// v1alpha1 repos: DBCache uses dbRepository (git + DB metadata writes).
+	isV1Alpha2 := r.CreateV1Alpha2Rpkg && repo.Annotations[api.AnnotationKeyV1Alpha2Migration] == api.AnnotationValueMigrationEnabled
+
+	var pkgRevs []repository.PackageRevision
+
 	repoHandle, err := r.Cache.OpenRepository(ctx, repo)
 	if err != nil {
 		repoURL, _, _ := getRepoFields(repo)
@@ -142,17 +148,16 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 		return 0, "", err
 	}
 
-	pkgRevs, err := repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	pkgRevs, err = repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		repoURL, _, directory := getRepoFields(repo)
 		log.Error(err, "Repository package listing failed", "repo", repo.Name, "repoURL", repoURL, "directory", directory)
 		return 0, "", err
 	}
 
-	if r.CreateV1Alpha2Rpkg && repo.Annotations[api.AnnotationKeyV1Alpha2Migration] == api.AnnotationValueMigrationEnabled {
+	if isV1Alpha2 {
 		if err := r.syncPackageRevisions(ctx, repo, pkgRevs); err != nil {
 			log.Error(err, "Failed to sync v1alpha2 PackageRevisions", "repo", repo.Name)
-			// Non-fatal: don't fail the entire sync for v1alpha2 creation failures
 		}
 	}
 

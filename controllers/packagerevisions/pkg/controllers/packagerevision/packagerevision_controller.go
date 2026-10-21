@@ -28,6 +28,7 @@ import (
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/internal/telemetry"
+	"github.com/kptdev/porch/pkg/prrstore"
 	"github.com/kptdev/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,10 +62,11 @@ const reconciledRetryInterval = 100 * time.Millisecond
 type PackageRevisionReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
-	ContentCache           repository.ContentCache
+	ContentAccess          repository.PackageContentAccess
 	ExternalPackageFetcher repository.ExternalPackageFetcher
 	FunctionConfigStore    *functionconfigs.FunctionConfigStore
-	Renderer               renderer // nil = skip rendering
+	Renderer               renderer          // nil = skip rendering
+	PRRStore               prrstore.PRRStore // required for v1alpha2; nil on init causes setup to fail
 
 	MaxConcurrentReconciles    int
 	MaxConcurrentRenders       int
@@ -151,7 +153,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	log := log.FromContext(ctx)
 	desired := string(pr.Spec.Lifecycle)
 
-	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	content, err := r.ContentAccess.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
 		// Non-transient errors (e.g. a malformed package key) are terminal: fail
 		// immediately rather than requeuing Pending for the whole deadline.
@@ -224,7 +226,10 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	log.Info("lifecycle transition", "name", pr.Name, "current", current, "desired", desired)
 
 	start := time.Now()
-	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired)
+	// User-created packages have Spec.Source set (Init, CloneFrom, etc).
+	// Discovered packages have nil Source.
+	isUserCreated := pr.Spec.Source != nil
+	updated, err := r.ContentAccess.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired, isUserCreated)
 	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "UPDATE", start)
 	if err != nil {
 		// Transient git/cache failures (e.g. connection reset) stay Pending and
@@ -289,7 +294,7 @@ func (r *PackageRevisionReconciler) reconcileSource(ctx context.Context, pr *por
 	log.Info("applying operation", "type", sourceOperationType, "name", pr.Name)
 
 	// TODO: CreateNewDraft always receives lifecycle=Draft — consider removing the lifecycle parameter from the interface.
-	draft, err := r.ContentCache.CreateNewDraft(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, string(porchv1alpha2.PackageRevisionLifecycleDraft))
+	draft, err := r.ContentAccess.CreateNewDraft(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, string(porchv1alpha2.PackageRevisionLifecycleDraft))
 	if err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, sourceOperationType, pkgerrors.Wrapf(err, "create draft"))
 	}
@@ -340,7 +345,7 @@ func (r *PackageRevisionReconciler) reconcileSubpackageOperation(ctx context.Con
 		return nil, r.setFailedConditionsAndLog(ctx, pr, subpackageOperationType, pkgerrors.Wrapf(err, "failed to upsert subpackage resources into parent resources"))
 	}
 
-	draft, err := r.ContentCache.CreateDraftFromExisting(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	draft, err := r.ContentAccess.CreateDraftFromExisting(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, subpackageOperationType, pkgerrors.Wrapf(err, "create draft on existing package revision"))
 	}
@@ -383,12 +388,12 @@ func (r *PackageRevisionReconciler) finalizeDraftAndUpdateStatus(
 		return nil, r.setFailedConditionsAndLog(ctx, pr, operationType, pkgerrors.Wrapf(err, "update resources"))
 	}
 
-	if err := r.ContentCache.CloseDraft(ctx, repoKey, draft, 0); err != nil {
+	if err := r.ContentAccess.CloseDraft(ctx, repoKey, draft, 0); err != nil {
 		return nil, r.setFailedConditionsAndLog(ctx, pr, operationType, pkgerrors.Wrapf(err, "close draft"))
 	}
 
 	// Read back the created package to get lock info for status.
-	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	content, err := r.ContentAccess.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
 	if err != nil {
 		log.Error(err, "failed to read back package content after source execution", "name", pr.Name)
 	}
