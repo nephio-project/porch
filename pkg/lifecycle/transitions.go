@@ -74,3 +74,55 @@ func ValidateTransition(opts Options, from, to string) error {
 	}
 	return fmt.Errorf("invalid transition %s → %s (allowed: %s)", from, to, strings.Join(allowedStr, ", "))
 }
+
+// NextTransitionToward returns the immediate lifecycle the controller should write to
+// the content cache on this reconcile, when syncing backend state (current) toward the
+// CR spec (desired).
+//
+// ValidateTransition(current, desired) answers whether a single jump is allowed.
+// The controller often needs several allowed hops: the user may apply Draft→Proposed
+// and Proposed→Published as separate API calls while reconcile has not run yet, so
+// spec is Published but cache is still Draft. NextTransitionToward returns Proposed
+// first, then Published on a later reconcile—not a policy violation.
+func NextTransitionToward(opts Options, current, desired string) (string, error) {
+	if current == desired {
+		return "", fmt.Errorf("lifecycle already matches desired %s", current)
+	}
+	if TransitionAllowed(opts, current, desired) {
+		return desired, nil
+	}
+	path, err := lifecyclePath(opts, current, desired)
+	if err != nil {
+		return "", err
+	}
+	if len(path) < 2 {
+		return "", fmt.Errorf("no path from %s to %s under policy", current, desired)
+	}
+	return path[1], nil
+}
+
+func lifecyclePath(opts Options, from, to string) ([]string, error) {
+	if from == to {
+		return []string{from}, nil
+	}
+	graph := AllowedTransitions(opts)
+	queue := [][]string{{from}}
+	visited := map[string]bool{from: true}
+	for len(queue) > 0 {
+		path := queue[0]
+		queue = queue[1:]
+		last := path[len(path)-1]
+		for _, next := range graph[last] {
+			if visited[next] {
+				continue
+			}
+			newPath := append(path, next)
+			if next == to {
+				return newPath, nil
+			}
+			visited[next] = true
+			queue = append(queue, newPath)
+		}
+	}
+	return nil, ValidateTransition(opts, from, to)
+}

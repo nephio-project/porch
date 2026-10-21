@@ -491,12 +491,6 @@ func publishPackage(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
 	waitForPublished(ctx, pr)
 }
 
-// publishPackageFromDraft publishes in one step when tests only need a Published revision (e.g. invalid-transition setup).
-func publishPackageFromDraft(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
-	patchLifecycle(ctx, pr, porchv1alpha2.PackageRevisionLifecyclePublished)
-	waitForPublished(ctx, pr)
-}
-
 func deletePackage(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
 	Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
 	if pr.Spec.Lifecycle == porchv1alpha2.PackageRevisionLifecyclePublished {

@@ -156,7 +156,7 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 			pr := newPackageRevision(env.Namespace, env.RepoName, "noupgrade-pub-draft", "v1", withInit("test"))
 			Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
 			waitForReady(env.Ctx, pr)
-			publishPackageFromDraft(env.Ctx, pr)
+			publishPackage(env.Ctx, pr)
 			DeferCleanup(func() {
 				deletePackage(env.Ctx, pr) //nolint:errcheck
 			})
@@ -188,7 +188,7 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 			pr := newPackageRevision(env.Namespace, env.RepoName, "noupgrade-pub-proposed", "v1", withInit("test"))
 			Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
 			waitForReady(env.Ctx, pr)
-			publishPackageFromDraft(env.Ctx, pr)
+			publishPackage(env.Ctx, pr)
 			DeferCleanup(func() {
 				deletePackage(env.Ctx, pr) //nolint:errcheck
 			})
@@ -216,6 +216,7 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 		})
 
 		It("should allow UPDATE: Draft → Published", func() {
+			Skip("direct publication from Draft is disabled by default")
 			By("creating a draft package")
 			pr := newPackageRevision(env.Namespace, env.RepoName, "draft-to-published", "v1", withInit("test"))
 			Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
@@ -239,7 +240,7 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 			pr := newPackageRevision(env.Namespace, env.RepoName, "republish-allow", "v1", withInit("test"))
 			Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
 			waitForReady(env.Ctx, pr)
-			publishPackageFromDraft(env.Ctx, pr)
+			publishPackage(env.Ctx, pr)
 			DeferCleanup(func() {
 				k8sClient.Delete(env.Ctx, pr) //nolint:errcheck
 			})

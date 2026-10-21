@@ -225,16 +225,18 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		}
 	}
 
-	if err := lifecycle.ValidateTransition(r.LifecyclePolicy, current, desired); err != nil {
-		log.Info("lifecycle transition rejected by policy", "name", pr.Name, "current", current, "desired", desired, "reason", err.Error())
+	// Webhook validates each API update; here we sync Git/cache toward spec, one allowed hop per reconcile.
+	next, err := lifecycle.NextTransitionToward(r.LifecyclePolicy, current, desired)
+	if err != nil {
+		log.Info("lifecycle sync toward spec rejected", "name", pr.Name, "current", current, "desired", desired, "reason", err.Error())
 		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
 		return ctrl.Result{}, nil
 	}
 
-	log.Info("lifecycle transition", "name", pr.Name, "current", current, "desired", desired)
+	log.Info("lifecycle transition", "name", pr.Name, "current", current, "next", next, "desired", desired)
 
 	start := time.Now()
-	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired)
+	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, next)
 	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "UPDATE", start)
 	if err != nil {
 		// Transient git/cache failures (e.g. connection reset) stay Pending and
@@ -252,6 +254,12 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		log.Error(err, "lifecycle transition failed", "name", pr.Name)
 		r.updateStatus(ctx, pr, nil, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
 		return ctrl.Result{}, nil
+	}
+
+	if next != desired {
+		r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending,
+			fmt.Sprintf("advancing lifecycle toward %s", desired)))
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
@@ -473,7 +481,7 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 
 	requested, annotationTrigger, sourceTrigger := renderTrigger(pr)
 	if !annotationTrigger && !sourceTrigger {
-		if r.lifecycleMatchesCache(ctx, pr, repoKey) {
+		if r.lifecycleMatchesCache(ctx, pr, repoKey) && shouldRefreshRenderedWithoutRender(pr) {
 			r.refreshRenderedGeneration(ctx, pr)
 		}
 		return nil, nil

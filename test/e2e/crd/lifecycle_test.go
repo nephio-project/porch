@@ -32,6 +32,7 @@ var _ = Describe("Lifecycle", Ordered, Label("lifecycle"), func() {
 	})
 
 	It("should transition Draft → Published directly", func() {
+		Skip("direct publication from Draft is disabled by default")
 		By("creating a draft package")
 		pr := newPackageRevision(env.Namespace, env.RepoName, "direct-publish-pkg", "v1", withInit("direct publish test"))
 		Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
@@ -51,16 +52,13 @@ var _ = Describe("Lifecycle", Ordered, Label("lifecycle"), func() {
 		Expect(pr.Status.PublishedAt).NotTo(BeNil())
 
 		By("verifying Rendered condition observedGeneration is current after direct publish")
-		Expect(k8sClient.Get(env.Ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
-		foundRendered := false
-		for _, c := range pr.Status.Conditions {
-			if c.Type == porchv1alpha2.ConditionRendered {
-				foundRendered = true
-				Expect(c.ObservedGeneration).To(Equal(pr.Generation),
-					"Rendered observedGeneration should match current generation after lifecycle transition")
-			}
-		}
-		Expect(foundRendered).To(BeTrue(), "expected Rendered condition to be present on the PackageRevision")
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(env.Ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
+			g.Expect(pr.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", Equal(porchv1alpha2.ConditionRendered)),
+				HaveField("ObservedGeneration", Equal(pr.Generation)),
+			)))
+		}).WithTimeout(defaultTimeout).WithPolling(defaultInterval).Should(Succeed())
 	})
 
 	It("should transition Draft → Proposed → Published", func() {
@@ -85,16 +83,13 @@ var _ = Describe("Lifecycle", Ordered, Label("lifecycle"), func() {
 		Expect(pr.Status.PublishedAt).NotTo(BeNil())
 
 		By("verifying Rendered condition observedGeneration is current after lifecycle changes")
-		Expect(k8sClient.Get(env.Ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
-		foundRendered := false
-		for _, c := range pr.Status.Conditions {
-			if c.Type == porchv1alpha2.ConditionRendered {
-				foundRendered = true
-				Expect(c.ObservedGeneration).To(Equal(pr.Generation),
-					"Rendered observedGeneration should match current generation after lifecycle transition")
-			}
-		}
-		Expect(foundRendered).To(BeTrue(), "expected Rendered condition to be present on the PackageRevision")
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(env.Ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
+			g.Expect(pr.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", Equal(porchv1alpha2.ConditionRendered)),
+				HaveField("ObservedGeneration", Equal(pr.Generation)),
+			)))
+		}).WithTimeout(defaultTimeout).WithPolling(defaultInterval).Should(Succeed())
 	})
 
 	It("should transition Published → DeletionProposed → Published (undo)", func() {

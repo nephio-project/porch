@@ -39,3 +39,17 @@ func TestValidateTransition_directPublishDisabled(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "direct publication from Draft is disabled")
 }
+
+func TestNextTransitionToward_coalescedProposePublish(t *testing.T) {
+	opts := Options{AllowDirectPublicationFromDraft: false}
+	next, err := NextTransitionToward(opts, StageDraft, StagePublished)
+	require.NoError(t, err)
+	assert.Equal(t, StageProposed, next)
+}
+
+func TestNextTransitionToward_directPublishEnabled(t *testing.T) {
+	opts := Options{AllowDirectPublicationFromDraft: true}
+	next, err := NextTransitionToward(opts, StageDraft, StagePublished)
+	require.NoError(t, err)
+	assert.Equal(t, StagePublished, next)
+}
