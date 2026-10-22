@@ -22,6 +22,7 @@ import (
 
 	porchapi "github.com/kptdev/porch/api/porch/v1alpha1"
 	"github.com/kptdev/porch/internal/telemetry"
+	pkglifecycle "github.com/kptdev/porch/pkg/lifecycle"
 	pctx "github.com/kptdev/porch/pkg/util/context"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,6 +111,21 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 
 	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
 
+	case porchapi.PackageRevisionLifecycleDraft:
+		switch newRevision.Spec.Lifecycle {
+		case porchapi.PackageRevisionLifecycleProposed:
+		case porchapi.PackageRevisionLifecyclePublished:
+			if err := pkglifecycle.ValidateTransition(registryLifecyclePolicyOrDefault(), string(oldRevision.Spec.Lifecycle), string(newRevision.Spec.Lifecycle)); err != nil {
+				allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, err.Error()))
+			}
+		default:
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
+				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Proposed' or 'Published'", lifecycle)))
+		}
+
+	case porchapi.PackageRevisionLifecycleProposed:
+		// valid
+
 	case porchapi.PackageRevisionLifecyclePublished:
 		if newRevision.Spec.Lifecycle != porchapi.PackageRevisionLifecycleDeletionProposed {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
@@ -122,12 +138,8 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Published'", lifecycle)))
 		}
 
-	case porchapi.PackageRevisionLifecycleProposed:
-		// valid
-
 	default:
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-			fmt.Sprintf("cannot approve package with %s lifecycle value; only Proposed packages can be approved", lifecycle)))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, "invalid lifecycle value"))
 	}
 
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {

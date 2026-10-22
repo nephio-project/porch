@@ -215,6 +215,26 @@ var _ = Describe("Webhook Validation", Ordered, Label("validation"), func() {
 			))
 		})
 
+		It("should allow UPDATE: Draft → Published", func() {
+			Skip("direct publication from Draft is disabled by default")
+			By("creating a draft package")
+			pr := newPackageRevision(env.Namespace, env.RepoName, "draft-to-published", "v1", withInit("test"))
+			Expect(k8sClient.Create(env.Ctx, pr)).To(Succeed())
+			waitForReady(env.Ctx, pr)
+			Expect(pr.Spec.Lifecycle).To(Equal(porchv1alpha2.PackageRevisionLifecycleDraft))
+			DeferCleanup(func() {
+				deletePackage(env.Ctx, pr) //nolint:errcheck
+			})
+
+			By("publishing directly from Draft")
+			patchLifecycle(env.Ctx, pr, porchv1alpha2.PackageRevisionLifecyclePublished)
+			waitForPublished(env.Ctx, pr)
+
+			By("verifying the lifecycle changed to Published")
+			Expect(pr.Spec.Lifecycle).To(Equal(porchv1alpha2.PackageRevisionLifecyclePublished))
+			Expect(pr.Status.Revision).NotTo(Equal(0))
+		})
+
 		It("should allow UPDATE: DeletionProposed → Published", func() {
 			By("creating and publishing a package")
 			pr := newPackageRevision(env.Namespace, env.RepoName, "republish-allow", "v1", withInit("test"))

@@ -28,6 +28,7 @@ import (
 	configapi "github.com/kptdev/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/porch/controllers/functionconfigs"
 	"github.com/kptdev/porch/internal/telemetry"
+	"github.com/kptdev/porch/pkg/lifecycle"
 	"github.com/kptdev/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,8 +76,10 @@ type PackageRevisionReconciler struct {
 	// lifecycle, render read) may keep requeuing before escalating to a terminal
 	// Failed condition. Measured from when the PackageRevision first went Pending.
 	TransientErrorRetryDeadline time.Duration
-	renderLimiter               chan struct{} // bounds concurrent fn-runner calls
-	apiReader                   client.Reader // bypasses informer cache for direct etcd reads
+
+	LifecyclePolicy lifecycle.Options
+	renderLimiter   chan struct{} // bounds concurrent fn-runner calls
+	apiReader       client.Reader // bypasses informer cache for direct etcd reads
 }
 
 func (r *PackageRevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -208,6 +211,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 				}
 			}
 		}
+		r.refreshRenderedGeneration(ctx, pr)
 		return ctrl.Result{}, nil
 	}
 
@@ -221,10 +225,18 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		}
 	}
 
-	log.Info("lifecycle transition", "name", pr.Name, "current", current, "desired", desired)
+	// Webhook validates each API update; here we sync Git/cache toward spec, one allowed hop per reconcile.
+	next, err := lifecycle.NextTransitionToward(r.LifecyclePolicy, current, desired)
+	if err != nil {
+		log.Info("lifecycle sync toward spec rejected", "name", pr.Name, "current", current, "desired", desired, "reason", err.Error())
+		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonFailed, err.Error()))
+		return ctrl.Result{}, nil
+	}
+
+	log.Info("lifecycle transition", "name", pr.Name, "current", current, "next", next, "desired", desired)
 
 	start := time.Now()
-	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired)
+	updated, err := r.ContentCache.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, next)
 	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "UPDATE", start)
 	if err != nil {
 		// Transient git/cache failures (e.g. connection reset) stay Pending and
@@ -244,7 +256,14 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 		return ctrl.Result{}, nil
 	}
 
+	if next != desired {
+		r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionFalse, porchv1alpha2.ReasonPending,
+			fmt.Sprintf("advancing lifecycle toward %s", desired)))
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	r.updateStatus(ctx, pr, updated, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
+	r.refreshRenderedGeneration(ctx, pr)
 
 	if porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(desired)) {
 		// Create the main CR on publish (non-fatal; the requeue retries).
@@ -263,6 +282,17 @@ func resultOrDefault(result *ctrl.Result) ctrl.Result {
 		return *result
 	}
 	return ctrl.Result{}
+}
+
+func (r *PackageRevisionReconciler) lifecycleMatchesCache(ctx context.Context, pr *porchv1alpha2.PackageRevision, repoKey key.RepositoryKey) bool {
+	if r.ContentCache == nil {
+		return true
+	}
+	content, err := r.ContentCache.GetPackageContent(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName)
+	if err != nil {
+		return false
+	}
+	return string(content.Lifecycle(ctx)) == string(pr.Spec.Lifecycle)
 }
 
 // reconcileSource handles one-time package creation from spec.source.
@@ -451,7 +481,9 @@ func (r *PackageRevisionReconciler) reconcileRender(ctx context.Context, pr *por
 
 	requested, annotationTrigger, sourceTrigger := renderTrigger(pr)
 	if !annotationTrigger && !sourceTrigger {
-		r.refreshRenderedGeneration(ctx, pr)
+		if r.lifecycleMatchesCache(ctx, pr, repoKey) && shouldRefreshRenderedWithoutRender(pr) {
+			r.refreshRenderedGeneration(ctx, pr)
+		}
 		return nil, nil
 	}
 

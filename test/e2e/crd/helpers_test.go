@@ -450,9 +450,20 @@ func waitForRendered(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
 func waitForPublished(ctx context.Context, pr *porchv1alpha2.PackageRevision) {
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pr), pr)).To(Succeed())
-		g.Expect(pr.Spec.Lifecycle).To(Equal(porchv1alpha2.PackageRevisionLifecyclePublished))
-		g.Expect(pr.Status.Revision).NotTo(Equal(0))
+		g.Expect(pr.Spec.Lifecycle).To(
+			Equal(porchv1alpha2.PackageRevisionLifecyclePublished),
+			"spec.lifecycle (status.revision=%d, Ready=%v)", pr.Status.Revision, readyConditionStatus(pr))
+		g.Expect(pr.Status.Revision).NotTo(Equal(0), "status.revision with spec.lifecycle=%s", pr.Spec.Lifecycle)
 	}).WithTimeout(defaultTimeout).WithPolling(defaultInterval).Should(Succeed())
+}
+
+func readyConditionStatus(pr *porchv1alpha2.PackageRevision) string {
+	for _, c := range pr.Status.Conditions {
+		if c.Type == porchv1alpha2.ConditionReady {
+			return fmt.Sprintf("%s:%s reason=%s msg=%s", c.Type, c.Status, c.Reason, c.Message)
+		}
+	}
+	return "missing"
 }
 
 func waitForDiscovery(ctx context.Context, namespace, name string) {
