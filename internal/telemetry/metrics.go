@@ -272,13 +272,9 @@ func RecordPackageRevisionResourcesSize(ctx context.Context, prKey key.PackageRe
 // parseBoolEnv parses a boolean-ish environment variable value. Empty or
 // unparseable values are treated as false.
 func parseBoolEnv(v string) bool {
-	if v == "" {
-		return false
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return false
-	}
+	// strconv.ParseBool returns an error (and false) for "" and any
+	// unparseable value, which is exactly the fallback we want.
+	b, _ := strconv.ParseBool(v)
 	return b
 }
 
