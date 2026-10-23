@@ -96,6 +96,10 @@ func (r *RepositoryReconciler) applyDesiredPackageRevisions(ctx context.Context,
 		}
 		desiredNames[desired.Name] = true
 
+		if isUpdate {
+			keepPublishedLifecycle(ex, desired)
+		}
+
 		if isUpdate && packageRevisionUpToDate(ex, desired) {
 			log.V(5).Info("PackageRevision unchanged, skipping", "name", desired.Name)
 			continue
@@ -417,4 +421,12 @@ func sourceMetadata(pkgRev repository.PackageRevision) (map[string]string, map[s
 	}
 
 	return labels, annotations
+}
+
+// keepPublishedLifecycle keeps the existing lifecycle when both it and the lifecycle
+// derived from git are Published or DeletionProposed.
+func keepPublishedLifecycle(existing, desired *porchv1alpha2.PackageRevision) {
+	if porchv1alpha2.LifecycleIsPublished(existing.Spec.Lifecycle) && porchv1alpha2.LifecycleIsPublished(desired.Spec.Lifecycle) {
+		desired.Spec.Lifecycle = existing.Spec.Lifecycle
+	}
 }

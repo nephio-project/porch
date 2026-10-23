@@ -188,7 +188,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	}
 
 	current := content.Lifecycle(ctx)
-	if current == desired {
+	if lifecycleMatches(current, desired) {
 		r.updateStatus(ctx, pr, content, "", "", readyCondition(pr.Generation, metav1.ConditionTrue, porchv1alpha2.ReasonReady, ""))
 		// The main placeholder (Revision -1) must not drive latest labeling or the
 		// main CR — only numbered published revisions do.
@@ -226,10 +226,7 @@ func (r *PackageRevisionReconciler) reconcileLifecycle(ctx context.Context, pr *
 	log.Info("lifecycle transition", "name", pr.Name, "current", current, "desired", desired)
 
 	start := time.Now()
-	// User-created packages have Spec.Source set (Init, CloneFrom, etc).
-	// Discovered packages have nil Source.
-	isUserCreated := pr.Spec.Source != nil
-	updated, err := r.ContentAccess.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired, isUserCreated)
+	updated, err := r.ContentAccess.UpdateLifecycle(ctx, repoKey, pr.Spec.PackageName, pr.Spec.WorkspaceName, desired)
 	telemetry.RecordControllerOperation(telemetry.ResourcePackageRevision, "UPDATE", start)
 	if err != nil {
 		// Transient git/cache failures (e.g. connection reset) stay Pending and
@@ -538,4 +535,12 @@ func (r *PackageRevisionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		log.V(1).Info("PackageRevision controller successfully registered")
 	}
 	return err
+}
+
+// lifecycleMatches reports whether the content's lifecycle already satisfies the desired
+// one. Published and DeletionProposed are not distinguished in the content.
+func lifecycleMatches(current, desired string) bool {
+	return current == desired ||
+		(porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(current)) &&
+			porchv1alpha2.LifecycleIsPublished(porchv1alpha2.PackageRevisionLifecycle(desired)))
 }

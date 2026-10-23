@@ -433,7 +433,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, rawName string, o
 
 	// Dispatch based on repository version
 	if isV1Alpha2Repo(&repositoryObj) {
-		return r.updateV1Alpha2(ctx, namespace, name, prKey, objInfo, updateValidation)
+		return r.updateV1Alpha2(ctx, namespace, name, prKey, resourceSelector, objInfo, updateValidation)
 	}
 
 	return r.updateV1Alpha1(ctx, &repositoryObj, name, resourceSelector, objInfo, updateValidation)
@@ -443,7 +443,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, rawName string, o
 // Package changes are stored in PRRStore and not pushed to git unless explicitly requested.
 // For v1alpha2, the PRRStore is the source of truth; if resources aren't found, it's an error.
 func (r *packageRevisionResources) updateV1Alpha2(ctx context.Context, namespace, name string,
-	prKey key.PackageRevisionKey, objInfo rest.UpdatedObjectInfo, updateValidation rest.ValidateObjectUpdateFunc) (runtime.Object, bool, error) {
+	prKey key.PackageRevisionKey, resourceSelector selector.PRRUpdate, objInfo rest.UpdatedObjectInfo, updateValidation rest.ValidateObjectUpdateFunc) (runtime.Object, bool, error) {
 
 	if r.store == nil {
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("PRRStore not initialized for v1alpha2 repository"))
@@ -506,8 +506,16 @@ func (r *packageRevisionResources) updateV1Alpha2(ctx context.Context, namespace
 
 	klog.InfoS("[API] Update operation started for PackageRevisionResources (v1alpha2)", pctx.LogMetadataFrom(ctx)...)
 
+	// A partial update merges the submitted files into the existing ones.
+	resources := newObj.Spec.Resources
+	if resourceSelector.Partial {
+		resources = make(map[string]string, len(oldResources)+len(newObj.Spec.Resources))
+		maps.Copy(resources, oldResources)
+		maps.Copy(resources, newObj.Spec.Resources)
+	}
+
 	// Write to PRRStore
-	newVersion, err := r.store.WriteResources(ctx, prKey, newObj.Spec.Resources)
+	newVersion, err := r.store.WriteResources(ctx, prKey, resources)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("write PRR to cache: %w", err))
 	}
